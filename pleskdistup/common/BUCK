@@ -1,0 +1,25 @@
+# Copyright 1999-2023. Plesk International GmbH. All rights reserved.
+# vim:ft=python:
+
+python_library(
+    name = 'common.lib',
+    srcs = ['__init__.py', 'src'],
+    visibility = ['PUBLIC'],
+)
+
+python_library(
+    name = 'common.test.lib',
+    srcs = ['__init__.py', 'src'],
+    base_module = '',
+)
+
+python_test(
+    name = 'libs.tests',
+    srcs = glob(['./tests/*.py']),
+    deps = [
+        ':common.test.lib',
+    ],
+    base_module = '',
+    main_module = 'tests.test_main',
+    platform = 'py3',
+)

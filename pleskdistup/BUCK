@@ -1,0 +1,31 @@
+# Copyright 1999-2023. Plesk International GmbH. All rights reserved.
+# vim:ft=python:
+
+include_defs('//product.defs.py')
+
+
+genrule(
+    name = 'config',
+    srcs = ['config.py'],
+    out = 'config.py',
+    bash = '''\
+        PLESKDISTUP_VERSION='{version}'
+        PLESKDISTUP_REVISION='{revision}'
+        sed -e "s/@@PLESKDISTUP_VERSION@@/$PLESKDISTUP_VERSION/g; s/@@PLESKDISTUP_REVISION@@/$PLESKDISTUP_REVISION/g" "$SRCS" >"$OUT"
+    '''.format(
+        version=get_pleskdistup_version(),
+        revision=get_pleskdistup_revision(),
+    ),
+)
+
+python_library(
+    name = 'lib',
+    srcs = glob(
+        ['**/*.py'],
+        exclude = ['common/**', 'config.py'],
+    ) + [':config'],
+    deps = [
+        '//pleskdistup/common:common.lib',
+    ],
+    visibility = ['PUBLIC'],
+)
