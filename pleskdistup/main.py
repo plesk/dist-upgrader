@@ -119,12 +119,18 @@ def required_conditions_satisfied(upgrader: DistUpgrader, options: typing.Any, p
         return False
 
 
-def handle_error(error: str, logfile_path: PathType, util_name: str, status_flag_path: PathType) -> None:
+def handle_error(
+    error: str,
+    logfile_path: PathType,
+    util_name: str,
+    status_flag_path: PathType,
+    upgrader: DistUpgrader,
+) -> None:
     print()
     print(error)
     print(messages.FAIL_MESSAGE_HEAD.format(logfile_path=logfile_path), end='')
 
-    error_message = f"{util_name} (version {pleskdistup.config.revision}) process has failed. Error: {error}.\n\n"
+    error_message = f"[{util_name}] (dist-upgrader {pleskdistup.config.revision}, upgrader module {upgrader.upgrader_name} {upgrader.upgrader_version}) process has failed. Error: {error}\n\n"
     for line in files.get_last_lines(logfile_path, 100):
         print(line, end='')
         error_message += line
@@ -234,7 +240,7 @@ def do_convert(
                     print(messages.FINISH_RESTART_MESSAGE, end='')
                 systemd.do_reboot()
         except Exception as e:
-            handle_error(str(e), logfile_path, util_name, options.status_flag_path)
+            handle_error(str(e), logfile_path, util_name, options.status_flag_path, upgrader)
             return 1
     else:
         for stage_id, actions in actions_map.items():
