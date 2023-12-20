@@ -64,7 +64,7 @@ class FinishSshLoginMessageTests(unittest.TestCase):
     def test_publish_simple_message(self):
         expected_message = """
 ===============================================================================
-Message from the Plesk dist-upgrade tool:
+Message from the Plesk dist-upgrader tool:
 one
 You can remove this message from the {} file.
 ===============================================================================
@@ -78,7 +78,7 @@ You can remove this message from the {} file.
     def test_publish_several_messages(self):
         expected_message = """
 ===============================================================================
-Message from the Plesk dist-upgrade tool:
+Message from the Plesk dist-upgrader tool:
 one
 two
 You can remove this message from the {} file.
@@ -99,7 +99,7 @@ You can remove this message from the {} file.
         expected_message = """old
 
 ===============================================================================
-Message from the Plesk dist-upgrade tool:
+Message from the Plesk dist-upgrader tool:
 one
 two
 You can remove this message from the {} file.
