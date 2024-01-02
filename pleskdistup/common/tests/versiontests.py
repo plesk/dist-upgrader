@@ -22,6 +22,9 @@ class KernelVersionTests(unittest.TestCase):
     def test_kernel_parse_no_build(self):
         self._check_parse("3.10.0.el7.x86_64", "3.10.0.el7.x86_64")
 
+    def test_kernel_parse_virtuozo(self):
+        self._check_parse("3.10.0-1160.90.1.vz7.200.7", "3.10.0-1160.90.1.vz7")
+
     def test_compare_simple_equal(self):
         kernel1 = version.KernelVersion("3.10.0-1160.95.1.el7.x86_64")
         kernel2 = version.KernelVersion("3.10.0-1160.95.1.el7.x86_64")

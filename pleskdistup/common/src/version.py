@@ -19,7 +19,11 @@ class KernelVersion():
             if secondary_part[iter].isalpha():
                 self.build = secondary_part[:iter - 1]
                 suffix = secondary_part[iter:]
-                self.distro, self.arch = suffix.split(".")
+                # There is no information about arch when we have vzX suffix
+                if suffix.startswith("vz"):
+                    self.distro = suffix.split(".")[0]
+                else:
+                    self.distro, self.arch = suffix.split(".")
                 break
 
     def _extract_no_build(self, version: str) -> None:
@@ -45,10 +49,15 @@ class KernelVersion():
         return f"{self.__class__.__name__}({attrs})"
 
     def __str__(self) -> str:
-        if self.build == "":
-            return f"{self.major}.{self.minor}.{self.patch}.{self.distro}.{self.arch}"
+        result = f"{self.major}.{self.minor}.{self.patch}"
+        if self.build != "":
+            result += f"-{self.build}"
 
-        return f"{self.major}.{self.minor}.{self.patch}-{self.build}.{self.distro}.{self.arch}"
+        result += f".{self.distro}"
+        if self.arch != "":
+            result += f".{self.arch}"
+
+        return result
 
     def __lt__(self, other) -> bool:
         if int(self.major) < int(other.major) or int(self.minor) < int(other.minor) or int(self.patch < other.patch):
