@@ -419,24 +419,22 @@ def main():
 
     distro = dist.get_distro()
     log.debug(f"Detected current OS distribution as {distro}")
-    if distro in [dist.Distro.UNSUPPORTED, dist.Distro.UNKNOWN]:
+    if isinstance(distro, dist.UnknownDistro):
         printerr(messages.NOT_SUPPORTED_ERROR)
         return 1
-    os_from, os_from_version = distro.value.split(maxsplit=1)
-    os_from_version = os_from_version.split(".", maxsplit=1)[0]
-    sys_desc = BasicSystemDescription(os_from, os_from_version)
+    sys_desc = BasicSystemDescription(distro.name, distro.version)
     log.debug(f"Current system description: {sys_desc}")
 
     log.debug(f"Available upgraders: {list(pleskdistup.registry.iter_upgraders())}")
     if not options.upgrader_name:
-        log.debug(f"Looking for upgrader from {os_from} {os_from_version}")
+        log.debug(f"Looking for upgrader from {distro}")
         upgraders = list(pleskdistup.registry.iter_upgraders(sys_desc))
     else:
         log.debug(f"Looking for upgrader by the name '{options.upgrader_name}'")
         upgraders = list(pleskdistup.registry.iter_upgraders(upgrader_name=options.upgrader_name))
     log.debug(f"Found upgraders: {upgraders}")
     if not upgraders:
-        printerr(f"No upgraders found for your system ({distro.value})")
+        printerr(f"No upgraders found for your system ({distro})")
         return 1
     if len(upgraders) > 1:
         log.info(f"Multiple upgraders found ({len(upgraders)}), using the first one")
@@ -458,7 +456,7 @@ def main():
         not upgrader.supports(from_system=sys_desc)
         and ((not options.resume and not options.prepare_feedback) or not upgrader.supports(to_system=sys_desc))
     ):
-        printerr(f"Selected upgrader {upgrader} doesn't support your system ({distro.value})")
+        printerr(f"Selected upgrader {upgrader} doesn't support your system ({distro})")
         if not options.unsafe_mode:
             return 1
         else:

@@ -1,46 +1,146 @@
 # Copyright 2023-2024. WebPros International GmbH. All rights reserved.
-from enum import Enum
 import sys
+from abc import ABC, abstractmethod
+
 if sys.version_info < (3, 8):
     import platform
 
 
-class Distro(Enum):
-    UNKNOWN = "Unknown"
-    UNSUPPORTED = "Unsupported"
-    CENTOS7 = "CentOS Linux 7"
-    ALMALINUX8 = "AlmaLinux 8"
-    DEBIAN10 = "Debian 10"
-    DEBIAN11 = "Debian 11"
-    DEBIAN12 = "Debian 12"
-    UBUNTU18 = "Ubuntu 18"
-    UBUNTU20 = "Ubuntu 20"
-    UBUNTU22 = "Ubuntu 22"
+class Distro(ABC):
+    def __str__(self) -> str:
+        return f"{self.name} {self.version}"
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(name={self.name!r}, version={self.version!r})"
+
+    def __eq__(self, other) -> bool:
+        return self.name == other.name and self.version == other.version
+
+    @property
+    @abstractmethod
+    def deb_based(self) -> bool:
+        pass
+
+    @property
+    @abstractmethod
+    def rhel_based(self) -> bool:
+        pass
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def version(self) -> str:
+        pass
 
 
-DISTRO_MAPPING = {
-    "CentOS Linux 7": Distro.CENTOS7,
-    "AlmaLinux 8": Distro.ALMALINUX8,
-    "Debian GNU/Linux 10": Distro.DEBIAN10,
-    "Debian GNU/Linux 11": Distro.DEBIAN11,
-    "Debian GNU/Linux 12": Distro.DEBIAN12,
-    "Ubuntu 18": Distro.UBUNTU18,
-    "Ubuntu 20": Distro.UBUNTU20,
-    "Ubuntu 22": Distro.UBUNTU22,
+class UnknownDistro(Distro):
+    _name: str
+    _version: str
+
+    def __init__(
+        self,
+        name: str = "",
+        version: str = "",
+    ):
+        super().__init__()
+        self._name = name
+        self._version = version
+
+    @property
+    def deb_based(self) -> bool:
+        return False
+
+    @property
+    def rhel_based(self) -> bool:
+        return False
+
+    @property
+    def name(self) -> str:
+        return self._name or "Unknown"
+
+    @property
+    def version(self) -> str:
+        return self._version or "Unknown"
+
+
+class DebBasedDistro(Distro):
+    @property
+    def deb_based(self) -> bool:
+        return True
+
+    @property
+    def rhel_based(self) -> bool:
+        return False
+
+
+class RhelBasedDistro(Distro):
+    @property
+    def deb_based(self) -> bool:
+        return False
+
+    @property
+    def rhel_based(self) -> bool:
+        return True
+
+
+class StoredVersionMixin:
+    _version: str
+
+    def __init__(self, version: str):
+        super().__init__()
+        self._version = version
+
+    @property
+    def version(self) -> str:
+        return self._version
+
+
+class Debian(StoredVersionMixin, DebBasedDistro):
+    @property
+    def name(self) -> str:
+        return "Debian"
+
+
+class Ubuntu(StoredVersionMixin, DebBasedDistro):
+    @property
+    def name(self) -> str:
+        return "Ubuntu"
+
+
+class AlmaLinux(StoredVersionMixin, RhelBasedDistro):
+    @property
+    def name(self) -> str:
+        return "AlmaLinux"
+
+
+class CentOs(StoredVersionMixin, RhelBasedDistro):
+    @property
+    def name(self) -> str:
+        return "CentOS"
+
+
+_distro_mapping = {
+    ("CentOS Linux", "7"): CentOs("7"),
+    ("AlmaLinux", "8"): AlmaLinux("8"),
+    ("Debian GNU/Linux", "10"): Debian("10"),
+    ("Debian GNU/Linux", "11"): Debian("11"),
+    ("Debian GNU/Linux", "12"): Debian("12"),
+    ("Ubuntu", "18"): Ubuntu("18"),
+    ("Ubuntu", "20"): Ubuntu("20"),
+    ("Ubuntu", "22"): Ubuntu("22"),
 }
 
 
-def _is_deb_based(distro: Distro) -> bool:
-    return distro in [
-        Distro.UBUNTU18, Distro.UBUNTU20, Distro.UBUNTU22,
-        Distro.DEBIAN10, Distro.DEBIAN11, Distro.DEBIAN12,
-    ]
+def register_distro(name: str, version: str, distro: Distro) -> None:
+    _distro_mapping[(name, version)] = distro
 
 
-def _is_rhel_based(distro: Distro) -> bool:
-    return distro in [
-        Distro.CENTOS7, Distro.ALMALINUX8,
-    ]
+def unregister_distro(name: str, version: str) -> None:
+    del _distro_mapping[(name, version)]
 
 
 def _parse_os_relase():
@@ -69,14 +169,14 @@ def get_distro() -> Distro:
     name = distro[0]
     major_version = distro[1].split(".")[0]
 
-    get_distro.cache = DISTRO_MAPPING.get(f"{name} {major_version}", Distro.UNKNOWN)  # type: ignore[attr-defined]
+    get_distro.cache = _distro_mapping.get((name, major_version), UnknownDistro(name, major_version))  # type: ignore[attr-defined]
 
     return get_distro.cache  # type: ignore[attr-defined]
 
 
 def get_distro_description(distro: Distro) -> str:
-    for key, value in DISTRO_MAPPING.items():
+    for key, value in _distro_mapping.items():
         if value == distro:
-            return key
+            return " ".join(key)
 
     return "Unknown"

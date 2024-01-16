@@ -93,12 +93,12 @@ def get_installed_mariadb_version() -> MariaDBVersion:
 
 
 def get_mariadb_config_file_path() -> str:
-    if dist._is_rhel_based(dist.get_distro()):
+    if dist.get_distro().rhel_based:
         return "/etc/my.cnf.d/server.cnf"
     return "/etc/mysql/mariadb.conf.d/50-server.cnf"
 
 
 def get_mysql_config_file_path() -> str:
-    if dist._is_rhel_based(dist.get_distro()):
+    if dist.get_distro().rhel_based:
         return "/etc/my.cnf.d/server.cnf"
     return "/etc/mysql/my.cnf"

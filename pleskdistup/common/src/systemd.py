@@ -6,11 +6,11 @@ import subprocess
 from . import dist, util
 
 SYSTEMCTL_BIN_PATH = "/usr/bin/systemctl"
-if dist._is_deb_based(dist.get_distro()):
+if dist.get_distro().deb_based:
     SYSTEMCTL_BIN_PATH = "/bin/systemctl"
 
 SYSTEMCTL_SERVICES_PATH = "/etc/systemd/system"
-if dist._is_deb_based(dist.get_distro()):
+if dist.get_distro().deb_based:
     SYSTEMCTL_SERVICES_PATH = "/lib/systemd/system"
 
 
