@@ -272,7 +272,7 @@ DESC_MESSAGE = """Use this utility to dist-upgrade your server with Plesk.
 
 The utility writes a log to the file specified by --logfile. If there are any issues, you can find more information in the log file.
 
-Utility version is {util_revision}.
+Plesk dist-upgrader version {pleskdistup_revision}.
 """
 
 
@@ -285,7 +285,7 @@ def main():
 
     parser = argparse.ArgumentParser(
         description=DESC_MESSAGE.format(
-            util_revision=pleskdistup.config.revision,
+            pleskdistup_revision=pleskdistup.config.revision,
         ),
         formatter_class=ArgumentDefaultsRawDescriptionHelpFormatter,
         add_help=False,
