@@ -406,6 +406,7 @@ class SetPackageRepositoryTests(unittest.TestCase):
     INITIAL_JSON = {
         "packageinfo": [
             {
+                "id": "1",
                 "in_packageset": {
                     "package": [
                         {
@@ -413,6 +414,7 @@ class SetPackageRepositoryTests(unittest.TestCase):
                             "repository": "some-repo",
                         },
                     ],
+                    "set_id": "1",
                 },
                 "out_packageset": {
                     "package": [
@@ -421,9 +423,11 @@ class SetPackageRepositoryTests(unittest.TestCase):
                             "repository": "other-repo",
                         },
                     ],
+                    "set_id": "2",
                 },
             },
             {
+                "id": "2",
                 "in_packageset": {
                     "package": [
                         {
@@ -431,6 +435,7 @@ class SetPackageRepositoryTests(unittest.TestCase):
                             "repository": "some-repo",
                         },
                     ],
+                    "set_id": "3",
                 },
                 "out_packageset": {
                     "package": [
@@ -439,8 +444,22 @@ class SetPackageRepositoryTests(unittest.TestCase):
                             "repository": "other-repo",
                         },
                     ],
+                    "set_id": "4",
                 },
-            }
+            },
+            {
+                "id": "3",
+                "in_packageset": {
+                    "package": [
+                        {
+                            "name": "empty",
+                            "repository": "no-outpout-repo",
+                        },
+                    ],
+                    "set_id": "5",
+                },
+                "out_packageset": None,
+            },
         ]
     }
 
@@ -479,6 +498,7 @@ class SetPackageActionTests(unittest.TestCase):
     INITIAL_JSON = {
         "packageinfo": [
             {
+                "id": "1",
                 "action": 1,
                 "in_packageset": {
                     "package": [
@@ -487,9 +507,11 @@ class SetPackageActionTests(unittest.TestCase):
                             "repository": "some-repo",
                         },
                     ],
+                    "set_id": "1",
                 },
             },
             {
+                "id": "2",
                 "action": 4,
                 "in_packageset": {
                     "package": [
@@ -498,8 +520,14 @@ class SetPackageActionTests(unittest.TestCase):
                             "repository": "some-repo",
                         },
                     ],
+                    "set_id": "2",
                 },
-            }
+            },
+            {
+                "id": "3",
+                "action": 4,
+                "in_packageset": None,
+            },
         ]
     }
 
