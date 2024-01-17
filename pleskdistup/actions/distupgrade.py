@@ -65,40 +65,49 @@ class SetupUbuntu20Repositories(action.ActiveAction):
         return 0
 
 
-class SetupDebianRepositories(action.ActiveAction):
+class SetupAptRepositories(action.ActiveAction):
     from_codename: str
     to_codename: str
-    name: str
-    plesk_sourcelist_path: str
+    sources_list_path: str
+    sources_list_d_path: str
+    _name: str
 
-    def __init__(self, from_codename: str, to_codename: str):
+    def __init__(
+        self,
+        from_codename: str,
+        to_codename: str,
+        sources_list_path: str = "/etc/apt/sources.list",
+        sources_list_d_path: str = "/etc/apt/sources.list.d/",
+        name: str = "set up APT repositories to upgrade from {self.from_codename!r} to {self.to_codename!r}",
+    ):
         self.from_codename = from_codename
         self.to_codename = to_codename
-        self.name = f"set up Debian repositories to upgrade from {from_codename!r} to {to_codename!r}"
-        self.sources_list_path = "/etc/apt/sources.list"
-        self.sources_list_d_path = "/etc/apt/sources.list.d/"
-        self.plesk_source_list_path = "/etc/apt/sources.list.d/plesk.list"
+        self.sources_list_path = sources_list_path
+        self.sources_list_d_path = sources_list_d_path
+
+        self._name = name
+
+    @property
+    def name(self):
+        return self._name.format(self=self)
 
     def _change_sources_codename(self, from_codename: str, to_codename: str) -> None:
         files.replace_string(self.sources_list_path, from_codename, to_codename)
 
-        for root, _, file in os.walk(self.sources_list_d_path):
-            for f in file:
+        for root, _, filenames in os.walk(self.sources_list_d_path):
+            for f in filenames:
                 if f.endswith(".list"):
                     files.replace_string(os.path.join(root, f), from_codename, to_codename)
 
     def _prepare_action(self) -> action.ActionResult:
         self._change_sources_codename(self.from_codename, self.to_codename)
-        files.backup_file(self.plesk_source_list_path)
         packages.update_package_list()
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
-        files.restore_file_from_backup(self.plesk_source_list_path)
         return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
-        files.restore_file_from_backup(self.plesk_source_list_path)
         self._change_sources_codename(self.to_codename, self.from_codename)
         packages.update_package_list()
         return action.ActionResult()
@@ -108,6 +117,10 @@ class SetupDebianRepositories(action.ActiveAction):
 
     def estimate_revert_time(self) -> int:
         return 20
+
+
+SetupDebianRepositories = SetupAptRepositories
+SetupUbuntuRepositories = SetupAptRepositories
 
 
 class InstallNextKernelVersion(action.ActiveAction):
