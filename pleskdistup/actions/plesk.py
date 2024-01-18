@@ -297,6 +297,37 @@ class SwitchPleskRepositories(action.ActiveAction):
         return 0
 
 
+class EnableEnhancedSecurityMode(action.ActiveAction):
+    name: str
+
+    def __init__(
+        self,
+        name: str = "turn on the enhanced security mode in Plesk (encrypt passwords)",
+    ):
+        self.name = name
+
+    def _prepare_action(self) -> action.ActionResult:
+        util.logged_check_call([
+            "/usr/sbin/plesk", "bin", "passwords", "--encrypt",
+        ])
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        return action.ActionResult(action.ActionState.SKIPPED)
+
+    def _revert_action(self) -> action.ActionResult:
+        return action.ActionResult(action.ActionState.SKIPPED)
+
+    def estimate_prepare_time(self) -> int:
+        return 10
+
+    def estimate_post_time(self) -> int:
+        return 0
+
+    def estimate_revert_time(self) -> int:
+        return 0
+
+
 class AssertPleskComponents(action.CheckAction):
     installed: typing.Set[str]
     not_installed: typing.Set[str]
