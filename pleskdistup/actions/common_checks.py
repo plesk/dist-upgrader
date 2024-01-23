@@ -10,6 +10,7 @@ class AssertMinPhpVersion(action.CheckAction):
     description: str
     fix_domains_step: str
     remove_php_step: str
+    _name: str
 
     def __init__(
         self,
@@ -32,6 +33,10 @@ class AssertMinPhpVersion(action.CheckAction):
     @property
     def name(self) -> str:
         return self._name.format(min_version=self.min_version)
+
+    @name.setter
+    def name(self, val: str) -> None:
+        self._name = val
 
     def _do_check(self) -> bool:
         log.debug(f"Checking for minimal PHP version of {self.min_version}")
