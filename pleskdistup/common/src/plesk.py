@@ -127,13 +127,26 @@ class PleskComponent:
 
 
 def list_installed_components() -> typing.Dict[str, PleskComponent]:
-    comp_info = subprocess.check_output(
-        ["/usr/sbin/plesk", "installer", "--select-release-current", "--show-components"],
+    """List installed Plesk components.
+
+    Returns:
+        A dictionary mapping component names to PleskComponent instances.
+    """
+    cmd = ["/usr/sbin/plesk", "installer", "--select-release-current", "--show-components"]
+    log.debug(f"Listing installed Plesk components by {cmd}")
+    proc = subprocess.run(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
         universal_newlines=True,
-    ).splitlines()
+    )
+    log.debug(f"Command {cmd} returned {proc.returncode}, stdout: '{proc.stdout}', stderr: '{proc.stderr}'")
+    comp_info = proc.stdout.splitlines()
     res: typing.Dict[str, PleskComponent] = {}
     comp_re = re.compile(r"\s*(?P<name>\S+)\s*\[(?P<state>[^]]+)\]\s*-\s*(?P<desc>.*)")
     for line in comp_info:
+        log.debug(f"Parsing line {line!r} of components listing")
         m = comp_re.match(line)
         if m:
             c = PleskComponent(
@@ -141,5 +154,6 @@ def list_installed_components() -> typing.Dict[str, PleskComponent]:
                 state=PleskComponentState(m["state"]),
                 description=m["desc"],
             )
+            log.debug(f"Discovered component {c}")
             res[c.name] = c
     return res
