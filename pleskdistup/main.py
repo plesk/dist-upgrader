@@ -194,8 +194,9 @@ def do_convert(
     show_plan: bool,
 ) -> int:
     if not options.resume and not required_conditions_satisfied(upgrader, options, options.phase):
-        printerr("Please fix noted problems before continuing the conversion")
-        return 1
+        printerr("Conversion can't be performed due to the problems noted above")
+        if not show_plan:
+            return 1
 
     actions_map = upgrader.construct_actions(sys.argv[0], options, options.phase)
     dup = find_duplicate_actions(actions_map)
