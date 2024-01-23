@@ -49,6 +49,10 @@ class ActionResult:
 
 
 class Action(ABC):
+    """Base class for actions."""
+    name: str
+    description: str
+
     def __init__(self):
         self.name = ""
         self.description = ""
