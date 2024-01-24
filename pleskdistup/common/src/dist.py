@@ -172,11 +172,3 @@ def get_distro() -> Distro:
     get_distro.cache = _distro_mapping.get((name, major_version), UnknownDistro(name, major_version))  # type: ignore[attr-defined]
 
     return get_distro.cache  # type: ignore[attr-defined]
-
-
-def get_distro_description(distro: Distro) -> str:
-    for key, value in _distro_mapping.items():
-        if value == distro:
-            return " ".join(key)
-
-    return "Unknown"
