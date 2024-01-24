@@ -125,6 +125,10 @@ class RemovePleskComponents(action.ActiveAction):
     def name(self) -> str:
         return f"{self._name}: {', '.join(self.components_to_remove)}"
 
+    @name.setter
+    def name(self, val: str) -> None:
+        self._name = val
+
     @property
     def _removed_components_list_file(self) -> str:
         return os.path.join(self.state_dir, f"plesk-dist-upgrade-{self.__class__.__name__}.txt")
@@ -367,6 +371,10 @@ class AssertPleskComponents(action.CheckAction):
             res += f" {', '.join(comp_list)}"
         return res
 
+    @name.setter
+    def name(self, val: str) -> None:
+        self._name = val
+
     @property
     def description(self) -> str:
         desc: typing.List[str] = []
@@ -377,6 +385,10 @@ class AssertPleskComponents(action.CheckAction):
         if desc:
             return "\n".join(desc)
         return "Plesk components state check passed"
+
+    @description.setter
+    def description(self, val: str) -> None:
+        raise NotImplementedError
 
     def _do_check(self) -> bool:
         comp_list = plesk.list_installed_components()
@@ -434,9 +446,17 @@ class AssertMinPleskVersion(action.CheckAction):
     def name(self) -> str:
         return self._name.format(min_version=self.min_version_str)
 
+    @name.setter
+    def name(self, val: str) -> None:
+        self._name = val
+
     @property
     def description(self) -> str:
         return self._description.format(min_version=self.min_version_str)
+
+    @description.setter
+    def description(self, val: str) -> None:
+        self._description = val
 
     @property
     def min_version_str(self) -> str:

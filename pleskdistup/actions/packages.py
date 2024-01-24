@@ -55,6 +55,10 @@ class InstallPackages(action.ActiveAction):
     def name(self) -> str:
         return f"{self._name}: {', '.join(self.packages_to_install)}"
 
+    @name.setter
+    def name(self, val: str) -> None:
+        self._name = val
+
     def _prepare_action(self) -> action.ActionResult:
         dpkg.safely_install_packages(self.packages_to_install, protected_pkgs=self.protected_packages)
         return action.ActionResult()
