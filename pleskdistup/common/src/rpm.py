@@ -73,7 +73,7 @@ def write_repodata(repofile: str, id: str, name: str, url: str, metalink: str, a
             dst.write(line)
 
 
-def remove_repositories(repofile: str, conditions: typing.Callable[[str, str, str, str], bool]) -> None:
+def remove_repositories(repofile: str, conditions: typing.Iterable[typing.Callable[[str, str, str, str], bool]]) -> None:
     for id, name, url, metalink, additional_lines in extract_repodata(repofile):
         remove = False
         for condition in conditions:
@@ -99,7 +99,7 @@ def is_package_installed(pkg: str) -> bool:
     return res.returncode == 0
 
 
-def install_packages(pkgs: str, repository: str = None, force_package_config: bool = False) -> None:
+def install_packages(pkgs: typing.List[str], repository: typing.Optional[str] = None, force_package_config: bool = False) -> None:
     # force_package_config is not supported yet
     if len(pkgs) == 0:
         return
@@ -112,7 +112,7 @@ def install_packages(pkgs: str, repository: str = None, force_package_config: bo
     util.logged_check_call(command)
 
 
-def remove_packages(pkgs: str) -> None:
+def remove_packages(pkgs: typing.List[str]) -> None:
     if len(pkgs) == 0:
         return
 
@@ -152,7 +152,7 @@ def update_package_list() -> None:
     util.logged_check_call(["/usr/bin/yum", "update", "-y"])
 
 
-def upgrade_packages(pkgs: typing.List[str] = None) -> None:
+def upgrade_packages(pkgs: typing.Optional[typing.List[str]] = None) -> None:
     if pkgs is None:
         pkgs = []
 

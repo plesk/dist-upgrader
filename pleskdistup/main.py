@@ -194,8 +194,9 @@ def do_convert(
     show_plan: bool,
 ) -> int:
     if not options.resume and not required_conditions_satisfied(upgrader, options, options.phase):
-        printerr("Please fix noted problems before continuing the conversion")
-        return 1
+        printerr("Conversion can't be performed due to the problems noted above")
+        if not show_plan:
+            return 1
 
     actions_map = upgrader.construct_actions(sys.argv[0], options, options.phase)
     dup = find_duplicate_actions(actions_map)
@@ -272,7 +273,7 @@ DESC_MESSAGE = """Use this utility to dist-upgrade your server with Plesk.
 
 The utility writes a log to the file specified by --logfile. If there are any issues, you can find more information in the log file.
 
-Utility version is {util_revision}.
+Plesk dist-upgrader framework version {pleskdistup_revision}.
 """
 
 
@@ -285,7 +286,7 @@ def main():
 
     parser = argparse.ArgumentParser(
         description=DESC_MESSAGE.format(
-            util_revision=pleskdistup.config.revision,
+            pleskdistup_revision=pleskdistup.config.revision,
         ),
         formatter_class=ArgumentDefaultsRawDescriptionHelpFormatter,
         add_help=False,
@@ -419,24 +420,22 @@ def main():
 
     distro = dist.get_distro()
     log.debug(f"Detected current OS distribution as {distro}")
-    if distro in [dist.Distro.UNSUPPORTED, dist.Distro.UNKNOWN]:
+    if isinstance(distro, dist.UnknownDistro):
         printerr(messages.NOT_SUPPORTED_ERROR)
         return 1
-    os_from, os_from_version = distro.value.split(maxsplit=1)
-    os_from_version = os_from_version.split(".", maxsplit=1)[0]
-    sys_desc = BasicSystemDescription(os_from, os_from_version)
+    sys_desc = BasicSystemDescription(distro.name, distro.version)
     log.debug(f"Current system description: {sys_desc}")
 
     log.debug(f"Available upgraders: {list(pleskdistup.registry.iter_upgraders())}")
     if not options.upgrader_name:
-        log.debug(f"Looking for upgrader from {os_from} {os_from_version}")
+        log.debug(f"Looking for upgrader from {distro}")
         upgraders = list(pleskdistup.registry.iter_upgraders(sys_desc))
     else:
         log.debug(f"Looking for upgrader by the name '{options.upgrader_name}'")
         upgraders = list(pleskdistup.registry.iter_upgraders(upgrader_name=options.upgrader_name))
     log.debug(f"Found upgraders: {upgraders}")
     if not upgraders:
-        printerr(f"No upgraders found for your system ({distro.value})")
+        printerr(f"No upgraders found for your system ({distro})")
         return 1
     if len(upgraders) > 1:
         log.info(f"Multiple upgraders found ({len(upgraders)}), using the first one")
@@ -458,7 +457,7 @@ def main():
         not upgrader.supports(from_system=sys_desc)
         and ((not options.resume and not options.prepare_feedback) or not upgrader.supports(to_system=sys_desc))
     ):
-        printerr(f"Selected upgrader {upgrader} doesn't support your system ({distro.value})")
+        printerr(f"Selected upgrader {upgrader} doesn't support your system ({distro})")
         if not options.unsafe_mode:
             return 1
         else:

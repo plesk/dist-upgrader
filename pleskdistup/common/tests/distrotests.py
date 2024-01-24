@@ -5,27 +5,34 @@ import src.dist as dist
 
 
 class TestDistro(unittest.TestCase):
+    def test_str(self):
+        obj = dist.Debian("10")
+        self.assertEqual(str(obj), "Debian 10")
 
-    def test_is_ubuntu_18_deb_based(self):
-        self.assertTrue(dist._is_deb_based(dist.Distro.UBUNTU18))
+    def test_debian(self):
+        obj = dist.Debian("10")
+        self.assertTrue(obj.deb_based)
+        self.assertFalse(obj.rhel_based)
+        self.assertEqual(obj.name, "Debian")
+        self.assertEqual(obj.version, "10")
 
-    def test_is_ubuntu_20_deb_based(self):
-        self.assertTrue(dist._is_deb_based(dist.Distro.UBUNTU20))
+    def test_ubuntu(self):
+        obj = dist.Ubuntu("18")
+        self.assertTrue(obj.deb_based)
+        self.assertFalse(obj.rhel_based)
+        self.assertEqual(obj.name, "Ubuntu")
+        self.assertEqual(obj.version, "18")
 
-    def test_is_centos_7_rhel_based(self):
-        self.assertTrue(dist._is_rhel_based(dist.Distro.CENTOS7))
+    def test_almalinux(self):
+        obj = dist.AlmaLinux("8")
+        self.assertFalse(obj.deb_based)
+        self.assertTrue(obj.rhel_based)
+        self.assertEqual(obj.name, "AlmaLinux")
+        self.assertEqual(obj.version, "8")
 
-    def test_is_alma_8_rhel_based(self):
-        self.assertTrue(dist._is_rhel_based(dist.Distro.ALMALINUX8))
-
-    def test_is_ubuntu_18_not_rhel_based(self):
-        self.assertFalse(dist._is_rhel_based(dist.Distro.UBUNTU18))
-
-    def test_is_ubuntu_20_not_rhel_based(self):
-        self.assertFalse(dist._is_rhel_based(dist.Distro.UBUNTU20))
-
-    def test_is_centos_7_not_deb_based(self):
-        self.assertFalse(dist._is_deb_based(dist.Distro.CENTOS7))
-
-    def test_is_alma_8_not_deb_based(self):
-        self.assertFalse(dist._is_deb_based(dist.Distro.ALMALINUX8))
+    def test_centos(self):
+        obj = dist.CentOs("7")
+        self.assertFalse(obj.deb_based)
+        self.assertTrue(obj.rhel_based)
+        self.assertEqual(obj.name, "CentOS")
+        self.assertEqual(obj.version, "7")

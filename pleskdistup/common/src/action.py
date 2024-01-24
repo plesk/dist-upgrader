@@ -49,6 +49,10 @@ class ActionResult:
 
 
 class Action(ABC):
+    """Base class for actions."""
+    name: str
+    description: str
+
     def __init__(self):
         self.name = ""
         self.description = ""
@@ -181,7 +185,10 @@ class ActiveFlow(ActionsFlow):
         for _, actions in self.stages.items():
             for action in actions:
                 if not isinstance(action, ActiveAction):
-                    raise TypeError("Non an ActiveAction passed into action flow. Name of the action is {name!s}".format(name=action.name))
+                    raise TypeError(
+                        "Not an ActiveAction passed into action flow. "
+                        f"Name of the action is {action.name!r}"
+                    )
 
     def pass_actions(self) -> bool:
         stages = self._get_flow()
@@ -272,7 +279,7 @@ class ActiveFlow(ActionsFlow):
         return action.is_required()
 
     def _invoke_action(self, action: ActiveAction) -> ActionResult:
-        log.info("Do: {description!s}".format(description=action))
+        log.info(f"Do: {action}")
         self.current_action = action.name
         return self._do_invoke_action(action)
 
@@ -442,7 +449,10 @@ class CheckFlow(ActionsFlow):
         # Note. This one is for development purposes only
         for check in self.stages:
             if not isinstance(check, CheckAction):
-                raise TypeError("Non-CheckAction passed into check flow. Name of the action is {name!s}".format(name=check.name))
+                raise TypeError(
+                    "Not a CheckAction passed into check flow. "
+                    f"Name of the action is {check.name!r}"
+                )
 
     def make_checks(self) -> typing.List[str]:
         failed_checks_msgs = []
@@ -452,7 +462,7 @@ class CheckFlow(ActionsFlow):
             try:
                 if not check.do_check():
                     failed_checks_msgs.append(
-                        f"Required pre-conversion condition {check.name!s} not met:\n\t{check.description!s}\n"
+                        f"Required pre-conversion condition {check.name!r} not met:\n\t{check.description}\n"
                     )
             except Exception as e:
                 raise RuntimeError(f"Exception during checking of required pre-conversion condition {check.name!r}") from e

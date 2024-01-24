@@ -143,7 +143,7 @@ def is_repo_ok(id: str, name: str, url: str, metalink: str) -> bool:
     return True
 
 
-def adopt_repositories(repofile: str, ignore: typing.List = None) -> None:
+def adopt_repositories(repofile: str, ignore: typing.Optional[typing.List[str]] = None) -> None:
     if ignore is None:
         ignore = []
 
@@ -181,7 +181,7 @@ def adopt_repositories(repofile: str, ignore: typing.List = None) -> None:
     shutil.move(repofile + ".next", repofile)
 
 
-def add_repositories_mapping(repofiles: typing.List[str], ignore: typing.List = None,
+def add_repositories_mapping(repofiles: typing.List[str], ignore: typing.Optional[typing.List[str]] = None,
                              leapp_repos_file_path: str = LEAPP_REPOS_FILE_PATH,
                              mapfile_path: str = LEAPP_MAP_FILE_PATH) -> None:
     if ignore is None:

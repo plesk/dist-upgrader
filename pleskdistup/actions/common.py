@@ -30,11 +30,16 @@ class MoveOldBindConfigToNamed(action.ActiveAction):
 
 
 class AddFinishSshLoginMessage(action.ActiveAction):
+    """Add dist-upgrade finish message to MOTD.
+
+    Args:
+        new_os: New OS name and version.
+    """
+    finish_message: str
+
     def __init__(self, new_os: str):
         self.name = "add finish SSH login message"
-        self.finish_message = f"""
-The server has been upgraded to {new_os}.
-"""
+        self.finish_message = f"""The server has been upgraded to {new_os}.\n"""
 
     def _prepare_action(self) -> action.ActionResult:
         return action.ActionResult()
@@ -52,7 +57,6 @@ The server has been upgraded to {new_os}.
 class AddInProgressSshLoginMessage(action.ActiveAction):
     def __init__(self, new_os: str):
         self.name = "add in progress SSH login message"
-        util_name = os.path.basename(sys.argv[0])
         path_to_util = os.path.abspath(sys.argv[0])
         self.in_progress_message = f"""
 ===============================================================================

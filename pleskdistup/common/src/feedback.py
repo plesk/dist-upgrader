@@ -58,7 +58,7 @@ class Feedback():
             try:
                 versions.write(f"The {self.util_name!r} utility version: {self.util_version}\n")
                 versions.write(f"Upgrader {self.upgrader_name!r} version: {self.upgrader_version}\n")
-                versions.write(f"Distribution information: {dist.get_distro_description(dist.get_distro())}\n")
+                versions.write(f"Distribution information: {dist.get_distro()}\n")
 
                 try:
                     uname_path = "/usr/bin/uname"

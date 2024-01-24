@@ -125,6 +125,10 @@ class RemovePleskComponents(action.ActiveAction):
     def name(self) -> str:
         return f"{self._name}: {', '.join(self.components_to_remove)}"
 
+    @name.setter
+    def name(self, val: str) -> None:
+        self._name = val
+
     @property
     def _removed_components_list_file(self) -> str:
         return os.path.join(self.state_dir, f"plesk-dist-upgrade-{self.__class__.__name__}.txt")
@@ -186,10 +190,10 @@ class UpdatePlesk(action.ActiveAction):
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
-        return action.ActionResult(action.ActionState.SKIPPED)
+        return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
-        return action.ActionResult(action.ActionState.SKIPPED)
+        return action.ActionResult()
 
     def estimate_prepare_time(self) -> int:
         return 3 * 60
@@ -240,10 +244,10 @@ class UpdatePleskExtensions(action.ActiveAction):
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
-        return action.ActionResult(action.ActionState.SKIPPED)
+        return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
-        return action.ActionResult(action.ActionState.SKIPPED)
+        return action.ActionResult()
 
     def estimate_prepare_time(self) -> int:
         if self.extensions_to_update is not None:
@@ -282,13 +286,44 @@ class SwitchPleskRepositories(action.ActiveAction):
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
-        return action.ActionResult(action.ActionState.SKIPPED)
+        return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
-        return action.ActionResult(action.ActionState.SKIPPED)
+        return action.ActionResult()
 
     def estimate_prepare_time(self) -> int:
         return 2 * 60
+
+    def estimate_post_time(self) -> int:
+        return 0
+
+    def estimate_revert_time(self) -> int:
+        return 0
+
+
+class EnableEnhancedSecurityMode(action.ActiveAction):
+    name: str
+
+    def __init__(
+        self,
+        name: str = "turn on the enhanced security mode in Plesk (encrypt passwords)",
+    ):
+        self.name = name
+
+    def _prepare_action(self) -> action.ActionResult:
+        util.logged_check_call([
+            "/usr/sbin/plesk", "bin", "passwords", "--encrypt",
+        ])
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def estimate_prepare_time(self) -> int:
+        return 10
 
     def estimate_post_time(self) -> int:
         return 0
@@ -336,6 +371,10 @@ class AssertPleskComponents(action.CheckAction):
             res += f" {', '.join(comp_list)}"
         return res
 
+    @name.setter
+    def name(self, val: str) -> None:
+        self._name = val
+
     @property
     def description(self) -> str:
         desc: typing.List[str] = []
@@ -346,6 +385,10 @@ class AssertPleskComponents(action.CheckAction):
         if desc:
             return "\n".join(desc)
         return "Plesk components state check passed"
+
+    @description.setter
+    def description(self, val: str) -> None:
+        raise NotImplementedError
 
     def _do_check(self) -> bool:
         comp_list = plesk.list_installed_components()
@@ -403,9 +446,17 @@ class AssertMinPleskVersion(action.CheckAction):
     def name(self) -> str:
         return self._name.format(min_version=self.min_version_str)
 
+    @name.setter
+    def name(self, val: str) -> None:
+        self._name = val
+
     @property
     def description(self) -> str:
         return self._description.format(min_version=self.min_version_str)
+
+    @description.setter
+    def description(self, val: str) -> None:
+        self._description = val
 
     @property
     def min_version_str(self) -> str:
