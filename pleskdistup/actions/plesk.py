@@ -186,10 +186,10 @@ class UpdatePlesk(action.ActiveAction):
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
-        return action.ActionResult(action.ActionState.SKIPPED)
+        return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
-        return action.ActionResult(action.ActionState.SKIPPED)
+        return action.ActionResult()
 
     def estimate_prepare_time(self) -> int:
         return 3 * 60
@@ -240,10 +240,10 @@ class UpdatePleskExtensions(action.ActiveAction):
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
-        return action.ActionResult(action.ActionState.SKIPPED)
+        return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
-        return action.ActionResult(action.ActionState.SKIPPED)
+        return action.ActionResult()
 
     def estimate_prepare_time(self) -> int:
         if self.extensions_to_update is not None:
@@ -282,10 +282,10 @@ class SwitchPleskRepositories(action.ActiveAction):
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
-        return action.ActionResult(action.ActionState.SKIPPED)
+        return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
-        return action.ActionResult(action.ActionState.SKIPPED)
+        return action.ActionResult()
 
     def estimate_prepare_time(self) -> int:
         return 2 * 60
@@ -313,10 +313,10 @@ class EnableEnhancedSecurityMode(action.ActiveAction):
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
-        return action.ActionResult(action.ActionState.SKIPPED)
+        return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
-        return action.ActionResult(action.ActionState.SKIPPED)
+        return action.ActionResult()
 
     def estimate_prepare_time(self) -> int:
         return 10
