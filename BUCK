@@ -20,3 +20,14 @@ genrule(
     out = 'dist-upgrader',
     cmd = 'cp "$(location :dist-upgrader.pex)" "$OUT" && chmod +x "$OUT"',
 )
+
+python_test(
+    name = 'dist-upgrader.tests',
+    srcs = glob(['./tests/*.py']),
+    deps = [
+        '//pleskdistup:lib',
+    ],
+    base_module = '',
+    main_module = 'tests.test_main',
+    platform = 'py3',
+)
