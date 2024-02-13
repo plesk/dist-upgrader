@@ -2,7 +2,8 @@
 
 import typing
 
-from pleskdistup.upgrader import DistUpgraderFactory, SystemDescription
+from pleskdistup.common import dist
+from pleskdistup.upgrader import DistUpgraderFactory
 
 
 _upgraders: typing.List[DistUpgraderFactory] = []
@@ -17,8 +18,8 @@ def unregister_upgrader(upgrader: DistUpgraderFactory) -> None:
 
 
 def iter_upgraders(
-    from_system: typing.Optional[SystemDescription] = None,
-    to_system: typing.Optional[SystemDescription] = None,
+    from_system: typing.Optional[dist.Distro] = None,
+    to_system: typing.Optional[dist.Distro] = None,
     upgrader_name: typing.Optional[str] = None,
 ) -> typing.Generator[DistUpgraderFactory, None, None]:
     for u in _upgraders:
