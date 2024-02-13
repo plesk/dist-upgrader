@@ -390,8 +390,8 @@ class ReverseActionFlow(ActiveFlow):
 
     def _get_flow(self) -> typing.Dict[str, typing.List[ActiveAction]]:
         res = {}
-        for stage_id, actions in reversed(self.stages.items()):
-            res[stage_id] = list(reversed(actions))
+        for stage_id, actions in reversed(list(self.stages.items())):
+            res[stage_id] = list(reversed(list(actions)))
         return res
 
     def _is_action_required(self, stage: str, action: ActiveAction) -> bool:
