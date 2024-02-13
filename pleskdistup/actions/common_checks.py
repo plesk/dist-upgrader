@@ -7,6 +7,10 @@ import typing
 from pleskdistup.common import action, log, packages, version
 
 
+# This action should be considered as deprecated
+# It was split into AssertOutdatedPhpVersionNotInstalled and AssertWebsitesDontUseOutdatedPHP
+# because there still can be domains connected with outdated php version even when we
+# remove this version from the system. So we should check it separately.
 class AssertMinPhpVersion(action.CheckAction):
     min_version: version.PHPVersion
     description: str
@@ -94,6 +98,161 @@ class AssertMinPhpVersion(action.CheckAction):
         return False
 
 
+def get_known_php_versions() -> typing.List[str]:
+    # TODO: get rid of the explicit version list
+    return [
+        version.PHPVersion(ver) for ver in (
+            "5.2", "5.3", "5.4", "5.5", "5.6",
+            "7.0", "7.1", "7.2", "7.3", "7.4",
+            "8.0", "8.1", "8.2", "8.3",
+        )
+    ]
+
+
+class AssertOutdatedPhpVersionNotInstalled(action.CheckAction):
+    first_modern: version.PHPVersion
+
+    def __init__(
+        self,
+        first_modern: str,
+    ):
+        self.name = "check for outdated PHP versions"
+        self.first_modern = version.PHPVersion(first_modern)
+        self.description = """Outdated PHP versions were detected: {versions}.
+\tRemove outdated PHP packages via Plesk Installer to proceed with the conversion:
+\tYou can do it by calling the following command:
+\tplesk installer remove --components {remove_arg}
+"""
+
+    def _do_check(self) -> bool:
+        log.debug(f"Checking for minimal PHP version of {self.first_modern}")
+        # TODO: get rid of the explicit version list
+        known_php_versions = get_known_php_versions()
+
+        log.debug(f"Known PHP versions: {known_php_versions}")
+        outdated_php_versions = [php for php in known_php_versions if php < self.first_modern]
+        outdated_php_packages = {f"plesk-php{php.major}{php.minor}": str(php) for php in outdated_php_versions}
+        log.debug(f"Outdated PHP versions: {outdated_php_versions}")
+
+        installed_pkgs = packages.filter_installed_packages(outdated_php_packages.keys())
+        log.debug(f"Outdated PHP packages installed: {installed_pkgs}")
+        if len(installed_pkgs) == 0:
+            log.debug("No outdated PHP versions installed")
+            return True
+
+        self.description = self.description.format(
+            versions=", ".join([outdated_php_packages[installed] for installed in installed_pkgs]),
+            remove_arg=" ".join(outdated_php_packages[installed].replace(" ", "") for installed in installed_pkgs).lower()
+        )
+
+        log.debug("Outdated PHP versions found")
+        return False
+
+
+def get_outdated_php_handlers(first_modern: version.PHPVersion) -> typing.List[str]:
+    outdated_php_packages = [
+        f"plesk-php{php.major}{php.minor}" for php in get_known_php_versions() if php < first_modern
+    ]
+
+    php_handlers = {"'{}-cgi'", "'{}-fastcgi'", "'{}-fpm'", "'{}-fpm-dedicated'"}
+    outdated_php_handlers = []
+    for outdated_package in outdated_php_packages:
+        outdated_php_handlers += [handler.format(outdated_package) for handler in php_handlers]
+    return outdated_php_handlers
+
+
+class AssertWebsitesDontUseOutdatedPHP(action.CheckAction):
+    first_modern: version.PHPVersion
+
+    def __init__(
+        self,
+        first_modern: str,
+    ):
+        self.name = "checking domains uses outdated PHP"
+        self.first_modern = version.PHPVersion(first_modern)
+        self.description = """We have identified that the domains are using older versions of PHP.
+\tSwitch the following domains to any version higher than {last_version} in order to continue with the conversion process:
+\t- {domains}
+
+\tYou can achieve this by executing the following command:
+\t> plesk bin domain -u [domain] -php_handler_id plesk-php80-fastcgi
+"""
+
+    def _do_check(self) -> bool:
+        log.debug(f"Checking for minimal PHP version of {self.first_modern}")
+
+        outdated_php_handlers = get_outdated_php_handlers(self.first_modern)
+        log.debug(f"Outdated PHP handlers: {outdated_php_handlers}")
+        try:
+            looking_for_domains_sql_request = """
+                SELECT d.name FROM domains d JOIN hosting h ON d.id = h.dom_id WHERE h.php_handler_id in ({});
+            """.format(", ".join(outdated_php_handlers))
+            outdated_php_domains = subprocess.check_output([
+                    "/usr/sbin/plesk", "db", "-B", "-N", "-e", looking_for_domains_sql_request
+                ], universal_newlines=True).splitlines()
+
+            if not outdated_php_domains:
+                return True
+
+            log.debug(f"Outdated PHP domains: {outdated_php_domains}")
+            outdated_php_domains = "\n\t- ".join(outdated_php_domains)
+            self.description = self.description.format(
+                last_version=self.first_modern,
+                domains=outdated_php_domains
+            )
+
+            return False
+        except Exception:
+            log.error("Unable to get domains list from plesk database!")
+
+        return True
+
+
+class AssertCronDoesntUseOutdatedPHP(action.CheckAction):
+    first_modern: version.PHPVersion
+
+    def __init__(
+        self,
+        first_modern: str,
+    ):
+        self.name = "checking cronjob uses outdated PHP"
+        self.first_modern = version.PHPVersion(first_modern)
+        self.description = """We have detected that some cronjobs are using outdated PHP versions.
+\tSwitch the following cronjobs to to any version higher than {} in order to continue with the conversion process:"
+\t- {}
+
+\tYou can do this in the Plesk web interface by going “Tools & Settings” → “Scheduled Tasks”.
+"""
+
+    def _do_check(self) -> bool:
+        log.debug(f"Checking for outdated PHP version in cronjobs.  {self.first_modern}")
+
+        outdated_php_handlers = get_outdated_php_handlers(self.first_modern)
+        log.debug(f"Outdated PHP handlers: {outdated_php_handlers}")
+
+        try:
+            looking_for_cronjobs_sql_request = """
+                SELECT command from ScheduledTasks WHERE type = "php" and phpHandlerId in ({});
+            """.format(", ".join(outdated_php_handlers))
+
+            outdated_php_cronjobs = subprocess.check_output([
+                "/usr/sbin/plesk", "db", "-B", "-N", "-e", looking_for_cronjobs_sql_request
+                ], universal_newlines=True).splitlines()
+
+            if not outdated_php_cronjobs:
+                return True
+
+            log.debug(f"Outdated PHP cronjobs: {outdated_php_cronjobs}")
+            outdated_php_cronjobs = "\n\t- ".join(outdated_php_cronjobs)
+
+            self.description = self.description.format(self.first_modern, outdated_php_cronjobs)
+            return False
+        except Exception:
+            log.error("Unable to get domains list from plesk database!")
+
+        return True
+
+
 class AssertNotInContainer(action.CheckAction):
     def __init__(self):
         self.name = "check if the system not in a container"
@@ -158,6 +317,8 @@ class MinFreeDiskSpaceViolation(typing.NamedTuple):
     """Paths belonging to this device."""
 
 
+# TODO: Unfortunately there is no "--bytes" and "--json" options in findmnt on CentOS 7,
+# So we need to redo following check action to make sure it is usable in centos2alma utility.
 class AssertMinFreeDiskSpace(action.CheckAction):
     """Check if there's enough free disk space.
 
@@ -238,3 +399,14 @@ class AssertMinFreeDiskSpace(action.CheckAction):
                 )
         self._update_description()
         return len(self.violations) == 0
+
+
+class AssertGrubInstalled(action.CheckAction):
+    def __init__(self):
+        self.name = "checking if grub is installed"
+        self.description = """The /etc/default/grub file is missing. GRUB may not be installed.
+\tMake sure that GRUB is installed and try again.
+"""
+
+    def _do_check(self) -> bool:
+        return os.path.exists("/etc/default/grub")
