@@ -11,14 +11,14 @@ class SimpleAction(action.ActiveAction):
         self.name = name
         self.description = "Simple action description"
 
-    def _prepare_action(self):
-        pass
+    def _prepare_action(self) -> action.ActionResult:
+        return action.ActionResult()
 
-    def _post_action(self):
-        pass
+    def _post_action(self) -> action.ActionResult:
+        return action.ActionResult()
 
-    def _revert_action(self):
-        pass
+    def _revert_action(self) -> action.ActionResult:
+        return action.ActionResult()
 
 
 class SkipAction(action.ActiveAction):
@@ -29,14 +29,14 @@ class SkipAction(action.ActiveAction):
     def _is_required(self):
         return False
 
-    def _prepare_action(self):
-        pass
+    def _prepare_action(self) -> action.ActionResult:
+        return action.ActionResult()
 
-    def _post_action(self):
-        pass
+    def _post_action(self) -> action.ActionResult:
+        return action.ActionResult()
 
-    def _revert_action(self):
-        pass
+    def _revert_action(self) -> action.ActionResult:
+        return action.ActionResult()
 
 
 class PrepareActionsFlowForTests(action.PrepareActionsFlow):
@@ -108,14 +108,14 @@ class SavedAction(action.ActiveAction):
         self.name = "saved"
         self.description = "Saved action description"
 
-    def _prepare_action(self):
-        pass
+    def _prepare_action(self) -> action.ActionResult:
+        return action.ActionResult()
 
-    def _post_action(self):
-        pass
+    def _post_action(self) -> action.ActionResult:
+        return action.ActionResult()
 
-    def _revert_action(self):
-        pass
+    def _revert_action(self) -> action.ActionResult:
+        return action.ActionResult()
 
 
 class FinishActionsFlowForTests(action.FinishActionsFlow):
