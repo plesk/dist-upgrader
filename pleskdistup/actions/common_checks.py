@@ -4,7 +4,7 @@ import os
 import subprocess
 import typing
 
-from pleskdistup.common import action, log, packages, php, version
+from pleskdistup.common import action, log, packages, php, plesk, version
 
 
 # This action should be considered as deprecated
@@ -148,7 +148,7 @@ class AssertWebsitesDontUseOutdatedPHP(action.CheckAction):
         self.name = "checking domains uses outdated PHP"
         self.first_modern = version.PHPVersion(first_modern)
         self.description = """We have identified that the domains are using older versions of PHP.
-\tSwitch the following domains to any version higher than {last_version} in order to continue with the conversion process:
+\tSwitch the following domains to {modern} or later in order to continue with the conversion process:
 \t- {domains}
 
 \tYou can achieve this by executing the following command:
@@ -157,6 +157,9 @@ class AssertWebsitesDontUseOutdatedPHP(action.CheckAction):
 
     def _do_check(self) -> bool:
         log.debug(f"Checking for minimal PHP version of {self.first_modern}")
+        if not plesk.is_plesk_database_ready():
+            log.info("Plesk database is not ready. Skipping the minimum PHP for websites check.")
+            return True
 
         outdated_php_handlers = [f"'{handler}'" for handler in php.get_outdated_php_handlers(self.first_modern)]
         log.debug(f"Outdated PHP handlers: {outdated_php_handlers}")
@@ -164,25 +167,22 @@ class AssertWebsitesDontUseOutdatedPHP(action.CheckAction):
             looking_for_domains_sql_request = """
                 SELECT d.name FROM domains d JOIN hosting h ON d.id = h.dom_id WHERE h.php_handler_id in ({});
             """.format(", ".join(outdated_php_handlers))
-            outdated_php_domains = subprocess.check_output([
-                    "/usr/sbin/plesk", "db", "-B", "-N", "-e", looking_for_domains_sql_request
-                ], universal_newlines=True).splitlines()
 
+            outdated_php_domains = plesk.get_from_plesk_database(looking_for_domains_sql_request)
             if not outdated_php_domains:
                 return True
 
             log.debug(f"Outdated PHP domains: {outdated_php_domains}")
             outdated_php_domains = "\n\t- ".join(outdated_php_domains)
             self.description = self.description.format(
-                last_version=self.first_modern,
+                modern=self.first_modern,
                 domains=outdated_php_domains
             )
+        except Exception as ex:
+            log.err("Unable to get domains list from plesk database!")
+            raise RuntimeError("Unable to get domains list from plesk database!") from ex
 
-            return False
-        except Exception:
-            log.error("Unable to get domains list from plesk database!")
-
-        return True
+        return False
 
 
 class AssertCronDoesntUseOutdatedPHP(action.CheckAction):
@@ -195,14 +195,17 @@ class AssertCronDoesntUseOutdatedPHP(action.CheckAction):
         self.name = "checking cronjob uses outdated PHP"
         self.first_modern = version.PHPVersion(first_modern)
         self.description = """We have detected that some cronjobs are using outdated PHP versions.
-\tSwitch the following cronjobs to to any version higher than {} in order to continue with the conversion process:"
-\t- {}
+\tSwitch the following cronjobs to {modern} or later in order to continue with the conversion process:"
+\t- {cronjobs}
 
 \tYou can do this in the Plesk web interface by going “Tools & Settings” → “Scheduled Tasks”.
 """
 
     def _do_check(self) -> bool:
         log.debug(f"Checking for outdated PHP version in cronjobs.  {self.first_modern}")
+        if not plesk.is_plesk_database_ready():
+            log.info("Plesk database is not ready. Skipping the minimum PHP for websites check.")
+            return True
 
         outdated_php_handlers = [f"'{handler}'" for handler in php.get_outdated_php_handlers(self.first_modern)]
         log.debug(f"Outdated PHP handlers: {outdated_php_handlers}")
@@ -212,22 +215,21 @@ class AssertCronDoesntUseOutdatedPHP(action.CheckAction):
                 SELECT command from ScheduledTasks WHERE type = "php" and phpHandlerId in ({});
             """.format(", ".join(outdated_php_handlers))
 
-            outdated_php_cronjobs = subprocess.check_output([
-                "/usr/sbin/plesk", "db", "-B", "-N", "-e", looking_for_cronjobs_sql_request
-                ], universal_newlines=True).splitlines()
-
+            outdated_php_cronjobs = plesk.get_from_plesk_database(looking_for_cronjobs_sql_request)
             if not outdated_php_cronjobs:
                 return True
 
             log.debug(f"Outdated PHP cronjobs: {outdated_php_cronjobs}")
             outdated_php_cronjobs = "\n\t- ".join(outdated_php_cronjobs)
 
-            self.description = self.description.format(self.first_modern, outdated_php_cronjobs)
-            return False
-        except Exception:
-            log.error("Unable to get domains list from plesk database!")
+            self.description = self.description.format(
+                modern=self.first_modern,
+                cronjobs=outdated_php_cronjobs)
+        except Exception as ex:
+            log.err("Unable to get cronjobs list from plesk database!")
+            raise RuntimeError("Unable to get cronjobs list from plesk database!") from ex
 
-        return True
+        return False
 
 
 class AssertNotInContainer(action.CheckAction):
