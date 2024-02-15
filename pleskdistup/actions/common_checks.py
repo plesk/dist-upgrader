@@ -8,7 +8,7 @@ from pleskdistup.common import action, log, packages, php, plesk, version
 
 
 # This action should be considered as deprecated
-# It was split into AssertOutdatedPhpVersionNotInstalled and AssertWebsitesDontUseOutdatedPHP
+# It was split into AssertMinPhpVersionInstalled and AssertMinPhpVersionUsedByWebsites
 # because there still can be domains connected with outdated php version even when we
 # remove this version from the system. So we should check it separately.
 class AssertMinPhpVersion(action.CheckAction):
@@ -98,15 +98,15 @@ class AssertMinPhpVersion(action.CheckAction):
         return False
 
 
-class AssertOutdatedPhpVersionNotInstalled(action.CheckAction):
-    first_modern: version.PHPVersion
+class AssertMinPhpVersionInstalled(action.CheckAction):
+    min_version: version.PHPVersion
 
     def __init__(
         self,
-        first_modern: str,
+        min_version: str,
     ):
         self.name = "check for outdated PHP versions"
-        self.first_modern = version.PHPVersion(first_modern)
+        self.min_version = version.PHPVersion(min_version)
         self.description = """Outdated PHP versions were detected: {versions}.
 \tRemove outdated PHP packages via Plesk Installer to proceed with the conversion:
 \tYou can do it by calling the following command:
@@ -114,12 +114,12 @@ class AssertOutdatedPhpVersionNotInstalled(action.CheckAction):
 """
 
     def _do_check(self) -> bool:
-        log.debug(f"Checking for minimal PHP version of {self.first_modern}")
+        log.debug(f"Checking for minimum installed PHP version of {self.min_version}")
         # TODO: get rid of the explicit version list
         known_php_versions = php.get_known_php_versions()
 
         log.debug(f"Known PHP versions: {known_php_versions}")
-        outdated_php_versions = [php for php in known_php_versions if php < self.first_modern]
+        outdated_php_versions = [php for php in known_php_versions if php < self.min_version]
         outdated_php_packages = {f"plesk-php{php.major}{php.minor}": str(php) for php in outdated_php_versions}
         log.debug(f"Outdated PHP versions: {outdated_php_versions}")
 
@@ -138,15 +138,15 @@ class AssertOutdatedPhpVersionNotInstalled(action.CheckAction):
         return False
 
 
-class AssertWebsitesDontUseOutdatedPHP(action.CheckAction):
-    first_modern: version.PHPVersion
+class AssertMinPhpVersionUsedByWebsites(action.CheckAction):
+    min_version: version.PHPVersion
 
     def __init__(
         self,
-        first_modern: str,
+        min_version: str,
     ):
         self.name = "checking domains uses outdated PHP"
-        self.first_modern = version.PHPVersion(first_modern)
+        self.min_version = version.PHPVersion(min_version)
         self.description = """We have identified that the domains are using older versions of PHP.
 \tSwitch the following domains to {modern} or later in order to continue with the conversion process:
 \t- {domains}
@@ -156,12 +156,12 @@ class AssertWebsitesDontUseOutdatedPHP(action.CheckAction):
 """
 
     def _do_check(self) -> bool:
-        log.debug(f"Checking for minimal PHP version of {self.first_modern}")
+        log.debug(f"Checking the minimum PHP version being used by the websites. The restriction is: {self.min_version}")
         if not plesk.is_plesk_database_ready():
             log.info("Plesk database is not ready. Skipping the minimum PHP for websites check.")
             return True
 
-        outdated_php_handlers = [f"'{handler}'" for handler in php.get_outdated_php_handlers(self.first_modern)]
+        outdated_php_handlers = [f"'{handler}'" for handler in php.get_outdated_php_handlers(self.min_version)]
         log.debug(f"Outdated PHP handlers: {outdated_php_handlers}")
         try:
             looking_for_domains_sql_request = """
@@ -175,7 +175,7 @@ class AssertWebsitesDontUseOutdatedPHP(action.CheckAction):
             log.debug(f"Outdated PHP domains: {outdated_php_domains}")
             outdated_php_domains = "\n\t- ".join(outdated_php_domains)
             self.description = self.description.format(
-                modern=self.first_modern,
+                modern=self.min_version,
                 domains=outdated_php_domains
             )
         except Exception as ex:
@@ -185,15 +185,15 @@ class AssertWebsitesDontUseOutdatedPHP(action.CheckAction):
         return False
 
 
-class AssertCronDoesntUseOutdatedPHP(action.CheckAction):
-    first_modern: version.PHPVersion
+class AssertMinPhpVersionUsedByCron(action.CheckAction):
+    min_version: version.PHPVersion
 
     def __init__(
         self,
-        first_modern: str,
+        min_version: str,
     ):
         self.name = "checking cronjob uses outdated PHP"
-        self.first_modern = version.PHPVersion(first_modern)
+        self.min_version = version.PHPVersion(min_version)
         self.description = """We have detected that some cronjobs are using outdated PHP versions.
 \tSwitch the following cronjobs to {modern} or later in order to continue with the conversion process:"
 \t- {cronjobs}
@@ -202,12 +202,12 @@ class AssertCronDoesntUseOutdatedPHP(action.CheckAction):
 """
 
     def _do_check(self) -> bool:
-        log.debug(f"Checking for outdated PHP version in cronjobs.  {self.first_modern}")
+        log.debug(f"Checking the minimum PHP version used in cronjobs. Restriction is: {self.min_version}")
         if not plesk.is_plesk_database_ready():
             log.info("Plesk database is not ready. Skipping the minimum PHP for websites check.")
             return True
 
-        outdated_php_handlers = [f"'{handler}'" for handler in php.get_outdated_php_handlers(self.first_modern)]
+        outdated_php_handlers = [f"'{handler}'" for handler in php.get_outdated_php_handlers(self.min_version)]
         log.debug(f"Outdated PHP handlers: {outdated_php_handlers}")
 
         try:
@@ -223,7 +223,7 @@ class AssertCronDoesntUseOutdatedPHP(action.CheckAction):
             outdated_php_cronjobs = "\n\t- ".join(outdated_php_cronjobs)
 
             self.description = self.description.format(
-                modern=self.first_modern,
+                modern=self.min_version,
                 cronjobs=outdated_php_cronjobs)
         except Exception as ex:
             log.err("Unable to get cronjobs list from plesk database!")
