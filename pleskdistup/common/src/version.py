@@ -23,7 +23,7 @@ class KernelVersion():
                 if suffix.startswith("vz"):
                     self.distro = suffix.split(".")[0]
                 else:
-                    self.distro, self.arch = suffix.split(".")
+                    self.distro, self.arch = suffix.rsplit(".", 1)
                 break
 
     def _extract_no_build(self, version: str) -> None:
