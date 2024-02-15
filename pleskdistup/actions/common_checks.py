@@ -4,7 +4,7 @@ import os
 import subprocess
 import typing
 
-from pleskdistup.common import action, log, packages, version
+from pleskdistup.common import action, log, packages, php, version
 
 
 # This action should be considered as deprecated
@@ -98,17 +98,6 @@ class AssertMinPhpVersion(action.CheckAction):
         return False
 
 
-def get_known_php_versions() -> typing.List[str]:
-    # TODO: get rid of the explicit version list
-    return [
-        version.PHPVersion(ver) for ver in (
-            "5.2", "5.3", "5.4", "5.5", "5.6",
-            "7.0", "7.1", "7.2", "7.3", "7.4",
-            "8.0", "8.1", "8.2", "8.3",
-        )
-    ]
-
-
 class AssertOutdatedPhpVersionNotInstalled(action.CheckAction):
     first_modern: version.PHPVersion
 
@@ -127,7 +116,7 @@ class AssertOutdatedPhpVersionNotInstalled(action.CheckAction):
     def _do_check(self) -> bool:
         log.debug(f"Checking for minimal PHP version of {self.first_modern}")
         # TODO: get rid of the explicit version list
-        known_php_versions = get_known_php_versions()
+        known_php_versions = php.get_known_php_versions()
 
         log.debug(f"Known PHP versions: {known_php_versions}")
         outdated_php_versions = [php for php in known_php_versions if php < self.first_modern]
@@ -147,18 +136,6 @@ class AssertOutdatedPhpVersionNotInstalled(action.CheckAction):
 
         log.debug("Outdated PHP versions found")
         return False
-
-
-def get_outdated_php_handlers(first_modern: version.PHPVersion) -> typing.List[str]:
-    outdated_php_packages = [
-        f"plesk-php{php.major}{php.minor}" for php in get_known_php_versions() if php < first_modern
-    ]
-
-    php_handlers = {"'{}-cgi'", "'{}-fastcgi'", "'{}-fpm'", "'{}-fpm-dedicated'"}
-    outdated_php_handlers = []
-    for outdated_package in outdated_php_packages:
-        outdated_php_handlers += [handler.format(outdated_package) for handler in php_handlers]
-    return outdated_php_handlers
 
 
 class AssertWebsitesDontUseOutdatedPHP(action.CheckAction):
@@ -181,7 +158,7 @@ class AssertWebsitesDontUseOutdatedPHP(action.CheckAction):
     def _do_check(self) -> bool:
         log.debug(f"Checking for minimal PHP version of {self.first_modern}")
 
-        outdated_php_handlers = get_outdated_php_handlers(self.first_modern)
+        outdated_php_handlers = [f"'{handler}'" for handler in php.get_outdated_php_handlers(self.first_modern)]
         log.debug(f"Outdated PHP handlers: {outdated_php_handlers}")
         try:
             looking_for_domains_sql_request = """
@@ -227,7 +204,7 @@ class AssertCronDoesntUseOutdatedPHP(action.CheckAction):
     def _do_check(self) -> bool:
         log.debug(f"Checking for outdated PHP version in cronjobs.  {self.first_modern}")
 
-        outdated_php_handlers = get_outdated_php_handlers(self.first_modern)
+        outdated_php_handlers = [f"'{handler}'" for handler in php.get_outdated_php_handlers(self.first_modern)]
         log.debug(f"Outdated PHP handlers: {outdated_php_handlers}")
 
         try:
