@@ -25,6 +25,28 @@ class KernelVersionTests(unittest.TestCase):
     def test_kernel_parse_virtuozo(self):
         self._check_parse("3.10.0-1160.90.1.vz7.200.7", "3.10.0-1160.90.1.vz7")
 
+    def test_kernel_start_with_prefix(self):
+        self._check_parse("kernel-3.10.0-1160.95.1.el7.x86_64", "3.10.0-1160.95.1.el7.x86_64")
+
+    def test_kernel_start_with_plus_prefix(self):
+        self._check_parse("kernel-plus-3.10.0-327.36.3.el7.centos.plus.x86_64", "3.10.0-327.36.3.el7.centos.plus.x86_64")
+
+    def test_kernel_parse_plus(self):
+        kernel = version.KernelVersion("3.10.0-327.36.3.el7.centos.plus.x86_64")
+        self.assertEqual(str(kernel), "3.10.0-327.36.3.el7.centos.plus.x86_64")
+        self.assertEqual(kernel.distro, "el7.centos.plus")
+        self.assertEqual(kernel.arch, "x86_64")
+
+    def test_kernel_starts_with_realtime_prefix(self):
+        self._check_parse("kernel-rt-core-3.10.0-1160.95.1.rt7.130.el7.x86_64", "3.10.0-1160.95.1.rt7.130.el7.x86_64")
+
+    def test_kernel_parse_realtime(self):
+        kernel = version.KernelVersion("3.10.0-1160.95.10.rt7.130.el7.x86_64")
+        self.assertEqual(str(kernel), "3.10.0-1160.95.10.rt7.130.el7.x86_64")
+        self.assertEqual(kernel.build, "1160.95.10")
+        self.assertEqual(kernel.distro, "rt7.130.el7")
+        self.assertEqual(kernel.arch, "x86_64")
+
     def test_compare_simple_equal(self):
         kernel1 = version.KernelVersion("3.10.0-1160.95.1.el7.x86_64")
         kernel2 = version.KernelVersion("3.10.0-1160.95.1.el7.x86_64")
