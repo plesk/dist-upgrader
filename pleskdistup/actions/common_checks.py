@@ -158,6 +158,60 @@ class MinFreeDiskSpaceViolation(typing.NamedTuple):
     """Paths belonging to this device."""
 
 
+def check_min_free_disk_space(requirements: typing.Dict[str, int]) -> typing.List[MinFreeDiskSpaceViolation]:
+    """Check minimum free disk space according to the requirements.
+
+    Args:
+        requirements: A dictionary mapping paths to minimum free disk
+            space (in bytes) on the devices containing them.
+
+    Returns:
+        A list of filesystems with insufficient free disk space.
+    """
+    cmd = [
+        "/bin/findmnt", "--output", "source,target,avail",
+        "--bytes", "--json", "-T",
+    ]
+    violations: typing.List[MinFreeDiskSpaceViolation] = []
+    filesystems: typing.Dict[str, dict] = {}
+    for path, req in requirements.items():
+        log.debug(f"Checking {path!r} minimum free disk space requirement of {req}")
+        proc = subprocess.run(
+            cmd + [path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+            universal_newlines=True,
+        )
+        log.debug(
+            f"Command {cmd + [path]} returned {proc.returncode}, "
+            f"stdout: '{proc.stdout}', stderr: '{proc.stderr}'"
+        )
+        fs_data = json.loads(proc.stdout)["filesystems"][0]
+        if fs_data["source"] not in filesystems:
+            log.debug(f"Discovered new filesystem {fs_data}")
+            fs_data["req"] = 0
+            fs_data["paths"] = set()
+            filesystems[fs_data["source"]] = fs_data
+        log.debug(
+            f"Adding space requirement of {req} to "
+            f"{filesystems[fs_data['source']]}"
+        )
+        filesystems[fs_data["source"]]["req"] += req
+        filesystems[fs_data["source"]]["paths"].add(path)
+    for dev, fs_data in filesystems.items():
+        if fs_data["req"] > fs_data["avail"]:
+            violations.append(
+                MinFreeDiskSpaceViolation(
+                    dev,
+                    fs_data["req"],
+                    fs_data["avail"],
+                    fs_data["paths"],
+                )
+            )
+    return violations
+
+
 class AssertMinFreeDiskSpace(action.CheckAction):
     """Check if there's enough free disk space.
 
@@ -167,13 +221,14 @@ class AssertMinFreeDiskSpace(action.CheckAction):
         name: Name of the check.
     """
     violations: typing.List[MinFreeDiskSpaceViolation]
-    """List of filesystems with insiffucient free disk space."""
+    """List of filesystems with insufficient free disk space."""
 
     def __init__(
         self,
         requirements: typing.Dict[str, int],
         name: str = "check if there's enough free disk space",
     ):
+        super().__init__()
         self.requirements = requirements
         self.name = name
         self.violations = []
@@ -195,46 +250,6 @@ class AssertMinFreeDiskSpace(action.CheckAction):
     def _do_check(self) -> bool:
         """Perform the check."""
         log.debug("Checking minimum free disk space")
-        cmd = [
-            "/bin/findmnt", "--output", "source,target,avail",
-            "--bytes", "--json", "-T",
-        ]
-        self.violations = []
-        filesystems: typing.Dict[str, dict] = {}
-        for path, req in self.requirements.items():
-            log.debug(f"Checking {path!r} minimum free disk space requirement of {req}")
-            proc = subprocess.run(
-                cmd + [path],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                check=True,
-                universal_newlines=True,
-            )
-            log.debug(
-                f"Command {cmd + [path]} returned {proc.returncode}, "
-                f"stdout: '{proc.stdout}', stderr: '{proc.stderr}'"
-            )
-            fs_data = json.loads(proc.stdout)["filesystems"][0]
-            if fs_data["source"] not in filesystems:
-                log.debug(f"Discovered new filesystem {fs_data}")
-                fs_data["req"] = 0
-                fs_data["paths"] = set()
-                filesystems[fs_data["source"]] = fs_data
-            log.debug(
-                f"Adding space requirement of {req} to "
-                f"{filesystems[fs_data['source']]}"
-            )
-            filesystems[fs_data["source"]]["req"] += req
-            filesystems[fs_data["source"]]["paths"].add(path)
-        for dev, fs_data in filesystems.items():
-            if fs_data["req"] > fs_data["avail"]:
-                self.violations.append(
-                    MinFreeDiskSpaceViolation(
-                        dev,
-                        fs_data["req"],
-                        fs_data["avail"],
-                        fs_data["paths"],
-                    )
-                )
+        self.violations = check_min_free_disk_space(self.requirements)
         self._update_description()
         return len(self.violations) == 0
