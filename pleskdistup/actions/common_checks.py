@@ -140,13 +140,16 @@ class AssertMinPhpVersionInstalled(action.CheckAction):
 
 class AssertMinPhpVersionUsedByWebsites(action.CheckAction):
     min_version: version.PHPVersion
+    optional: bool
 
     def __init__(
         self,
         min_version: str,
+        optional: bool = True,
     ):
         self.name = "checking domains uses outdated PHP"
         self.min_version = version.PHPVersion(min_version)
+        self.optional = optional
         self.description = """We have identified that the domains are using older versions of PHP.
 \tSwitch the following domains to {modern} or later in order to continue with the conversion process:
 \t- {domains}
@@ -158,8 +161,10 @@ class AssertMinPhpVersionUsedByWebsites(action.CheckAction):
     def _do_check(self) -> bool:
         log.debug(f"Checking the minimum PHP version being used by the websites. The restriction is: {self.min_version}")
         if not plesk.is_plesk_database_ready():
-            log.info("Plesk database is not ready. Skipping the minimum PHP for websites check.")
-            return True
+            if self.optional:
+                log.info("Plesk database is not ready. Skipping the minimum PHP for websites check.")
+                return True
+            raise RuntimeError("Plesk database is not ready. Skipping the minimum PHP for websites check.")
 
         outdated_php_handlers = [f"'{handler}'" for handler in php.get_outdated_php_handlers(self.min_version)]
         log.debug(f"Outdated PHP handlers: {outdated_php_handlers}")
@@ -187,13 +192,16 @@ class AssertMinPhpVersionUsedByWebsites(action.CheckAction):
 
 class AssertMinPhpVersionUsedByCron(action.CheckAction):
     min_version: version.PHPVersion
+    optional: bool
 
     def __init__(
         self,
         min_version: str,
+        optional: bool = True,
     ):
         self.name = "checking cronjob uses outdated PHP"
         self.min_version = version.PHPVersion(min_version)
+        self.optional = optional
         self.description = """We have detected that some cronjobs are using outdated PHP versions.
 \tSwitch the following cronjobs to {modern} or later in order to continue with the conversion process:"
 \t- {cronjobs}
@@ -204,8 +212,10 @@ class AssertMinPhpVersionUsedByCron(action.CheckAction):
     def _do_check(self) -> bool:
         log.debug(f"Checking the minimum PHP version used in cronjobs. Restriction is: {self.min_version}")
         if not plesk.is_plesk_database_ready():
-            log.info("Plesk database is not ready. Skipping the minimum PHP for websites check.")
-            return True
+            if self.optional:
+                log.info("Plesk database is not ready. Skipping the minimum PHP for cronjobs check.")
+                return True
+            raise RuntimeError("Plesk database is not ready. Skipping the minimum PHP for cronjobs check.")
 
         outdated_php_handlers = [f"'{handler}'" for handler in php.get_outdated_php_handlers(self.min_version)]
         log.debug(f"Outdated PHP handlers: {outdated_php_handlers}")
