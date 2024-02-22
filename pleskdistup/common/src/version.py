@@ -15,6 +15,14 @@ class KernelVersion():
 
         self.major, self.minor, self.patch = main_part.split(".")
 
+        # Short format of kernel version without distro and arch mentioned
+        if secondary_part.isnumeric():
+            self.build = secondary_part
+            self.distro = ""
+            self.arch = ""
+            return
+
+        # Long format of kernel version
         for iter in range(len(secondary_part)):
             if secondary_part[iter].isalpha():
                 self.build = secondary_part[:iter - 1]
@@ -58,8 +66,8 @@ class KernelVersion():
         result = f"{self.major}.{self.minor}.{self.patch}"
         if self.build != "":
             result += f"-{self.build}"
-
-        result += f".{self.distro}"
+        if self.distro != "":
+            result += f".{self.distro}"
         if self.arch != "":
             result += f".{self.arch}"
 

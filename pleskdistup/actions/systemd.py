@@ -3,7 +3,7 @@
 import os
 import typing
 
-from pleskdistup.common import action, systemd
+from pleskdistup.common import action, systemd, util
 
 
 class AddUpgradeSystemdService(action.ActiveAction):
@@ -74,4 +74,103 @@ WantedBy=multi-user.target
 
     def _revert_action(self) -> action.ActionResult:
         systemd.remove_systemd_service(self.service_name)
+        return action.ActionResult()
+
+
+class DisablePleskRelatedServicesDuringUpgrade(action.ActiveAction):
+    plesk_systemd_services: typing.List[str]
+    oneshot_services: typing.List[str]
+
+    def __init__(self):
+        self.name = "rule plesk services"
+        plesk_known_systemd_services = [
+            "crond.service",
+            "dovecot.service",
+            "drwebd.service",
+            "fail2ban.service",
+            "httpd.service",
+            "mailman.service",
+            "mariadb.service",
+            "mysqld.service",
+            "named-chroot.service",
+            "plesk-ext-monitoring-hcd.service",
+            "plesk-ssh-terminal.service",
+            "plesk-task-manager.service",
+            "plesk-web-socket.service",
+            "psa.service",
+            "sw-collectd.service",
+            "sw-cp-server.service",
+            "sw-engine.service",
+        ]
+        self.plesk_systemd_services = [service for service in plesk_known_systemd_services if systemd.is_service_exists(service)]
+
+        # Oneshot services are special, so they shouldn't be started on revert or after conversion, just enabled
+        self.oneshot_services = [
+            "plesk-ip-remapping.service",
+        ]
+
+        # We don't remove postfix service when remove it during qmail installation
+        # so we should choose the right smtp service, otherwise they will conflict
+        if systemd.is_service_exists("qmail.service"):
+            self.plesk_systemd_services.append("qmail.service")
+        else:
+            self.plesk_systemd_services.append("postfix.service")
+
+    def _prepare_action(self) -> action.ActionResult:
+        util.logged_check_call(["/usr/bin/systemctl", "stop"] + self.plesk_systemd_services)
+        util.logged_check_call(["/usr/bin/systemctl", "disable"] + self.plesk_systemd_services + self.oneshot_services)
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        util.logged_check_call(["/usr/bin/systemctl", "enable"] + self.plesk_systemd_services + self.oneshot_services)
+        # Don't do startup because the services will be started up after reboot at the end of the script anyway.
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        util.logged_check_call(["/usr/bin/systemctl", "enable"] + self.plesk_systemd_services + self.oneshot_services)
+        util.logged_check_call(["/usr/bin/systemctl", "start"] + self.plesk_systemd_services)
+        return action.ActionResult()
+
+    def estimate_prepare_time(self):
+        return 10
+
+    def estimate_post_time(self):
+        return 5
+
+    def estimate_revert_time(self):
+        return 10
+
+
+class StartPleskBasicServices(action.ActiveAction):
+
+    def __init__(self):
+        self.name = "starting plesk services"
+        self.plesk_basic_services = [
+            "mariadb.service",
+            "mysqld.service",
+            "plesk-task-manager.service",
+            "plesk-web-socket.service",
+            "sw-cp-server.service",
+            "sw-engine.service",
+        ]
+        self.plesk_basic_services = [service for service in self.plesk_basic_services if systemd.is_service_exists(service)]
+
+    def _enable_services(self) -> action.ActionResult:
+        # MariaDB could be started before, so we should stop it first
+        # TODO. Or we could check it is started and just remove it from list
+        util.logged_check_call(["/usr/bin/systemctl", "stop", "mariadb.service"])
+
+        util.logged_check_call(["/usr/bin/systemctl", "enable"] + self.plesk_basic_services)
+        util.logged_check_call(["/usr/bin/systemctl", "start"] + self.plesk_basic_services)
+        return action.ActionResult()
+
+    def _prepare_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        self._enable_services()
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        self._enable_services()
         return action.ActionResult()

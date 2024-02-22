@@ -55,3 +55,10 @@ Please attach the feedback archive to the created issue and provide as much info
 """
 
 NOT_SUPPORTED_ERROR = "Your distribution is not supported yet, please contact Plesk support for further assistance."
+
+REBOOT_WARN_MESSAGE = """\r\033[93m****************************** WARNING ***********************************************
+\033[92mThe conversion is ready to begin. The server will be rebooted in {delay} seconds.
+The conversion process will take approximately 25 minutes. If you wish to prevent the reboot, simply
+terminate the {util_name} process. Please note that Plesk functionality is currently unavailable.
+\033[93m**************************************************************************************\033[0m
+"""

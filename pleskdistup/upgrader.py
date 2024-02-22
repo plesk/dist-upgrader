@@ -4,23 +4,11 @@ import os
 import typing
 from abc import ABC, abstractmethod
 
-from pleskdistup.common import action, feedback
+from pleskdistup.common import action, dist, feedback
 from pleskdistup.phase import Phase
 
 
 PathType = typing.Union[os.PathLike, str]
-
-
-class SystemDescription(ABC):
-    @property
-    @abstractmethod
-    def os_name(self) -> typing.Optional[str]:
-        pass
-
-    @property
-    @abstractmethod
-    def os_version(self) -> typing.Optional[str]:
-        pass
 
 
 class DistUpgrader(ABC):
@@ -28,8 +16,8 @@ class DistUpgrader(ABC):
     @abstractmethod
     def supports(
         self,
-        from_system: typing.Optional[SystemDescription] = None,
-        to_system: typing.Optional[SystemDescription] = None,
+        from_system: typing.Optional[dist.Distro] = None,
+        to_system: typing.Optional[dist.Distro] = None,
     ) -> bool:
         pass
 
@@ -71,8 +59,8 @@ class DistUpgraderFactory(ABC):
     @abstractmethod
     def supports(
         self,
-        from_system: typing.Optional[SystemDescription] = None,
-        to_system: typing.Optional[SystemDescription] = None,
+        from_system: typing.Optional[dist.Distro] = None,
+        to_system: typing.Optional[dist.Distro] = None,
     ) -> bool:
         pass
 

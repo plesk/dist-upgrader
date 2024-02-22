@@ -1,7 +1,9 @@
 # Copyright 2023-2024. WebPros International GmbH. All rights reserved.
 import os
 import shutil
+import subprocess
 import sys
+import time
 import typing
 
 from pleskdistup.common import action, files, log, motd, plesk
@@ -225,3 +227,53 @@ class Reboot(action.ActiveAction):
 
     def estimate_revert_time(self):
         return 0
+
+
+class DisableSelinuxDuringUpgrade(action.ActiveAction):
+    selinux_config: str
+    getenforce_cmd: str
+
+    def __init__(self):
+        self.name = "rule selinux status"
+        self.selinux_config = "/etc/selinux/config"
+        self.getenforce_cmd = "/usr/sbin/getenforce"
+
+    def _is_required(self) -> bool:
+        if not os.path.exists(self.selinux_config) or not os.path.exists(self.getenforce_cmd):
+            return False
+
+        return subprocess.check_output([self.getenforce_cmd], universal_newlines=True).strip() == "Enforcing"
+
+    def _prepare_action(self) -> action.ActionResult:
+        files.replace_string(self.selinux_config, "SELINUX=enforcing", "SELINUX=permissive")
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        files.replace_string(self.selinux_config, "SELINUX=permissive", "SELINUX=enforcing")
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        files.replace_string(self.selinux_config, "SELINUX=permissive", "SELINUX=enforcing")
+        return action.ActionResult()
+
+
+class PreRebootPause(action.ActiveAction):
+    name: str
+    pause_time: int
+    message: str
+
+    def __init__(self, reboot_message: str, pause_time: int = 45):
+        self.name = "pause before reboot"
+        self.pause_time = pause_time
+        self.message = reboot_message
+
+    def _prepare_action(self) -> action.ActionResult:
+        print(self.message)
+        time.sleep(self.pause_time)
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        return action.ActionResult()

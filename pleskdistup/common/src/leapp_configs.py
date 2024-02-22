@@ -27,7 +27,7 @@ metalink={url}
 """
 
 
-def _do_replacement(to_change: str, replacement_list: typing.List[typing.Callable[[str], str]]) -> str:
+def _do_replacement(to_change: str, replacement_list: typing.List[typing.Callable[[str], str]]) -> typing.Optional[str]:
     if to_change is None:
         return None
 

@@ -20,7 +20,6 @@ from pleskdistup import messages
 from pleskdistup.common import action, dist, feedback, files, log, motd, plesk, systemd, writers
 from pleskdistup.phase import Phase
 from pleskdistup.resume import ResumeData
-from pleskdistup.sysdesc import BasicSystemDescription
 from pleskdistup.upgrader import DistUpgrader
 
 
@@ -423,13 +422,13 @@ def main():
     if isinstance(distro, dist.UnknownDistro):
         printerr(messages.NOT_SUPPORTED_ERROR)
         return 1
-    sys_desc = BasicSystemDescription(distro.name, distro.version)
-    log.debug(f"Current system description: {sys_desc}")
 
+    log.debug(f"Current system: {distro}")
     log.debug(f"Available upgraders: {list(pleskdistup.registry.iter_upgraders())}")
+
     if not options.upgrader_name:
         log.debug(f"Looking for upgrader from {distro}")
-        upgraders = list(pleskdistup.registry.iter_upgraders(sys_desc))
+        upgraders = list(pleskdistup.registry.iter_upgraders(distro))
     else:
         log.debug(f"Looking for upgrader by the name '{options.upgrader_name}'")
         upgraders = list(pleskdistup.registry.iter_upgraders(upgrader_name=options.upgrader_name))
@@ -450,12 +449,12 @@ def main():
         )
     log.debug(
         f"Upgrader {upgrader} support of your system: "
-        f"as source = {upgrader.supports(from_system=sys_desc)}, "
-        f"as target = {upgrader.supports(to_system=sys_desc)}"
+        f"as source = {upgrader.supports(from_system=distro)}, "
+        f"as target = {upgrader.supports(to_system=distro)}"
     )
     if (
-        not upgrader.supports(from_system=sys_desc)
-        and ((not options.resume and not options.prepare_feedback) or not upgrader.supports(to_system=sys_desc))
+        not upgrader.supports(from_system=distro)
+        and ((not options.resume and not options.prepare_feedback) or not upgrader.supports(to_system=distro))
     ):
         printerr(f"Selected upgrader {upgrader} doesn't support your system ({distro})")
         if not options.unsafe_mode:
