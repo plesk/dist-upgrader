@@ -144,6 +144,16 @@ def handle_rpmnew(original_path: str) -> bool:
     return True
 
 
+def handle_all_rpmnew_files(directory: str) -> typing.List[str]:
+    fixed_list = []
+    for file in files.find_files_case_insensitive(directory, ["*.rpmnew"]):
+        original_file = file[:-len(".rpmnew")]
+        if handle_rpmnew(original_file):
+            fixed_list.append(original_file)
+
+    return fixed_list
+
+
 def find_related_repofiles(repository_file: str) -> typing.List[str]:
     return files.find_files_case_insensitive("/etc/yum.repos.d", repository_file)
 
