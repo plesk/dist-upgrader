@@ -3,6 +3,7 @@
 from .common_checks import *
 from .common import *
 from .distupgrade import *
+from .emails import *
 from .extensions import *
 from .mariadb import *
 from .packages import *
