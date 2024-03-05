@@ -34,6 +34,16 @@ class KernelVersionTests(unittest.TestCase):
     def test_kernel_start_with_plus_prefix(self):
         self._check_parse("kernel-plus-3.10.0-327.36.3.el7.centos.plus.x86_64", "3.10.0-327.36.3.el7.centos.plus.x86_64")
 
+    def test_kernel_with_underline(self):
+        kernel = version.KernelVersion("kernel-3.14.43_1-2.x86_64")
+        self.assertEqual(str(kernel), "3.14.43-1.2.x86_64")
+        self.assertEqual(kernel.major, "3")
+        self.assertEqual(kernel.minor, "14")
+        self.assertEqual(kernel.patch, "43")
+        self.assertEqual(kernel.build, "1")
+        self.assertEqual(kernel.distro, "2")
+        self.assertEqual(kernel.arch, "x86_64")
+
     def test_kernel_parse_plus(self):
         kernel = version.KernelVersion("3.10.0-327.36.3.el7.centos.plus.x86_64")
         self.assertEqual(str(kernel), "3.10.0-327.36.3.el7.centos.plus.x86_64")
