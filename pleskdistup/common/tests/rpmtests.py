@@ -1,6 +1,7 @@
 # Copyright 2023-2024. WebPros International GmbH. All rights reserved.
 import unittest
 import os
+import shutil
 
 import src.rpm as rpm
 
@@ -232,11 +233,16 @@ gpgcheck=0
 
 
 class HandleRpmnewFilesTests(unittest.TestCase):
+    test_dir: str = "rpm_test_dir"
+
     def tearDown(self):
         tests_related_files = ["test.txt", "test.txt.rpmnew", "test.txt.rpmsave"]
         for file in tests_related_files:
             if os.path.exists(file):
                 os.remove(file)
+
+        if os.path.exists(self.test_dir):
+            shutil.rmtree(self.test_dir)
 
     def test_no_rpmnew(self):
         with open("test.txt", "w") as f:
@@ -267,3 +273,41 @@ class HandleRpmnewFilesTests(unittest.TestCase):
         self.assertEqual(open("test.txt").read(), "2")
 
         self.assertFalse(os.path.exists("test.txt.rpmsave"))
+
+    def test_handle_whole_directory(self):
+        os.mkdir(self.test_dir)
+
+        original_files = {
+            "test1.txt": "1",
+            "test1.txt.rpmnew": "2",
+            "test2.txt": "3",
+            "test2.txt.rpmnew": "4",
+            "test3.txt": "5",
+            "test4.txt.rpmnew": "6"
+        }
+
+        expected_files = {
+            "test1.txt": "2",
+            "test2.txt": "4",
+            "test3.txt": "5",
+            "test4.txt": "6"
+        }
+
+        for file, content in original_files.items():
+            with open(os.path.join(self.test_dir, file), "w") as f:
+                f.write(content)
+
+        result = rpm.handle_all_rpmnew_files(self.test_dir)
+
+        for file, content in expected_files.items():
+            full_filepath = os.path.join(self.test_dir, file)
+            # since test3.txt was not substituted, it should not be in the result
+            if file != "test3.txt":
+                self.assertTrue(full_filepath in result)
+            else:
+                self.assertFalse(full_filepath in result)
+
+            self.assertTrue(os.path.exists(full_filepath))
+            self.assertEqual(open(full_filepath).read(), content)
+
+        shutil.rmtree(self.test_dir)
