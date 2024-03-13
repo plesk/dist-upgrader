@@ -15,6 +15,13 @@ class KernelVersion():
 
         self.major, self.minor, self.patch = main_part.split(".")
 
+        # Sometimes packages split patch and build with "_", which looks
+        # really weird.
+        if "_" in self.patch:
+            self.patch, self.build = self.patch.split("_")
+            self.distro, self.arch = secondary_part.split(".")
+            return
+
         # Short format of kernel version without distro and arch mentioned
         if secondary_part.isnumeric():
             self.build = secondary_part
