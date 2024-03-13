@@ -277,3 +277,46 @@ class PreRebootPause(action.ActiveAction):
 
     def _revert_action(self) -> action.ActionResult:
         return action.ActionResult()
+
+
+class RevertChangesInGrub(action.ActiveAction):
+    grub_configs_paths: typing.List[str]
+
+    def __init__(self):
+        self.name = "revert changes in GRUB made by ELevate"
+        self.grub_configs_paths = [
+            "/boot/grub2/grub.cfg",
+            "/boot/grub2/grubenv",
+            "/boot/grub/grub.cfg",
+            "/boot/grub/grubenv",
+        ]
+
+    def _prepare_action(self) -> action.ActionResult:
+        for config in self.grub_configs_paths:
+            if os.path.exists(config):
+                files.backup_file(config)
+
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        for config in self.grub_configs_paths:
+            if os.path.exists(config):
+                files.remove_backup(config)
+
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        for config in self.grub_configs_paths:
+            if os.path.exists(config):
+                files.restore_file_from_backup(config)
+
+        return action.ActionResult()
+
+    def estimate_prepare_time(self) -> int:
+        return 1
+
+    def estimate_post_time(self) -> int:
+        return 1
+
+    def estimate_revert_time(self) -> int:
+        return 1
