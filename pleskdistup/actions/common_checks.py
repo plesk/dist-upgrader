@@ -242,6 +242,55 @@ class AssertMinPhpVersionUsedByCron(action.CheckAction):
         return False
 
 
+class AssertOsVendorPhpUsedByWebsites(action.CheckAction):
+    min_version: version.PHPVersion
+
+    def __init__(
+            self,
+            min_version: str,
+    ):
+        self.name = "checking OS vendor PHP used by websites"
+        self.min_version = version.PHPVersion(min_version)
+        self.description = """We have detected that some domains are using the OS vendor PHP version.
+\tSwitch the following domains to {modern} or later in order to continue with the conversion process:
+\t- {domains}
+
+\tYou can achieve this by executing the following command:
+\t> plesk bin domain -u [domain] -php_handler_id plesk-php80-fastcgi
+"""
+
+    def _do_check(self) -> bool:
+        log.debug("Checking the OS vendor PHP version used by the websites")
+        if not plesk.is_plesk_database_ready():
+            log.info("Plesk database is not ready. Skipping the OS vendor PHP check.")
+            return True
+
+        os_vendor_php_handlers = [f"'{handler}'" for handler in ["fpm", "fastcgi"]]
+        log.debug(f"OS vendor PHP handlers: {os_vendor_php_handlers}")
+
+        try:
+            looking_for_domains_sql_request = """
+                SELECT d.name FROM domains d JOIN hosting h ON d.id = h.dom_id WHERE h.php_handler_id in ({});
+            """.format(", ".join(os_vendor_php_handlers))
+
+            os_vendor_php_domains = plesk.get_from_plesk_database(looking_for_domains_sql_request)
+            if not os_vendor_php_domains:
+                return True
+
+            log.debug(f"OS vendor PHP domains: {os_vendor_php_domains}")
+            os_vendor_php_domains = "\n\t- ".join(os_vendor_php_domains)
+            self.description = self.description.format(
+                modern=self.min_version,
+                domains=os_vendor_php_domains
+            )
+        except Exception as ex:
+            error_msg = "Unable to retrieve the list of domains using the PHP provided by the operating system vendor from the Plesk database"
+            log.err(error_msg)
+            raise RuntimeError(error_msg) from ex
+
+        return False
+
+
 class AssertNotInContainer(action.CheckAction):
     def __init__(self):
         self.name = "check if the system not in a container"
