@@ -3,7 +3,7 @@ import os
 import typing
 import subprocess
 
-from . import dist, util
+from . import dist, log, util
 
 SYSTEMCTL_BIN_PATH = "/usr/bin/systemctl"
 if dist.get_distro().deb_based:
@@ -22,6 +22,59 @@ def is_service_exists(service: str):
 def is_service_active(service: str):
     res = subprocess.run([SYSTEMCTL_BIN_PATH, 'is-active', service])
     return res.returncode == 0
+
+
+def get_required_services(service: str) -> typing.List[str]:
+    res = subprocess.run(
+        [SYSTEMCTL_BIN_PATH, 'show', '--property', 'Requires', service],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+        universal_newlines=True
+    )
+
+    required_services = [service for service in res.stdout.split('s=')[1].split() if '.service' in service]
+    return required_services
+
+
+def is_service_masked(service: str) -> bool:
+    res = subprocess.run(
+        [SYSTEMCTL_BIN_PATH, 'is-enabled', service],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+        universal_newlines=True
+    )
+    if res.stdout == 'masked':
+        return True
+    return False
+
+
+def is_service_startable(
+        service: str,
+        already_checked: typing.Optional[typing.Set[str]] = None
+        ) -> bool:
+    if not is_service_exists(service):
+        log.debug(f"Service '{service}' doesn't exist")
+        return False
+    if is_service_masked(service):
+        log.debug(f"Service '{service}' can't be started because it is masked")
+        return False
+
+    if already_checked is not None and service in already_checked:
+        return True
+
+    if already_checked is None:
+        already_checked = {service}
+    else:
+        already_checked.add(service)
+
+    required_services = get_required_services(service)
+    for required_service in required_services:
+        if not is_service_startable(required_service, already_checked):
+            log.debug(f"Service '{service}' can't be started because required service '{required_service}' doesn't exist")
+            return False
+    return True
 
 
 def reload_systemd_daemon():
