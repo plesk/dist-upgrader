@@ -1,8 +1,10 @@
 # Copyright 2023-2024. WebPros International GmbH. All rights reserved.
 import json
+import os
+import shutil
 import subprocess
 
-from pleskdistup.common import action, log, util
+from pleskdistup.common import action, files, log, motd, plesk, util
 
 
 class SetMinDovecotDhParamSize(action.ActiveAction):
@@ -52,3 +54,33 @@ class SetMinDovecotDhParamSize(action.ActiveAction):
 
     def estimate_post_time(self) -> int:
         return 5
+
+
+class RestoreDovecotConfiguration(action.ActiveAction):
+    dovecot_config_path: str
+    temp_directory: str
+
+    def __init__(self, temp_directory: str):
+        self.name = "restore Dovecot configuration"
+        self.dovecot_config_path = "/etc/dovecot/dovecot.conf"
+        self.temp_directory = temp_directory
+
+    def _is_required(self) -> bool:
+        return os.path.exists(self.dovecot_config_path)
+
+    def _prepare_action(self) -> action.ActionResult:
+        files.backup_file(self.dovecot_config_path)
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        path_to_backup = os.path.join(self.temp_directory, "dovecot.conf.bak")
+        if os.path.exists(self.dovecot_config_path):
+            shutil.copy(self.dovecot_config_path, path_to_backup)
+            motd.add_finish_ssh_login_message(f"The dovecot configuration '{self.dovecot_config_path}' has been restored from original distro. Modern configuration was placed in '{path_to_backup}'.")
+
+        files.restore_file_from_backup(self.dovecot_config_path)
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        files.remove_backup(self.dovecot_config_path)
+        return action.ActionResult()
