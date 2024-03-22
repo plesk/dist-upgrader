@@ -26,8 +26,18 @@ name={name}
 metalink={url}
 """
 
+REPO_HEAD_WITH_MIRRORLIST = """
+[{id}]
+name={name}
+mirrorlist={url}
+"""
 
-def _do_replacement(to_change: str, replacement_list: typing.List[typing.Callable[[str], str]]) -> typing.Optional[str]:
+
+def _do_replacement(
+    to_change: typing.Optional[str],
+    replacement_list: typing.List[
+        typing.Callable[[str], str]]
+) -> typing.Optional[str]:
     if to_change is None:
         return None
 
@@ -36,13 +46,13 @@ def _do_replacement(to_change: str, replacement_list: typing.List[typing.Callabl
     return to_change
 
 
-def _do_id_replacement(id: str) -> str:
+def _do_id_replacement(id: typing.Optional[str]) -> typing.Optional[str]:
     return _do_replacement(id, [
         lambda to_change: "alma-" + to_change,
     ])
 
 
-def _do_name_replacement(name: str) -> str:
+def _do_name_replacement(name: typing.Optional[str]) -> typing.Optional[str]:
     return _do_replacement(name, [
         lambda to_change: "Alma " + to_change,
         lambda to_change: to_change.replace("Enterprise Linux 7",  "Enterprise Linux 8"),
@@ -101,7 +111,7 @@ def _fix_postgresql_official_repository(to_change: str) -> str:
     return to_change
 
 
-def _do_url_replacement(url: str) -> str:
+def _do_url_replacement(url: typing.Optional[str]) -> typing.Optional[str]:
     return _do_replacement(url, [
         _fixup_old_php_urls,
         _fix_rackspace_repository,
@@ -122,7 +132,7 @@ def _do_url_replacement(url: str) -> str:
     ])
 
 
-def _do_common_replacement(line: str) -> str:
+def _do_common_replacement(line: typing.Optional[str]) -> typing.Optional[str]:
     return _do_replacement(line, [
         lambda to_change: to_change.replace("EPEL-7", "EPEL-8"),
         # We can't check repository gpg because the key is not stored in the temporary file system
@@ -131,12 +141,18 @@ def _do_common_replacement(line: str) -> str:
     ])
 
 
-def is_repo_ok(id: str, name: str, url: str, metalink: str) -> bool:
+def is_repo_ok(
+    id: typing.Optional[str],
+    name: typing.Optional[str],
+    url: typing.Optional[str],
+    metalink: typing.Optional[str],
+    mirrorlist: typing.Optional[str]
+) -> bool:
     if name is None:
         log.warn("Repository info for '[{id}]' has no a name".format(id=id))
         return False
 
-    if url is None and metalink is None:
+    if url is None and metalink is None and mirrorlist is None:
         log.warn("Repository info for '{id}' has no baseurl and metalink".format(id=id))
         return False
 
@@ -154,8 +170,8 @@ def adopt_repositories(repofile: str, ignore: typing.Optional[typing.List[str]] 
         return
 
     with open(repofile + ".next", "a") as dst:
-        for id, name, url, metalink, additional_lines in rpm.extract_repodata(repofile):
-            if not is_repo_ok(id, name, url, metalink):
+        for id, name, url, metalink, mirrorlist, additional_lines in rpm.extract_repodata(repofile):
+            if not is_repo_ok(id, name, url, metalink, mirrorlist):
                 continue
 
             if id in ignore:
@@ -169,14 +185,18 @@ def adopt_repositories(repofile: str, ignore: typing.Optional[typing.List[str]] 
             if url is not None:
                 url = _do_url_replacement(url)
                 repo_format = REPO_HEAD_WITH_URL
-            else:
+            elif metalink is not None:
                 url = _do_url_replacement(metalink)
                 repo_format = REPO_HEAD_WITH_METALINK
+            else:
+                url = _do_url_replacement(mirrorlist)
+                repo_format = REPO_HEAD_WITH_MIRRORLIST
 
             dst.write(repo_format.format(id=id, name=name, url=url))
 
             for line in (_do_common_replacement(add_line) for add_line in additional_lines):
-                dst.write(line)
+                if line is not None:
+                    dst.write(line)
 
     shutil.move(repofile + ".next", repofile)
 
@@ -195,8 +215,12 @@ def add_repositories_mapping(repofiles: typing.List[str], ignore: typing.Optiona
                 log.warn("The repository mapper has tried to open an unexistent file: {filename}".format(filename=file))
                 continue
 
-            for id, name, url, metalink, additional_lines in rpm.extract_repodata(file):
-                if not is_repo_ok(id, name, url, metalink):
+            for id, name, url, metalink, mirrorlist, additional_lines in rpm.extract_repodata(file):
+                if not is_repo_ok(id, name, url, metalink, mirrorlist):
+                    continue
+
+                if id is None:
+                    log.warn(f"Skip repository entry without id from {file}")
                     continue
 
                 if id in ignore:
@@ -207,17 +231,28 @@ def add_repositories_mapping(repofiles: typing.List[str], ignore: typing.Optiona
 
                 new_id = _do_id_replacement(id)
                 name = _do_name_replacement(name)
+                if new_id is None or name is None:
+                    log.warn(f"Skip repository '{id}' since it has no next id or name")
+                    continue
+
                 if url is not None:
                     url = _do_url_replacement(url)
                     repo_format = REPO_HEAD_WITH_URL
-                else:
+                elif metalink is not None:
                     url = _do_url_replacement(metalink)
                     repo_format = REPO_HEAD_WITH_METALINK
+                else:
+                    url = _do_url_replacement(mirrorlist)
+                    repo_format = REPO_HEAD_WITH_MIRRORLIST
+                if url is None:
+                    log.warn(f"Skip repository '{id}' since it has no baseurl, metalink and mirrorlist")
+                    continue
 
                 leapp_repos_file.write(repo_format.format(id=new_id, name=name, url=url))
 
                 for line in (_do_common_replacement(add_line) for add_line in additional_lines):
-                    leapp_repos_file.write(line)
+                    if line is not None:
+                        leapp_repos_file.write(line)
 
                 # Special case for plesk repository. We need to add dist repository to install some of plesk packages
                 # We support metalink for plesk repository, regardless of the fact we don't use them now
