@@ -17,24 +17,42 @@ name={name}
 metalink={url}
 """
 
+REPO_HEAD_WITH_MIRRORLIST = """[{id}]
+name={name}
+mirrorlist={url}
+"""
 
-def extract_repodata(repofile: str) -> typing.Iterable[typing.Tuple[str, str, str, str, typing.List[str]]]:
+
+def extract_repodata(
+    repofile: str
+) -> typing.Iterable[
+    typing.Tuple[
+        typing.Optional[str],
+        typing.Optional[str],
+        typing.Optional[str],
+        typing.Optional[str],
+        typing.Optional[str],
+        typing.List[str]
+    ]
+]:
     id: typing.Optional[str] = None
     name: typing.Optional[str] = None
     url: typing.Optional[str] = None
     metalink: typing.Optional[str] = None
+    mirrorlist: typing.Optional[str] = None
     additional: typing.List[str] = []
 
     with open(repofile, "r") as repo:
         for line in repo.readlines():
             if line.startswith("["):
                 if id is not None:
-                    yield (id, name, url, metalink, additional)
+                    yield (id, name, url, metalink, mirrorlist, additional)
 
                 id = None
                 name = None
                 url = None
                 metalink = None
+                mirrorlist = None
                 additional = []
 
             log.debug("Repository file line: {line}".format(line=line.rstrip()))
@@ -55,17 +73,30 @@ def extract_repodata(repofile: str) -> typing.Iterable[typing.Tuple[str, str, st
                 url = val
             elif field == "metalink":
                 metalink = val
+            elif field == "mirrorlist":
+                mirrorlist = val
             else:
                 additional.append(line)
 
-    yield (id, name, url, metalink, additional)
+    yield (id, name, url, metalink, mirrorlist, additional)
 
 
-def write_repodata(repofile: str, id: str, name: str, url: str, metalink: str, additional: typing.List[str]) -> None:
+def write_repodata(
+    repofile: str,
+    id: typing.Optional[str],
+    name: typing.Optional[str],
+    url: typing.Optional[str],
+    metalink: typing.Optional[str],
+    mirrorlist: typing.Optional[str],
+    additional: typing.List[str]
+) -> None:
     repo_format = REPO_HEAD_WITH_URL
-    if url is None:
+    if url is None and metalink is not None:
         url = metalink
         repo_format = REPO_HEAD_WITH_METALINK
+    if url is None and mirrorlist is not None:
+        url = mirrorlist
+        repo_format = REPO_HEAD_WITH_MIRRORLIST
 
     with open(repofile, "a") as dst:
         dst.write(repo_format.format(id=id, name=name, url=url))
@@ -73,16 +104,30 @@ def write_repodata(repofile: str, id: str, name: str, url: str, metalink: str, a
             dst.write(line)
 
 
-def remove_repositories(repofile: str, conditions: typing.Iterable[typing.Callable[[str, str, str, str], bool]]) -> None:
-    for id, name, url, metalink, additional_lines in extract_repodata(repofile):
+def remove_repositories(
+    repofile: str,
+    conditions: typing.Iterable[
+        typing.Callable[
+            [
+                typing.Optional[str],
+                typing.Optional[str],
+                typing.Optional[str],
+                typing.Optional[str],
+                typing.Optional[str]
+            ],
+            bool
+        ]
+    ]
+) -> None:
+    for id, name, url, metalink, mirrorlist, additional_lines in extract_repodata(repofile):
         remove = False
         for condition in conditions:
-            if condition(id, name, url, metalink):
+            if condition(id, name, url, metalink, mirrorlist):
                 remove = True
                 break
 
         if not remove:
-            write_repodata(repofile + ".next", id, name, url, metalink, additional_lines)
+            write_repodata(repofile + ".next", id, name, url, metalink, mirrorlist, additional_lines)
 
     if os.path.exists(repofile + ".next"):
         shutil.move(repofile + ".next", repofile)

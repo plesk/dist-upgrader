@@ -50,7 +50,7 @@ enabled=1
 gpgcheck=0
 """
 
-        rpm.remove_repositories(self.REPO_FILE_NAME, [lambda id, _1, _2, _3: id == "repo1"])
+        rpm.remove_repositories(self.REPO_FILE_NAME, [lambda id, _1, _2, _3, _4: id == "repo1"])
 
         with open(self.REPO_FILE_NAME) as file:
             self.assertEqual(file.read(), expected_content)
@@ -63,19 +63,19 @@ enabled=1
 gpgcheck=0
 """
 
-        rpm.remove_repositories(self.REPO_FILE_NAME, [lambda id, _1, _2, _3: id == "repo1",
-                                                      lambda id, _1, _2, _3: id == "repo2"])
+        rpm.remove_repositories(self.REPO_FILE_NAME, [lambda id, _1, _2, _3, _4: id == "repo1",
+                                                      lambda id, _1, _2, _3, _4: id == "repo2"])
         with open(self.REPO_FILE_NAME) as file:
             self.assertEqual(file.read(), expected_content)
 
     def test_remove_all_repos(self):
-        rpm.remove_repositories(self.REPO_FILE_NAME, [lambda id, _1, _2, _3: id == "repo1",
-                                                      lambda id, _1, _2, _3: id == "repo2",
-                                                      lambda id, _1, _2, _3: id == "repo3"])
+        rpm.remove_repositories(self.REPO_FILE_NAME, [lambda id, _1, _2, _3, _4: id == "repo1",
+                                                      lambda id, _1, _2, _3, _4: id == "repo2",
+                                                      lambda id, _1, _2, _3, _4: id == "repo3"])
         self.assertEqual(os.path.exists(self.REPO_FILE_NAME), False)
 
     def test_remove_non_existing_repo(self):
-        rpm.remove_repositories(self.REPO_FILE_NAME, [lambda id, _1, _2, _3: id == "repo4"])
+        rpm.remove_repositories(self.REPO_FILE_NAME, [lambda id, _1, _2, _3, _4: id == "repo4"])
         with open(self.REPO_FILE_NAME) as file:
             self.assertEqual(file.read(), self.REPO_FILE_CONTENT)
 
@@ -94,7 +94,7 @@ gpgcheck=0
 
 """
 
-        rpm.remove_repositories(self.REPO_FILE_NAME, [lambda id, _1, _2, _3: id == "repo3"])
+        rpm.remove_repositories(self.REPO_FILE_NAME, [lambda id, _1, _2, _3, _4: id == "repo3"])
         with open(self.REPO_FILE_NAME) as file:
             self.assertEqual(file.read(), expected_content)
 
@@ -126,7 +126,7 @@ gpgcheck=0
         with open(self.REPO_FILE_NAME, "a") as f:
             f.write(additional_repo)
 
-        rpm.remove_repositories(self.REPO_FILE_NAME, [lambda _1, _2, _3, metalink: metalink == "http://metarepo"])
+        rpm.remove_repositories(self.REPO_FILE_NAME, [lambda _1, _2, _3, metalink, _4: metalink == "http://metarepo"])
         with open(self.REPO_FILE_NAME) as file:
             self.assertEqual(file.read(), expected_content)
 
@@ -143,7 +143,7 @@ baseurl=http://repo3
 enabled=1
 gpgcheck=0
 """
-        rpm.remove_repositories(self.REPO_FILE_NAME, [lambda _1, name, _2, _3: name == "repo2"])
+        rpm.remove_repositories(self.REPO_FILE_NAME, [lambda _1, name, _2, _3, _4: name == "repo2"])
         with open(self.REPO_FILE_NAME) as file:
             self.assertEqual(file.read(), expected_content)
 
@@ -160,7 +160,7 @@ baseurl=http://repo3
 enabled=1
 gpgcheck=0
 """
-        rpm.remove_repositories(self.REPO_FILE_NAME, [lambda _1, _2, baseurl, _3: baseurl == "http://repo2"])
+        rpm.remove_repositories(self.REPO_FILE_NAME, [lambda _1, _2, baseurl, _3, _4: baseurl == "http://repo2"])
         with open(self.REPO_FILE_NAME) as file:
             self.assertEqual(file.read(), expected_content)
 
@@ -172,7 +172,39 @@ enabled=1
 gpgcheck=0
 
 """
-        rpm.remove_repositories(self.REPO_FILE_NAME, [lambda id, _1, baseurl, _3: id == "repo2" or baseurl == "http://repo3"])
+        rpm.remove_repositories(self.REPO_FILE_NAME, [lambda id, _1, baseurl, _3, _4: id == "repo2" or baseurl == "http://repo3"])
+        with open(self.REPO_FILE_NAME) as file:
+            self.assertEqual(file.read(), expected_content)
+
+    def test_remove_repo_by_mirrorlist(self):
+        expected_content = """[repo1]
+name=repo1
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+
+[repo2]
+name=repo2
+baseurl=http://repo2
+enabled=1
+gpgcheck=0
+
+[repo3]
+name=repo3
+baseurl=http://repo3
+enabled=1
+gpgcheck=0
+"""
+        additional_repo = """[mirrorrepo]
+name=mirrorrepo
+mirrorlist=http://mirrorrepo
+enabled=1
+gpgcheck=0
+"""
+        with open(self.REPO_FILE_NAME, "a") as f:
+            f.write(additional_repo)
+
+        rpm.remove_repositories(self.REPO_FILE_NAME, [lambda _1, _2, _3, _4, mirrorlist: mirrorlist == "http://mirrorrepo"])
         with open(self.REPO_FILE_NAME) as file:
             self.assertEqual(file.read(), expected_content)
 
@@ -209,7 +241,7 @@ baseurl=http://repo2
 enabled=1
 gpgcheck=0
 """
-        rpm.write_repodata(self.REPO_FILE_NAME, "repo2", "repo2", "http://repo2", None, ["enabled=1\n", "gpgcheck=0\n"])
+        rpm.write_repodata(self.REPO_FILE_NAME, "repo2", "repo2", "http://repo2", None, None, ["enabled=1\n", "gpgcheck=0\n"])
         with open(self.REPO_FILE_NAME) as file:
             self.assertEqual(file.read(), expected_content)
 
@@ -227,7 +259,41 @@ baseurl=http://repo1
 enabled=1
 gpgcheck=0
 """
-        rpm.write_repodata(self.REPO_FILE_NAME, "repo1", "repo1", "http://repo1", None, ["enabled=1\n", "gpgcheck=0\n"])
+        rpm.write_repodata(self.REPO_FILE_NAME, "repo1", "repo1", "http://repo1", None, None, ["enabled=1\n", "gpgcheck=0\n"])
+        with open(self.REPO_FILE_NAME) as file:
+            self.assertEqual(file.read(), expected_content)
+
+    def test_write_repodata_with_metalink(self):
+        expected_content = """[repo1]
+name=repo1
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+
+[repo2]
+name=repo2
+metalink=http://repo2
+enabled=1
+gpgcheck=0
+"""
+        rpm.write_repodata(self.REPO_FILE_NAME, "repo2", "repo2", None, "http://repo2", None, ["enabled=1\n", "gpgcheck=0\n"])
+        with open(self.REPO_FILE_NAME) as file:
+            self.assertEqual(file.read(), expected_content)
+
+    def test_write_repodata_with_mirrorlist(self):
+        expected_content = """[repo1]
+name=repo1
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+
+[repo2]
+name=repo2
+mirrorlist=http://repo2
+enabled=1
+gpgcheck=0
+"""
+        rpm.write_repodata(self.REPO_FILE_NAME, "repo2", "repo2", None, None, "http://repo2", ["enabled=1\n", "gpgcheck=0\n"])
         with open(self.REPO_FILE_NAME) as file:
             self.assertEqual(file.read(), expected_content)
 
