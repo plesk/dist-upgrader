@@ -42,9 +42,12 @@ def is_service_masked(service: str) -> bool:
         [SYSTEMCTL_BIN_PATH, 'is-enabled', service],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        check=True,
         universal_newlines=True
     )
+    # Because disabled service is not masked
+    if res.returncode != 0:
+        return False
+
     if res.stdout == 'masked':
         return True
     return False
