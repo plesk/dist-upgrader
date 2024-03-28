@@ -32,6 +32,12 @@ class SetMinDovecotDhParamSize(action.ActiveAction):
         except json.JSONDecodeError:
             log.warn(f"Failed to parse plesk sslmng results: {proc.stdout}")
             return False
+        except KeyError as e:
+            log.warn(f"There is no parameter '{e}' in the sslmng output.")
+            return False
+        except Exception as e:
+            log.warn(f"Failed to check sslmng configuration for dovecot: {e}. Type is {type(e)}")
+            raise e
 
         return True
 
