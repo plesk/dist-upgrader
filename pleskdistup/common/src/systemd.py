@@ -38,13 +38,15 @@ def get_required_services(service: str) -> typing.List[str]:
 
 
 def is_service_masked(service: str) -> bool:
+    # is-enabled for masked service will return return code 1
+    # so don't check operation result by the standard subprocess.run() way
     res = subprocess.run(
         [SYSTEMCTL_BIN_PATH, 'is-enabled', service],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        check=True,
         universal_newlines=True
     )
+
     if res.stdout == 'masked':
         return True
     return False
