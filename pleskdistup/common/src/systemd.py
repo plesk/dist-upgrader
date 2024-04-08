@@ -14,13 +14,13 @@ if dist.get_distro().deb_based:
     SYSTEMCTL_SERVICES_PATH = "/lib/systemd/system"
 
 
-def is_service_exists(service: str):
+def is_service_exists(service: str) -> bool:
     res = subprocess.run([SYSTEMCTL_BIN_PATH, 'cat', service], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return res.returncode == 0
 
 
-def is_service_active(service: str):
-    res = subprocess.run([SYSTEMCTL_BIN_PATH, 'is-active', service])
+def is_service_active(service: str) -> bool:
+    res = subprocess.run([SYSTEMCTL_BIN_PATH, 'is-active', service], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return res.returncode == 0
 
 

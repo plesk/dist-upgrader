@@ -59,7 +59,7 @@ class HandleUpdatedSpamassassinConfig(action.ActiveAction):
         # TODO. Following action is not supported on deb-based system. Actually it will be just skipped.
         # So if you are going to use the action on deb-based, you should be ready there will be no .rpmnew
         # things or even file here (obviously).
-        if dist.get_distro().rhel_based():
+        if dist.get_distro().rhel_based:
             if rpm.handle_rpmnew(SPAMASSASIN_CONFIG_PATH):
                 motd.add_finish_ssh_login_message(
                     f"Note that spamassasin configuration '{SPAMASSASIN_CONFIG_PATH}' was changed during conversion. "

@@ -82,7 +82,7 @@ class RestoreDovecotConfiguration(action.ActiveAction):
         path_to_backup = os.path.join(self.temp_directory, "dovecot.conf.bak")
         if os.path.exists(self.dovecot_config_path):
             shutil.copy(self.dovecot_config_path, path_to_backup)
-            motd.add_finish_ssh_login_message(f"The dovecot configuration '{self.dovecot_config_path}' has been restored from original distro. Modern configuration was placed in '{path_to_backup}'.")
+            motd.add_finish_ssh_login_message(f"The dovecot configuration '{self.dovecot_config_path}' has been restored from original distro. Modern configuration was placed in '{path_to_backup}'.\n")
 
         files.restore_file_from_backup(self.dovecot_config_path)
         return action.ActionResult()
