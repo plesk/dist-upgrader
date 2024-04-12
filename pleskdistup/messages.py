@@ -34,7 +34,7 @@ FAIL_MESSAGE_TAIL = """
 \033[91m**************************************************************************************
 The dist-ugrade process has failed. See the {logfile_path} file for more information.
 The last 100 lines of the file are shown above.
-For assistance, call '{util_name} --prepare-feedback' and follow the instructions.
+For assistance, call '{util_name} --prepare-feedback' and follow the instructions.{additional_message}
 **************************************************************************************\033[0m
 """
 

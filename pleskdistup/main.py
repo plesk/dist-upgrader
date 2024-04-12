@@ -123,6 +123,7 @@ def handle_error(
     logfile_path: PathType,
     util_name: str,
     status_flag_path: PathType,
+    phase: Phase,
     upgrader: DistUpgrader,
 ) -> None:
     print()
@@ -134,7 +135,13 @@ def handle_error(
         print(line, end='')
         error_message += line
 
-    print(messages.FAIL_MESSAGE_TAIL.format(util_name=util_name, logfile_path=logfile_path), end='')
+    # When adding something to the additional_message, remember to include '\n' at the beginning.
+    # This is because the FAIL_MESSAGE_TAIL contains the additional_message at the end of the previous line,
+    # preventing an empty line if there is nothing inside the additional_message.
+    additional_message = ""
+    if phase is Phase.CONVERT:
+        additional_message = f"\nTo revert the server to its original state, call '{util_name} --revert'."
+    print(messages.FAIL_MESSAGE_TAIL.format(util_name=util_name, logfile_path=logfile_path, additional_message=additional_message), end='')
 
     plesk.send_error_report(error_message)
     plesk.send_conversion_status(False, str(status_flag_path))
@@ -240,7 +247,7 @@ def do_convert(
                     print(messages.FINISH_RESTART_MESSAGE, end='')
                 systemd.do_reboot()
         except Exception as e:
-            handle_error(str(e), logfile_path, util_name, options.status_flag_path, upgrader)
+            handle_error(str(e), logfile_path, util_name, options.status_flag_path, options.phase, upgrader)
             return 1
     else:
         for stage_id, actions in actions_map.items():
