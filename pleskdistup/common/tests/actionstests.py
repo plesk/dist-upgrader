@@ -1,4 +1,5 @@
 # Copyright 2023-2024. WebPros International GmbH. All rights reserved.
+import json
 import os
 from unittest import mock
 
@@ -59,6 +60,36 @@ class SavedAction(action.ActiveAction):
         return action.ActionResult()
 
 
+def check_saved_state(phase, stage, saved_action_state, should_be_called):
+    simple_action = SimpleAction()
+    saved_action = SavedAction()
+
+    if phase not in ["prepare", "finish", "revert"]:
+        raise ValueError("Unknown phase")
+
+    function_name = "_prepare_action" if phase == "prepare" else "_post_action" if phase == "finish" else "_revert_action"
+    setattr(simple_action, function_name, mock.Mock(return_value=action.ActionResult()))
+    setattr(saved_action, function_name, mock.Mock(return_value=action.ActionResult()))
+
+    simple_action_target_mock = getattr(simple_action, function_name)
+    saved_action_target_mock = getattr(saved_action, function_name)
+
+    with open("actions.json", "w") as actions_data_file:
+        state_json = json.dumps({"actions": [{"stage": stage, "name": "saved", "state": saved_action_state}]})
+        actions_data_file.write(state_json)
+
+    actionFlowClass = PrepareActionsFlowForTests if phase == "prepare" else FinishActionsFlowForTests if phase == "finish" else RevertActionsFlowForTests
+    with actionFlowClass({stage: [simple_action, saved_action]}) as flow:
+        flow.validate_actions()
+        flow.pass_actions()
+
+    simple_action_target_mock.assert_called_once()
+    if should_be_called:
+        saved_action_target_mock.assert_called_once()
+    else:
+        saved_action_target_mock.assert_not_called()
+
+
 class TestPrepareActionsFlow(TestCase):
 
     def setUp(self):
@@ -117,53 +148,14 @@ class TestPrepareActionsFlow(TestCase):
         simple_action._prepare_action.assert_called_once()
         skip_action._prepare_action.assert_not_called()
 
-    def test_skip_based_on_saved_success_state(self):
-        simple_action = SimpleAction()
-        simple_action._prepare_action = mock.Mock(return_value=action.ActionResult())
-        saved_action = SavedAction()
-        saved_action._prepare_action = mock.Mock(return_value=action.ActionResult())
+    def test_preparation_skip_based_on_saved_success_state(self):
+        check_saved_state("prepare", "test_skip_based_on_saved_success_state", "success", False)
 
-        with open("actions.json", "w") as actions_data_file:
-            actions_data_file.write('{ "actions": [ { "stage": "test_skip_based_on_saved_state", "name" : "saved", "state" : "success"}] }')
+    def test_preparation_pass_based_on_saved_skip_state(self):
+        check_saved_state("prepare", "test_skip_based_on_saved_success_state", "skip", True)
 
-        with PrepareActionsFlowForTests({"test_skip_based_on_saved_state": [simple_action, saved_action]}) as flow:
-            flow.validate_actions()
-            flow.pass_actions()
-
-        simple_action._prepare_action.assert_called_once()
-        saved_action._prepare_action.assert_not_called()
-
-    def test_skip_based_on_saved_state(self):
-        simple_action = SimpleAction()
-        simple_action._prepare_action = mock.Mock(return_value=action.ActionResult())
-        saved_action = SavedAction()
-        saved_action._prepare_action = mock.Mock(return_value=action.ActionResult())
-
-        with open("actions.json", "w") as actions_data_file:
-            actions_data_file.write('{ "actions": [ { "stage": "test_recheck_skip_based_on_saved_state", "name" : "saved", "state" : "skip"}] }')
-
-        with PrepareActionsFlowForTests({"test_recheck_skip_based_on_saved_state": [simple_action, saved_action]}) as flow:
-            flow.validate_actions()
-            flow.pass_actions()
-
-        simple_action._prepare_action.assert_called_once()
-        saved_action._prepare_action.assert_called_once()
-
-    def test_skip_failed_saved_state(self):
-        simple_action = SimpleAction()
-        simple_action._prepare_action = mock.Mock(return_value=action.ActionResult())
-        saved_action = SavedAction()
-        saved_action._prepare_action = mock.Mock(return_value=action.ActionResult())
-
-        with open("actions.json", "w") as actions_data_file:
-            actions_data_file.write('{ "actions": [ { "stage": "test_pass_failed_saved_state", "name" : "saved", "state" : "failed"}] }')
-
-        with PrepareActionsFlowForTests({"test_pass_failed_saved_state": [simple_action, saved_action]}) as flow:
-            flow.validate_actions()
-            flow.pass_actions()
-
-        simple_action._prepare_action.assert_called_once()
-        saved_action._prepare_action.assert_called_once()
+    def test_preparation_pass_based_on_saved_failed_state(self):
+        check_saved_state("prepare", "test_skip_based_on_saved_success_state", "failed", True)
 
 
 class FinishActionsFlowForTests(action.FinishActionsFlow):
@@ -230,53 +222,14 @@ class TestFinishActionsFlow(TestCase):
         simple_action._post_action.assert_called_once()
         skip_action._post_action.assert_not_called()
 
-    def test_pass_based_on_saved_state(self):
-        simple_action = SimpleAction()
-        simple_action._post_action = mock.Mock(return_value=action.ActionResult())
-        saved_action = SavedAction()
-        saved_action._post_action = mock.Mock(return_value=action.ActionResult())
+    def test_finish_pass_based_on_success_saved_state(self):
+        check_saved_state("finish", "test_finish_pass_based_on_success_saved_state", "success", True)
 
-        with open("actions.json", "w") as actions_data_file:
-            actions_data_file.write('{ "actions": [ { "stage": "test_pass_based_on_saved_state", "name" : "saved", "state" : "success"}] }')
+    def test_finish_skip_based_on_skip_saved_state(self):
+        check_saved_state("finish", "test_finish_skip_based_on_skip_saved_state", "skip", False)
 
-        with FinishActionsFlowForTests({"test_pass_based_on_saved_state": [simple_action, saved_action]}) as flow:
-            flow.validate_actions()
-            flow.pass_actions()
-
-        simple_action._post_action.assert_called_once()
-        saved_action._post_action.assert_called_once()
-
-    def test_skip_based_on_saved_state(self):
-        simple_action = SimpleAction()
-        simple_action._post_action = mock.Mock(return_value=action.ActionResult())
-        saved_action = SavedAction()
-        saved_action._post_action = mock.Mock(return_value=action.ActionResult())
-
-        with open("actions.json", "w") as actions_data_file:
-            actions_data_file.write('{ "actions": [ { "stage": "test_skip_based_on_saved_state", "name" : "saved", "state" : "skip"}] }')
-
-        with FinishActionsFlowForTests({"test_skip_based_on_saved_state": [simple_action, saved_action]}) as flow:
-            flow.validate_actions()
-            flow.pass_actions()
-
-        simple_action._post_action.assert_called_once()
-        saved_action._post_action.assert_not_called()
-
-    def test_skip_failed_saved_state(self):
-        simple_action = SimpleAction()
-        simple_action._post_action = mock.Mock(return_value=action.ActionResult())
-        saved_action = SavedAction()
-        saved_action._post_action = mock.Mock(return_value=action.ActionResult())
-
-        with open("actions.json", "w") as actions_data_file:
-            actions_data_file.write('{ "actions": [ { "stage": "test_skip_failed_saved_state", "name" : "saved", "state" : "failed"}] }')
-
-        with FinishActionsFlowForTests({"test_skip_failed_saved_state": [simple_action, saved_action]}) as flow:
-            flow.validate_actions()
-            flow.pass_actions()
-
-        simple_action._post_action.assert_called_once()
-        saved_action._post_action.assert_not_called()
+    def test_finish_skip_based_on_failed_saved_state(self):
+        check_saved_state("finish", "test_finish_skip_based_on_failed_saved_state", "failed", False)
 
 
 class RevertActionsFlowForTests(action.RevertActionsFlow):
@@ -343,53 +296,14 @@ class TestRevertActionsFlow(TestCase):
         simple_action._revert_action.assert_called_once()
         skip_action._revert_action.assert_not_called()
 
-    def test_pass_based_on_saved_state(self):
-        simple_action = SimpleAction()
-        simple_action._revert_action = mock.Mock(return_value=action.ActionResult())
-        saved_action = SavedAction()
-        saved_action._revert_action = mock.Mock(return_value=action.ActionResult())
+    def test_revert_pass_based_on_success_saved_state(self):
+        check_saved_state("revert", "test_revert_pass_based_on_success_saved_state", "success", True)
 
-        with open("actions.json", "w") as actions_data_file:
-            actions_data_file.write('{ "actions": [ {"stage": "test_pass_based_on_saved_state", "name" : "saved", "state" : "success"}] }')
+    def test_revert_skip_based_on_skip_saved_state(self):
+        check_saved_state("revert", "test_revert_skip_based_on_skip_saved_state", "skip", False)
 
-        with RevertActionsFlowForTests({"test_pass_based_on_saved_state": [simple_action, saved_action]}) as flow:
-            flow.validate_actions()
-            flow.pass_actions()
-
-        simple_action._revert_action.assert_called_once()
-        saved_action._revert_action.assert_called_once()
-
-    def test_skip_based_on_saved_state(self):
-        simple_action = SimpleAction()
-        simple_action._revert_action = mock.Mock(return_value=action.ActionResult())
-        saved_action = SavedAction()
-        saved_action._revert_action = mock.Mock(return_value=action.ActionResult())
-
-        with open("actions.json", "w") as actions_data_file:
-            actions_data_file.write('{ "actions": [ {"stage": "test_skip_based_on_saved_state", "name" : "saved", "state" : "skip"}] }')
-
-        with RevertActionsFlowForTests({"test_skip_based_on_saved_state": [simple_action, saved_action]}) as flow:
-            flow.validate_actions()
-            flow.pass_actions()
-
-        simple_action._revert_action.assert_called_once()
-        saved_action._revert_action.assert_not_called()
-
-    def test_skip_failed_saved_state(self):
-        simple_action = SimpleAction()
-        simple_action._revert_action = mock.Mock(return_value=action.ActionResult())
-        saved_action = SavedAction()
-        saved_action._revert_action = mock.Mock(return_value=action.ActionResult())
-
-        with open("actions.json", "w") as actions_data_file:
-            actions_data_file.write('{ "actions": [ {"stage": "test_skip_failed_saved_state", "name" : "saved", "state" : "failed"}] }')
-
-        with RevertActionsFlowForTests({"test_skip_failed_saved_state": [simple_action, saved_action]}) as flow:
-            flow.validate_actions()
-            flow.pass_actions()
-
-        simple_action._revert_action.assert_called_once()
-        saved_action._revert_action.assert_not_called()
+    def test_revert_skip_based_on_failed_saved_state(self):
+        check_saved_state("revert", "test_revert_skip_based_on_failed_saved_state", "failed", False)
 
 
 class TrueCheckAction(action.CheckAction):
