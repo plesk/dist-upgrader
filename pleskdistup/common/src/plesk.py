@@ -5,9 +5,14 @@ import os
 import re
 import subprocess
 import typing
+import urllib.request
+import xml.etree.ElementTree as ElementTree
 
-from . import log, mariadb, systemd
+from . import log, mariadb, systemd, version
 
+# http://autoinstall.plesk.com/products.inf3 is an xml file with available products,
+# including all versions of Plesk.
+DEFAULT_AUTOINSTALL_PRODUCTS_FILE = "http://autoinstall.plesk.com/products.inf3"
 
 def send_error_report(error_message: str) -> None:
     log.debug(f"Error report: {error_message}")
@@ -24,14 +29,39 @@ def send_error_report(error_message: str) -> None:
         log.debug(f"Sending error report failed: {ex}")
 
 
-def get_plesk_version() -> typing.List[str]:
+def get_plesk_version() -> version.PleskVersion:
     version_info = subprocess.check_output(["/usr/sbin/plesk", "version"], universal_newlines=True).splitlines()
     for line in version_info:
         if line.startswith("Product version"):
-            version = line.split()[-1]
-            return version.split(".")
+            return version.PleskVersion(line.split()[-1])
 
     raise Exception("Unable to parse plesk version output.")
+
+
+def extract_plesk_versions(products_xml: str) -> typing.List[version.PleskVersion]:
+    if not products_xml:
+        return []
+
+    versions = []
+    root = ElementTree.fromstring(products_xml)
+    for product in root.findall('.//product[@id="plesk"]'):
+        release_key = product.get('release-key')
+        if release_key and '-' in release_key:
+            versions.append(version.PleskVersion(release_key.split("-", 1)[1]))
+    return versions
+
+
+def get_available_plesk_versions(
+    autoinstall_products_file_url: str = DEFAULT_AUTOINSTALL_PRODUCTS_FILE
+) -> typing.List[version.PleskVersion]:
+    try:
+        with urllib.request.urlopen(autoinstall_products_file_url) as response:
+            products_config = response.read().decode('utf-8')
+            return extract_plesk_versions(products_config)
+
+    except Exception as ex:
+        log.warn(f"Unable to retrieve available versions of plesk from '{autoinstall_products_file_url}': {ex}")
+    return []
 
 
 def get_plesk_full_version() -> typing.List[str]:
@@ -60,7 +90,7 @@ def send_conversion_status(succeed: bool, status_flag_path: str) -> None:
         log.warn("Conversion status flag file does not exist. Skip sending conversion status")
         return
 
-    plesk_version = ".".join(get_plesk_version())
+    plesk_version = str(get_plesk_version())
 
     try:
         log.debug(f"Trying to send status of conversion by report-update utility {results_sender_path!r}")

@@ -1,5 +1,7 @@
 # Copyright 2023-2024. WebPros International GmbH. All rights reserved.
 
+import typing
+
 class KernelVersion():
     """Linux kernel version representation class."""
 
@@ -148,6 +150,67 @@ class PHPVersion():
 
     def __eq__(self, other) -> bool:
         return self.major == other.major and self.minor == other.minor
+
+    def __ge__(self, other) -> bool:
+        return not self.__lt__(other)
+
+
+class PleskVersion:
+    """
+    Plesk version representation class.
+
+    Plesk version is represented as a string in format "major.minor.patch.hotfix".
+    Examples:
+    - "18.0.50"
+    - "18.0.51.2"
+
+    Versions could be compared with each other, represented as a string.
+    Available fields are: major, minor, patch and hotfix.
+    """
+
+    major: int
+    minor: int
+    patch: int
+    hotfix: int
+
+    def _extract_from_version(self, version: str) -> None:
+        split_version = version.split(".")
+        if len(split_version) not in (3, 4):
+            raise ValueError("Incorrect version length")
+
+        # Version string example is "18.0.50" or "18.0.50.2"
+        self.major, self.minor, self.patch = map(int, split_version[:3])
+        if len(split_version) > 3:
+            self.hotfix = int(split_version[3])
+        else:
+            self.hotfix = 0
+
+        if self.major < 0 or self.minor < 0 or self.patch < 0 or self.hotfix < 0:
+            raise ValueError("Negative number in version")
+
+    def __init__(self, version: str):
+        """Initialize a PleskVersion object."""
+        self.major = 0
+        self.minor = 0
+        self.patch = 0
+        self.hotfix = 0
+
+        self._extract_from_version(version)
+
+    def _to_tuple(self) -> typing.Tuple[int, int, int, int]:
+        return (self.major, self.minor, self.patch, self.hotfix)
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(major={self.major!r}, minor={self.minor!r}, patch={self.patch!r}, hotfix={self.hotfix!r})"
+
+    def __str__(self) -> str:
+        return f"{self.major}.{self.minor}.{self.patch}.{self.hotfix}"
+
+    def __lt__(self, other) -> bool:
+        return self._to_tuple() < other._to_tuple()
+
+    def __eq__(self, other) -> bool:
+        return self._to_tuple() == other._to_tuple()
 
     def __ge__(self, other) -> bool:
         return not self.__lt__(other)

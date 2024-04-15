@@ -5,7 +5,7 @@ import pathlib
 import subprocess
 import typing
 
-from pleskdistup.common import action, packages, plesk, log, util
+from pleskdistup.common import action, packages, plesk, log, util, version
 
 
 def _change_plesk_components(
@@ -426,7 +426,7 @@ class AssertPleskInstallerNotInProgress(action.CheckAction):
 
 
 class AssertMinPleskVersion(action.CheckAction):
-    min_version: typing.List[int]
+    min_version: version.PleskVersion
     _name: str
     _description: str
 
@@ -436,24 +436,13 @@ class AssertMinPleskVersion(action.CheckAction):
         name: str = "check for minimal Plesk version {min_version}",
         description: str = "Only Plesk Obsidian {min_version} or later is supported. Please upgrade Plesk and try again.",
     ):
-        try:
-            vlist = min_version.split(".")
-            if len(vlist) not in (3, 4):
-                raise ValueError("Incorrect version length")
-            self.min_version = [int(v) for v in vlist]
-            if any(v < 0 for v in self.min_version):
-                raise ValueError("Negative number in version")
-            if len(self.min_version) == 3:
-                self.min_version.append(0)
-        except Exception as e:
-            raise ValueError("Plesk version must be in the 1.2.3[.4] format, e.g. 18.0.58 or 18.0.58.0") from e
-        assert len(self.min_version) == 4
+        self.min_version = version.PleskVersion(min_version)
         self._name = name
         self._description = description
 
     @property
     def name(self) -> str:
-        return self._name.format(min_version=self.min_version_str)
+        return self._name.format(min_version=self.min_version)
 
     @name.setter
     def name(self, val: str) -> None:
@@ -461,15 +450,11 @@ class AssertMinPleskVersion(action.CheckAction):
 
     @property
     def description(self) -> str:
-        return self._description.format(min_version=self.min_version_str)
+        return self._description.format(min_version=self.min_version)
 
     @description.setter
     def description(self, val: str) -> None:
         self._description = val
-
-    @property
-    def min_version_str(self) -> str:
-        return ".".join(str(v) for v in self.min_version)
 
     def _do_check(self) -> bool:
         try:
@@ -477,6 +462,41 @@ class AssertMinPleskVersion(action.CheckAction):
             log.debug(f"Checking if cur_version >= min_version ({cur_version!r} >= {self.min_version!r})")
             assert len(cur_version) == 4, "Incorrect version length"
             return cur_version >= self.min_version
+        except Exception as e:
+            log.err(f"Checking Plesk version has failed with error: {e}")
+            raise
+
+
+class AssertPleskVersionIsAvailable(action.CheckAction):
+    _description_template: str
+
+    def __init__(self):
+        self.name = "check if currently installed Plesk version is available"
+        self.description = "Currently installed Plesk version is outdated. Please upgrade Plesk to the latest version by 'plesk installer'"
+        self._description_template = "Currently installed Plesk version {current_version} is outdated. Please upgrade Plesk to the latest version by 'plesk installer'"
+
+    def _do_check(self) -> bool:
+        try:
+            available_versions = plesk.get_available_plesk_versions()
+            if available_versions == []:
+                log.warn("Unable to retrieve available versions from autoinstall.plesk.com")
+                return False
+            current_version = plesk.get_plesk_version()
+            # The product list does not contain information about hotfixes, so our comparison can't be so accurate
+            # However, we are attempting to determine if the Plesk repository is accessible. Repositories are
+            # linked to the main part of the version (e.g., 18.0.50,18.0.51) and are shared between hotfix
+            # Therefore, we should not compare hotfix part in this case, as we are aware that the repository
+            # for the currently installed version is available.
+            current_version.hotfix = 0
+
+            log.debug(f"Received available versions of plesk are: {available_versions}")
+            log.debug(f"Plesk version installed on the host is '{current_version}'")
+
+            if current_version not in available_versions:
+                self.description = self._description_template.format(current_version=current_version)
+                return False
+
+            return True
         except Exception as e:
             log.err(f"Checking Plesk version has failed with error: {e}")
             raise
