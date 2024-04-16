@@ -423,6 +423,13 @@ def main():
         except Exception as ex:
             ex_info = traceback.format_exc()
             log.warn(f"Couldn't get upgrader name from {options.resume_path!r}: {ex}\n{ex_info}")
+            upgraders = list(pleskdistup.registry.iter_upgraders())
+            if len(upgraders) == 1:
+                options.upgrader_name = upgraders[0].upgrader_name
+                log.debug(f"Use only available upgrader {options.upgrader_name} for feedback preparation")
+            else:
+                printerr(f"Couldn't get upgrader name for feedback preparation. Please provide upgrader name by --upgrader-name. Available upgraders: {upgraders}")
+                return 1
 
     distro = dist.get_distro()
     log.debug(f"Detected current OS distribution as {distro}")
