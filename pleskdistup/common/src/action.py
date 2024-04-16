@@ -359,13 +359,16 @@ class PrepareActionsFlow(ActiveFlow):
         return self.stages
 
     def _is_action_required(self, stage: str, action: ActiveAction) -> bool:
-        # Don't repeat already performed actions (in case of process restart)
+        # Don't repeat already performed and succeeded actions (in case of process restart)
+        # If an action has skipped, we should recheck if it could be skipped again
+        # If an action has failed, we should perform it again to make sure conversion/distupgrade
+        # will be performed correctly
         for stored_action in self.actions_data["actions"]:
             if (
                 stored_action["stage"] == stage
                 and stored_action["name"] == action.name
             ):
-                if stored_action["state"] in (ActionState.SUCCESS, ActionState.FAILED):
+                if stored_action["state"] == ActionState.SUCCESS:
                     return False
 
         return action.is_required()
