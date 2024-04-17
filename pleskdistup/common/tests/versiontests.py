@@ -1,7 +1,7 @@
 # Copyright 2023-2024. WebPros International GmbH. All rights reserved.
 import unittest
 
-import src.version as version
+from src import version
 
 
 class KernelVersionTests(unittest.TestCase):
@@ -216,3 +216,88 @@ class PHPVersionTests(unittest.TestCase):
         php1 = version.PHPVersion("PHP 6.1")
         php2 = version.PHPVersion("PHP 5.2")
         self.assertGreater(php1, php2)
+
+
+class PleskVersionTests(unittest.TestCase):
+
+    def test_plesk_parse_no_hotfix(self):
+        plesk_version = version.PleskVersion("18.0.55")
+        self.assertEqual(plesk_version.major, 18)
+        self.assertEqual(plesk_version.minor, 0)
+        self.assertEqual(plesk_version.patch, 55)
+        self.assertEqual(plesk_version.hotfix, 0)
+
+    def test_plesk_parse_with_hotfix(self):
+        plesk_version = version.PleskVersion("18.0.55.2")
+        self.assertEqual(plesk_version.major, 18)
+        self.assertEqual(plesk_version.minor, 0)
+        self.assertEqual(plesk_version.patch, 55)
+        self.assertEqual(plesk_version.hotfix, 2)
+
+    def test_plesk_parse_with_hotfix_zero(self):
+        plesk_version = version.PleskVersion("18.0.55.0")
+        self.assertEqual(plesk_version.major, 18)
+        self.assertEqual(plesk_version.minor, 0)
+        self.assertEqual(plesk_version.patch, 55)
+        self.assertEqual(plesk_version.hotfix, 0)
+
+    def test_plesk_parse_not_enough_parts(self):
+        with self.assertRaises(ValueError):
+            version.PleskVersion("18.0")
+
+    def test_plesk_parse_too_many_parts(self):
+        with self.assertRaises(ValueError):
+            version.PleskVersion("18.0.55.2.3")
+
+    def test_plesk_parse_negative_number(self):
+        with self.assertRaises(ValueError):
+            version.PleskVersion("18.0.-55.0")
+
+    def test_php_parse_wrong_string(self):
+        with self.assertRaises(ValueError):
+            version.PleskVersion("nothing")
+
+    def test_compare_equal(self):
+        plesk_version1 = version.PleskVersion("18.0.55")
+        plesk_version2 = version.PleskVersion("18.0.55.0")
+        self.assertEqual(plesk_version1, plesk_version2)
+
+    def test_compare_less_major(self):
+        plesk_version1 = version.PleskVersion("18.0.55")
+        plesk_version2 = version.PleskVersion("19.0.55")
+        self.assertLess(plesk_version1, plesk_version2)
+
+    def test_compare_less_major_greater_minor(self):
+        plesk_version1 = version.PleskVersion("18.2.55")
+        plesk_version2 = version.PleskVersion("19.0.55")
+        self.assertLess(plesk_version1, plesk_version2)
+
+    def test_compare_less_minor(self):
+        plesk_version1 = version.PleskVersion("18.0.55")
+        plesk_version2 = version.PleskVersion("18.1.55")
+        self.assertLess(plesk_version1, plesk_version2)
+
+    def test_compare_less_minor_greater_patch(self):
+        plesk_version1 = version.PleskVersion("18.0.57")
+        plesk_version2 = version.PleskVersion("18.1.55")
+        self.assertLess(plesk_version1, plesk_version2)
+
+    def test_compare_less_minor_greater_hotfix(self):
+        plesk_version1 = version.PleskVersion("18.0.57.1")
+        plesk_version2 = version.PleskVersion("18.1.55")
+        self.assertLess(plesk_version1, plesk_version2)
+
+    def test_compare_less_patch(self):
+        plesk_version1 = version.PleskVersion("18.0.54")
+        plesk_version2 = version.PleskVersion("18.0.55")
+        self.assertLess(plesk_version1, plesk_version2)
+
+    def test_compare_less_patch_greater_hotfix(self):
+        plesk_version1 = version.PleskVersion("18.0.54.4")
+        plesk_version2 = version.PleskVersion("18.0.55.1")
+        self.assertLess(plesk_version1, plesk_version2)
+
+    def test_compare_less_hotfix(self):
+        plesk_version1 = version.PleskVersion("18.0.55.1")
+        plesk_version2 = version.PleskVersion("18.0.55.2")
+        self.assertLess(plesk_version1, plesk_version2)
