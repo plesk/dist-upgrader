@@ -10,6 +10,7 @@ from . import motd
 from . import packages
 from . import php
 from . import plesk
+from . import postgres
 from . import feedback
 from . import files
 from . import rpm
