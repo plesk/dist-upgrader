@@ -447,6 +447,21 @@ def main():
         log.debug(f"Looking for upgrader by the name '{options.upgrader_name}'")
         upgraders = list(pleskdistup.registry.iter_upgraders(upgrader_name=options.upgrader_name))
     log.debug(f"Found upgraders: {upgraders}")
+
+    if options.version:
+        if not upgraders:
+            upgraders = list(pleskdistup.registry.iter_upgraders())
+            if len(upgraders) != 1:
+                printerr(f"Couldn't get upgrader name. Please provide upgrader name by --upgrader-name. Available upgraders: {upgraders}")
+                return 1
+
+        upgrader = upgraders[0].create_upgrader()
+        print(
+            f"Plesk dist-upgrader {pleskdistup.config.revision}.\n"
+            f"{upgrader.upgrader_name} {upgrader.upgrader_version}."
+        )
+        return 0
+
     if not upgraders:
         printerr(f"No upgraders found for your system ({distro})")
         return 1
@@ -483,12 +498,7 @@ def main():
         )
         upgrader.parse_args(["--help"])
         parser.exit()
-    if options.version:
-        print(
-            f"Plesk dist-upgrader {pleskdistup.config.revision}.\n"
-            f"{upgrader.upgrader_name} {upgrader.upgrader_version}."
-        )
-        return 0
+
     upgrader.parse_args(extra_args)
 
     if options.prepare_feedback:
