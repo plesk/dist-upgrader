@@ -377,3 +377,23 @@ class HandleRpmnewFilesTests(unittest.TestCase):
             self.assertEqual(open(full_filepath).read(), content)
 
         shutil.rmtree(self.test_dir)
+
+
+class repositoryHasNoneLinkTest(unittest.TestCase):
+    def test_no_link(self):
+        self.assertFalse(rpm.repository_has_none_link(None, None, None, None, None))
+
+    def test_url(self):
+        self.assertTrue(rpm.repository_has_none_link("id", "name", "none", None, None))
+
+    def test_metalink(self):
+        self.assertTrue(rpm.repository_has_none_link("id", "name", None, "none", None))
+
+    def test_mirrorlist(self):
+        self.assertTrue(rpm.repository_has_none_link("id", "name", None, None, "none"))
+
+    def test_all(self):
+        self.assertTrue(rpm.repository_has_none_link("id", "name", "none", "none", "none"))
+
+    def test_links_are_fine(self):
+        self.assertFalse(rpm.repository_has_none_link("id", "name", "url", "metalink", "mirrorlist"))

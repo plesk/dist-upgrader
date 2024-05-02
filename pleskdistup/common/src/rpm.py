@@ -216,3 +216,17 @@ def upgrade_packages(pkgs: typing.Optional[typing.List[str]] = None) -> None:
 
 def autoremove_outdated_packages() -> None:
     util.logged_check_call(["/usr/bin/yum", "autoremove", "-y"])
+
+
+def repository_has_none_link(
+    id: typing.Optional[str],
+    name: typing.Optional[str],
+    url: typing.Optional[str],
+    metalink: typing.Optional[str],
+    mirrorlist: typing.Optional[str]
+) -> bool:
+    for link in (url, metalink, mirrorlist):
+        if link is not None and link.lower() == "none":
+            return True
+
+    return False
