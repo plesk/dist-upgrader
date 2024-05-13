@@ -468,7 +468,7 @@ def main():
     if len(upgraders) > 1:
         log.info(f"Multiple upgraders found ({len(upgraders)}), using the first one")
     upgrader = upgraders[0].create_upgrader()
-    log.debug(f"Selected upgrader: {upgrader}")
+    log.info(f"Selected upgrader: {upgrader} ({upgrader.upgrader_version})")
     if not options.resume:
         options.resume_data = ResumeData(
             phase=options.phase,
