@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import locale
 import logging
 import os
 import sys
@@ -115,6 +116,9 @@ def required_conditions_satisfied(upgrader: DistUpgrader, options: typing.Any, p
     except Exception as ex:
         ex_info = traceback.format_exc()
         printerr(f"Preparation checks failed: {ex}\n{ex_info}")
+
+        if type(ex.__cause__) is UnicodeDecodeError and locale.getpreferredencoding(False).lower() != "utf-8":
+            printerr(messages.ENCODING_INCONSISTENCY_ERROR_MESSAGE)
         return False
 
 
@@ -246,6 +250,12 @@ def do_convert(
                 elif options.phase is Phase.FINISH:
                     print(messages.FINISH_RESTART_MESSAGE, end='')
                 systemd.do_reboot()
+        except UnicodeDecodeError as e:
+            if locale.getpreferredencoding(False).lower() != "utf-8":
+                printerr(messages.ENCODING_INCONSISTENCY_ERROR_MESSAGE)
+
+            handle_error(str(e), logfile_path, util_name, options.status_flag_path, options.phase, upgrader)
+            return 1
         except Exception as e:
             handle_error(str(e), logfile_path, util_name, options.status_flag_path, options.phase, upgrader)
             return 1

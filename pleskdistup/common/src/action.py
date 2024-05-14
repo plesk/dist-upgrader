@@ -250,6 +250,11 @@ class ActiveFlow(ActionsFlow):
                             log.info(f"Already have pending {self.reboot_requested} request, which can't be overridden by {res.reboot_requested}")
                         else:
                             self.reboot_requested = res.reboot_requested
+                except UnicodeDecodeError as ex:
+                    self._save_action_state(stage_id, action.name, ActionState.FAILED)
+                    self.error = ex
+                    log.err(f"Failed: {action}. The reason is encoding problem. Exception: {ex}")
+                    raise ex
                 except Exception as ex:
                     self._save_action_state(stage_id, action.name, ActionState.FAILED)
                     self.error = Exception(f"Failed: {action}. The reason: {ex}")
