@@ -314,6 +314,7 @@ def main():
     )
     # Overrides safety checks, dangerous
     parser.add_argument("--I-know-what-I-am-doing", action="store_true", dest="unsafe_mode", help=argparse.SUPPRESS)
+    parser.add_argument("--locale", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--log-file", default=f"/var/log/plesk/{util_name}.log", help="path to the log file.")
     operation_group.add_argument(
         "--monitor", action="store_true",
@@ -373,6 +374,13 @@ def main():
     else:
         options.help = False
 
+    # Configure locale to avoid problems on systems where LANG or LC_CTYPE changed,
+    # while files on the system still has utf-8 encoding
+    # We should do it before initializing logger to make sure utf-8 symbols will be
+    # written correctly to the log file.
+    if options.locale is not None:
+        locale.setlocale(locale.LC_CTYPE, options.locale)
+
     logfile_path = options.log_file
     log.init_logger(
         [logfile_path],
@@ -418,6 +426,17 @@ def main():
             resume_options.resume_path = options.resume_path
             resume_options.resume_data = resume_data
             options = resume_options
+
+            # Recreate logger on resume to make sure that right log files are opened
+            if resume_options.local is not None:
+                locale.setlocale(locale.LC_CTYPE, resume_options.locale)
+
+            logfile_path = resume_options.log_file
+            log.reinit_logger(
+                [logfile_path],
+                [],
+                loglevel=getattr(logging, resume_options.verbose, logging.DEBUG)
+            )
         except Exception as ex:
             ex_info = traceback.format_exc()
             printerr(f"Couldn't resume from {options.resume_path!r}: {ex}\n{ex_info}")
