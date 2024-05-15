@@ -18,9 +18,15 @@ class Writer():
 
 
 class StdoutWriter(Writer):
+    def __init__(self):
+        self.out = open(1, 'w', closefd=False)
+
     def write(self, message: str) -> None:
-        sys.stdout.write(message)
-        sys.stdout.flush()
+        self.out.write(message)
+        self.out.flush()
+
+    def __exit__(self, *args):
+        self.out.close()
 
 
 class FileWriter(Writer):
