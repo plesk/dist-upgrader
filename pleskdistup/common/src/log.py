@@ -38,6 +38,13 @@ class logger():
             logger.streams_logger.addHandler(handler)
 
     @staticmethod
+    def reinit_logger(logfiles: typing.List[str], streams: typing.List[typing.Any],
+                      console: bool = False, loglevel: int = logging.INFO) -> None:
+        logger.files_logger = logging.getLogger("distupgrade_files")
+        logger.streams_logger = logging.getLogger("distupgrade_streams")
+        logger.init_logger(logfiles, streams, console, loglevel)
+
+    @staticmethod
     def debug(msg: str, to_file: bool = True, to_stream: bool = True) -> None:
         if to_file:
             logger.files_logger.debug(msg)
@@ -73,6 +80,11 @@ class logger():
 def init_logger(logfiles: typing.List[str], streams: typing.List[typing.Any],
                 console: bool = False, loglevel: int = logging.INFO) -> None:
     logger.init_logger(logfiles, streams, console, loglevel)
+
+
+def reinit_logger(logfiles: typing.List[str], streams: typing.List[typing.Any],
+                  console: bool = False, loglevel: int = logging.INFO) -> None:
+    logger.reinit_logger(logfiles, streams, console, loglevel)
 
 
 def debug(msg: str, to_file: bool = True, to_stream: bool = True) -> None:
