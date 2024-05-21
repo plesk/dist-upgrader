@@ -62,3 +62,5 @@ The conversion process will take approximately 25 minutes. If you wish to preven
 terminate the {util_name} process. Please note that Plesk functionality is currently unavailable.
 \033[93m**************************************************************************************\033[0m
 """
+
+ENCODING_INCONSISTENCY_ERROR_MESSAGE = "The encoding of one of your files does not match the system's locale setting, which may cause unexpected behavior. Please resolve this inconsistency before continuing."
