@@ -428,7 +428,7 @@ def main():
             options = resume_options
 
             # Recreate logger on resume to make sure that right log files are opened
-            if resume_options.local is not None:
+            if resume_options.locale is not None:
                 locale.setlocale(locale.LC_CTYPE, resume_options.locale)
 
             logfile_path = resume_options.log_file
