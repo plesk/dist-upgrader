@@ -101,19 +101,19 @@ def required_conditions_satisfied(upgrader: DistUpgrader, options: typing.Any, p
     checks = upgrader.get_check_actions(options, phase)
 
     try:
-        bad_encoded_check = None
-        with action.CheckFlow(checks) as check_flow, writers.StdoutWriter() as writer:
+        with action.CheckFlow(checks) as check_flow, writers.StdoutEncodingReplaceWriter() as writer:
             writer.write("Doing preparation checks...\n")
             check_flow.validate_actions()
             failed_checks = check_flow.make_checks()
             writer.write("\r")
             for check in failed_checks:
-                try:
-                    writer.write("Required pre-conversion condition {check.name!r} not met:\n\t{check.description}\n")
-                    log.err(str(check))
-                except (UnicodeEncodeError, UnicodeDecodeError) as ex:
-                    bad_encoded_check = check.name
-                    raise RuntimeError(f"Encoding error on writing problem description") from ex
+                writer.write(f"Required pre-conversion condition {check.name!r} not met:\n\t{check.description}\n")
+                log.err(str(check))
+
+            if writer.has_encoding_errors():
+                printerr(messages.ENCODING_INCONSISTENCY_ERROR_MESSAGE)
+                printerr("The encoding problem occurred during one of the previous checks. The badly encoded symbol was replaced with a backslash Unicode representation")
+                return False
 
             if failed_checks:
                 return False
@@ -124,8 +124,7 @@ def required_conditions_satisfied(upgrader: DistUpgrader, options: typing.Any, p
 
         if type(ex.__cause__) in (UnicodeEncodeError, UnicodeDecodeError) and locale.getpreferredencoding(False).lower() != "utf-8":
             printerr(messages.ENCODING_INCONSISTENCY_ERROR_MESSAGE)
-            if bad_encoded_check:
-                printerr(f"The problem was noticed with writing the description for the {bad_encoded_check!r} check.")
+
         return False
 
 
