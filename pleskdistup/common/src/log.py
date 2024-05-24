@@ -1,4 +1,5 @@
 # Copyright 2023-2024. WebPros International GmbH. All rights reserved.
+import locale
 import logging
 
 import typing
@@ -9,10 +10,20 @@ class logger():
 
     is_streams_enabled = False
     streams_logger = logging.getLogger("distupgrade_streams")
+    encoding: str = locale.getpreferredencoding()
+
+    @staticmethod
+    def _re_decode_message(message: str) -> str:
+        return message.encode(logger.encoding, errors='backslashreplace').decode(logger.encoding, errors='backslashreplace')
 
     @staticmethod
     def init_logger(logfiles: typing.List[str], streams: typing.List[typing.Any],
-                    console: bool = False, loglevel: int = logging.INFO) -> None:
+                    console: bool = False, loglevel: int = logging.INFO, encoding: str = None) -> None:
+        if encoding is None:
+            logger.encoding = locale.getpreferredencoding()
+        else:
+            logger.encoding = encoding
+
         logger.files_logger.setLevel(loglevel)
         logger.streams_logger.setLevel(loglevel)
 
@@ -39,13 +50,14 @@ class logger():
 
     @staticmethod
     def reinit_logger(logfiles: typing.List[str], streams: typing.List[typing.Any],
-                      console: bool = False, loglevel: int = logging.INFO) -> None:
+                      console: bool = False, loglevel: int = logging.INFO, encoding: str = None) -> None:
         logger.files_logger = logging.getLogger("distupgrade_files")
         logger.streams_logger = logging.getLogger("distupgrade_streams")
-        logger.init_logger(logfiles, streams, console, loglevel)
+        logger.init_logger(logfiles, streams, console, loglevel, encoding=encoding)
 
     @staticmethod
     def debug(msg: str, to_file: bool = True, to_stream: bool = True) -> None:
+        msg = logger._re_decode_message(msg)
         if to_file:
             logger.files_logger.debug(msg)
 
@@ -54,6 +66,7 @@ class logger():
 
     @staticmethod
     def info(msg: str, to_file: bool = True, to_stream: bool = True) -> None:
+        msg = logger._re_decode_message(msg)
         if to_file:
             logger.files_logger.info(msg)
 
@@ -62,6 +75,7 @@ class logger():
 
     @staticmethod
     def warn(msg: str, to_file: bool = True, to_stream: bool = True) -> None:
+        msg = logger._re_decode_message(msg)
         if to_file:
             logger.files_logger.warn(msg)
 
@@ -70,6 +84,7 @@ class logger():
 
     @staticmethod
     def err(msg: str, to_file: bool = True, to_stream: bool = True) -> None:
+        msg = logger._re_decode_message(msg)
         if to_file:
             logger.files_logger.error(msg)
 
@@ -78,13 +93,13 @@ class logger():
 
 
 def init_logger(logfiles: typing.List[str], streams: typing.List[typing.Any],
-                console: bool = False, loglevel: int = logging.INFO) -> None:
-    logger.init_logger(logfiles, streams, console, loglevel)
+                console: bool = False, loglevel: int = logging.INFO, encoding: str = None) -> None:
+    logger.init_logger(logfiles, streams, console, loglevel, encoding=encoding)
 
 
 def reinit_logger(logfiles: typing.List[str], streams: typing.List[typing.Any],
-                  console: bool = False, loglevel: int = logging.INFO) -> None:
-    logger.reinit_logger(logfiles, streams, console, loglevel)
+                  console: bool = False, loglevel: int = logging.INFO, encoding: str = None) -> None:
+    logger.reinit_logger(logfiles, streams, console, loglevel, encoding=encoding)
 
 
 def debug(msg: str, to_file: bool = True, to_stream: bool = True) -> None:
