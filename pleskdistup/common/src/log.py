@@ -18,7 +18,7 @@ class logger():
 
     @staticmethod
     def init_logger(logfiles: typing.List[str], streams: typing.List[typing.Any],
-                    console: bool = False, loglevel: int = logging.INFO, encoding: str = None) -> None:
+                    console: bool = False, loglevel: int = logging.INFO, encoding: typing.Optional[str] = None) -> None:
         if encoding is None:
             logger.encoding = locale.getpreferredencoding()
         else:
@@ -50,7 +50,7 @@ class logger():
 
     @staticmethod
     def reinit_logger(logfiles: typing.List[str], streams: typing.List[typing.Any],
-                      console: bool = False, loglevel: int = logging.INFO, encoding: str = None) -> None:
+                      console: bool = False, loglevel: int = logging.INFO, encoding: typing.Optional[str] = None) -> None:
         logger.files_logger = logging.getLogger("distupgrade_files")
         logger.streams_logger = logging.getLogger("distupgrade_streams")
         logger.init_logger(logfiles, streams, console, loglevel, encoding=encoding)
@@ -93,12 +93,12 @@ class logger():
 
 
 def init_logger(logfiles: typing.List[str], streams: typing.List[typing.Any],
-                console: bool = False, loglevel: int = logging.INFO, encoding: str = None) -> None:
+                console: bool = False, loglevel: int = logging.INFO, encoding: typing.Optional[str] = None) -> None:
     logger.init_logger(logfiles, streams, console, loglevel, encoding=encoding)
 
 
 def reinit_logger(logfiles: typing.List[str], streams: typing.List[typing.Any],
-                  console: bool = False, loglevel: int = logging.INFO, encoding: str = None) -> None:
+                  console: bool = False, loglevel: int = logging.INFO, encoding: typing.Optional[str] = None) -> None:
     logger.reinit_logger(logfiles, streams, console, loglevel, encoding=encoding)
 
 
