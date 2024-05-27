@@ -1,6 +1,7 @@
 # Copyright 2023-2024. WebPros International GmbH. All rights reserved.
 import sys
 from abc import ABC, abstractmethod
+from functools import lru_cache
 
 if sys.version_info < (3, 8):
     import platform
@@ -157,10 +158,8 @@ def _parse_os_relase():
     return name, version
 
 
+@lru_cache(maxsize=1)
 def get_distro() -> Distro:
-    if hasattr(get_distro, "cache"):
-        return get_distro.cache
-
     if sys.version_info < (3, 8):
         distro = platform.linux_distribution()
     else:
@@ -169,6 +168,4 @@ def get_distro() -> Distro:
     name = distro[0]
     major_version = distro[1].split(".")[0]
 
-    get_distro.cache = _distro_mapping.get((name, major_version), UnknownDistro(name, major_version))  # type: ignore[attr-defined]
-
-    return get_distro.cache  # type: ignore[attr-defined]
+    return _distro_mapping.get((name, major_version), UnknownDistro(name, major_version))

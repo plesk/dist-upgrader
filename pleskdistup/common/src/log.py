@@ -18,11 +18,11 @@ class logger():
 
         formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
-        file_handlers = []
+        file_handlers: typing.List[logging.Handler] = []
         for logfile in logfiles:
             file_handlers.append(logging.FileHandler(logfile))
 
-        stream_handlers: typing.List[logging.StreamHandler] = [logging.FileHandler('/dev/console', mode='w')] if console else []
+        stream_handlers: typing.List[logging.Handler] = [logging.FileHandler('/dev/console', mode='w')] if console else []
         for stream in streams:
             stream_handlers.append(logging.StreamHandler(stream))
         if len(stream_handlers):
