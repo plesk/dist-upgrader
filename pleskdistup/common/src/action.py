@@ -462,20 +462,18 @@ class CheckFlow(ActionsFlow):
                     f"Name of the action is {check.name!r}"
                 )
 
-    def make_checks(self) -> typing.List[str]:
-        failed_checks_msgs = []
+    def make_checks(self) -> typing.List[CheckAction]:
+        failed_checks = []
         log.debug("Start checks")
         for check in self.stages:
             log.debug("Performing check: {name}".format(name=check.name))
             try:
                 if not check.do_check():
-                    failed_checks_msgs.append(
-                        f"Required pre-conversion condition {check.name!r} not met:\n\t{check.description}\n"
-                    )
+                    failed_checks.append(check)
             except Exception as e:
                 raise RuntimeError(f"Exception during checking of required pre-conversion condition {check.name!r}") from e
 
-        return failed_checks_msgs
+        return failed_checks
 
 
 _DEFAULT_TIME_EXCEEDED_MESSAGE = """

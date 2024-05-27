@@ -101,14 +101,19 @@ def required_conditions_satisfied(upgrader: DistUpgrader, options: typing.Any, p
     checks = upgrader.get_check_actions(options, phase)
 
     try:
-        with action.CheckFlow(checks) as check_flow, writers.StdoutWriter() as writer:
+        with action.CheckFlow(checks) as check_flow, writers.StdoutEncodingReplaceWriter() as writer:
             writer.write("Doing preparation checks...\n")
             check_flow.validate_actions()
             failed_checks = check_flow.make_checks()
             writer.write("\r")
             for check in failed_checks:
-                writer.write(check)
-                log.err(check)
+                writer.write(f"Required pre-conversion condition {check.name!r} not met:\n\t{check.description}\n")
+                log.err(str(check))
+
+            if writer.has_encoding_errors():
+                printerr(messages.ENCODING_INCONSISTENCY_ERROR_MESSAGE)
+                printerr("The encoding problem occurred during one of the previous checks. The badly encoded symbol was replaced with a backslash Unicode representation")
+                return False
 
             if failed_checks:
                 return False
@@ -117,8 +122,9 @@ def required_conditions_satisfied(upgrader: DistUpgrader, options: typing.Any, p
         ex_info = traceback.format_exc()
         printerr(f"Preparation checks failed: {ex}\n{ex_info}")
 
-        if type(ex.__cause__) is UnicodeDecodeError and locale.getpreferredencoding(False).lower() != "utf-8":
+        if type(ex.__cause__) in (UnicodeEncodeError, UnicodeDecodeError) and locale.getpreferredencoding(False).lower() != "utf-8":
             printerr(messages.ENCODING_INCONSISTENCY_ERROR_MESSAGE)
+
         return False
 
 
@@ -250,7 +256,7 @@ def do_convert(
                 elif options.phase is Phase.FINISH:
                     print(messages.FINISH_RESTART_MESSAGE, end='')
                 systemd.do_reboot()
-        except UnicodeDecodeError as e:
+        except (UnicodeEncodeError, UnicodeDecodeError) as e:
             if locale.getpreferredencoding(False).lower() != "utf-8":
                 printerr(messages.ENCODING_INCONSISTENCY_ERROR_MESSAGE)
 
