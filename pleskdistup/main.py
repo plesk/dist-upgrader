@@ -438,7 +438,7 @@ def main():
                 locale.setlocale(locale.LC_CTYPE, resume_options.locale)
 
             logfile_path = resume_options.log_file
-            log.reinit_logger(
+            log.init_logger(
                 [logfile_path],
                 [],
                 loglevel=getattr(logging, resume_options.verbose, logging.DEBUG)
