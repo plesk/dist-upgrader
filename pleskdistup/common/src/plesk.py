@@ -8,7 +8,7 @@ import typing
 import urllib.request
 import xml.etree.ElementTree as ElementTree
 
-from . import log, mariadb, systemd, version
+from . import log, mariadb, systemd, version, util
 
 # http://autoinstall.plesk.com/products.inf3 is an xml file with available products,
 # including all versions of Plesk.
@@ -120,6 +120,14 @@ def list_installed_extensions() -> typing.List[typing.Tuple[str, str]]:
             name, display_name = line.split(" - ", maxsplit=1)
             res.append((name, display_name))
     return res
+
+
+def install_extension(name: str) -> None:
+    util.logged_check_call(["/usr/sbin/plesk", "bin", "extension", "--install", name])
+
+
+def uninstall_extension(name: str) -> None:
+    util.logged_check_call(["/usr/sbin/plesk", "bin", "extension", "--uninstall", name])
 
 
 class PleskComponentState(enum.Enum):

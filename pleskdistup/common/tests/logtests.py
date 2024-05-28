@@ -29,7 +29,7 @@ class TestLog(unittest.TestCase):
             self.assertEqual("", log_file.read())
 
     def test_debug_log(self):
-        log.reinit_logger([self.DEFAULT_LOG_STORE], [], console=False, loglevel=log.logging.DEBUG)
+        log.init_logger([self.DEFAULT_LOG_STORE], [], console=False, loglevel=log.logging.DEBUG)
         log.debug("Test message")
         self.assertTrue(os.path.exists(self.DEFAULT_LOG_STORE))
         with open(self.DEFAULT_LOG_STORE, "r") as log_file:
@@ -40,7 +40,7 @@ class TestLog(unittest.TestCase):
         # but we can't be sure what locale will be installed on the test machine
         # So it looks like it is enough to make sure message was re-decoded before
         # writing to the log file by checking logfile content.
-        log.reinit_logger([self.DEFAULT_LOG_STORE], [], console=False, encoding='ascii')
+        log.init_logger([self.DEFAULT_LOG_STORE], [], console=False, encoding='ascii')
         log.err("Test message ü")
         self.assertTrue(os.path.exists(self.DEFAULT_LOG_STORE))
         with open(self.DEFAULT_LOG_STORE, "r") as log_file:

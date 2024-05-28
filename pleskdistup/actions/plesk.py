@@ -458,9 +458,8 @@ class AssertMinPleskVersion(action.CheckAction):
 
     def _do_check(self) -> bool:
         try:
-            cur_version = [int(v) for v in plesk.get_plesk_version()]
-            log.debug(f"Checking if cur_version >= min_version ({cur_version!r} >= {self.min_version!r})")
-            assert len(cur_version) == 4, "Incorrect version length"
+            cur_version = plesk.get_plesk_version()
+            log.debug(f"Checking if cur_version >= min_version ({cur_version} >= {self.min_version})")
             return cur_version >= self.min_version
         except Exception as e:
             log.err(f"Checking Plesk version has failed with error: {e}")

@@ -4,7 +4,7 @@ import pwd
 import shutil
 import typing
 
-from pleskdistup.common import action, dist, files, log, systemd, util
+from pleskdistup.common import action, dist, files, plesk, log, systemd, util
 
 
 class DisableGrafana(action.ActiveAction):
@@ -133,3 +133,34 @@ class RebundleRubyApplications(action.ActiveAction):
 
     def estimate_post_time(self) -> int:
         return 60 * len(self._get_ruby_domains())
+
+
+class UninstallTuxcareEls(action.ActiveAction):
+    """ TuxCare ELS extension is installed on EoL OSes and may enable repositories incompatible with
+        the target OS version. Uninstalling also removes the repositories.
+    """
+    ext_name: str
+
+    def __init__(self) -> None:
+        self.name = "uninstall tuxcare-els"
+        self.ext_name = "tuxcare-els"
+
+    def _is_required(self) -> bool:
+        return self.ext_name in dict(plesk.list_installed_extensions())
+
+    def _prepare_action(self) -> action.ActionResult:
+        plesk.uninstall_extension(self.ext_name)
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        plesk.install_extension(self.ext_name)
+        return action.ActionResult()
+
+    def estimate_prepare_time(self) -> int:
+        return 10
+
+    def estimate_revert_time(self) -> int:
+        return 20
