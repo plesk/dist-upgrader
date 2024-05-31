@@ -26,3 +26,7 @@ def get_outdated_php_handlers(first_modern: version.PHPVersion) -> typing.List[s
 
 def get_php_handlers_by_condition(condition: typing.Callable[[version.PHPVersion], bool]) -> typing.List[str]:
     return get_php_handlers([php for php in get_known_php_versions() if condition(php)])
+
+
+def get_php_versions_by_condition(condition: typing.Callable[[version.PHPVersion], bool]) -> typing.List[version.PHPVersion]:
+    return [php for php in get_known_php_versions() if condition(php)]

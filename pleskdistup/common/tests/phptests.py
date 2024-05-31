@@ -147,3 +147,30 @@ class TestGetHandlersByCondition(unittest.TestCase):
                 "plesk-php70-fpm-dedicated",
             ]
         )
+
+
+class TestGetPHPCondition(unittest.TestCase):
+    def test_get_version_lower(self):
+        self.assertListEqual(
+                sorted(php.get_php_versions_by_condition(lambda php: php < version.PHPVersion("7.1"))),
+                [
+                    version.PHPVersion("5.2"),
+                    version.PHPVersion("5.3"),
+                    version.PHPVersion("5.4"),
+                    version.PHPVersion("5.5"),
+                    version.PHPVersion("5.6"),
+                    version.PHPVersion("7.0"),
+                ]
+        )
+
+    def test_get_only_7(self):
+        self.assertListEqual(
+                sorted(php.get_php_versions_by_condition(lambda php: php.major == 7)),
+                [
+                    version.PHPVersion("7.0"),
+                    version.PHPVersion("7.1"),
+                    version.PHPVersion("7.2"),
+                    version.PHPVersion("7.3"),
+                    version.PHPVersion("7.4"),
+                ]
+        )
