@@ -124,9 +124,16 @@ class CentOs(StoredVersionMixin, RhelBasedDistro):
         return "CentOS"
 
 
+class CloudLinux(StoredVersionMixin, RhelBasedDistro):
+    @property
+    def name(self) -> str:
+        return "CloudLinux"
+
 _distro_mapping = {
     ("CentOS Linux", "7"): CentOs("7"),
     ("AlmaLinux", "8"): AlmaLinux("8"),
+    ("CloudLinux", "7"): CloudLinux("7"),
+    ("CloudLinux", "8"): CloudLinux("8"),
     ("Debian GNU/Linux", "10"): Debian("10"),
     ("Debian GNU/Linux", "11"): Debian("11"),
     ("Debian GNU/Linux", "12"): Debian("12"),
