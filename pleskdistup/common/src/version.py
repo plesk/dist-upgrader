@@ -154,6 +154,9 @@ class PHPVersion():
     def __ge__(self, other) -> bool:
         return not self.__lt__(other)
 
+    def __hash__(self) -> int:
+        return hash((self.major, self.minor))
+
 
 class PleskVersion:
     """
