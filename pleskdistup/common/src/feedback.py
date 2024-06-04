@@ -137,7 +137,7 @@ def collect_installed_packages_dpkg(out_file_path: str = "installed_packages_dpk
 
 def collect_installed_packages_yum(out_file_path: str = "installed_packages_yum.txt") -> typing.List[str]:
     _collect_command_output(
-        ["/usr/bin/yum", "--list", "installed"],
+        ["/usr/bin/yum", "list", "installed"],
         out_file_path,
         "Getting installed packages from yum (called as {args}) failed: {ex}\n",
     )
