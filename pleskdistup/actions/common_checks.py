@@ -98,91 +98,129 @@ class AssertMinPhpVersion(action.CheckAction):
         return False
 
 
-class AssertMinPhpVersionInstalled(action.CheckAction):
-    min_version: version.PHPVersion
+class AssertInstalledPhpVersionsByCondition(action.CheckAction):
+    condition: typing.Callable[[version.PHPVersion], bool]
+    formatter: typing.Callable[[typing.List[version.PHPVersion]], str]
 
+    def __init__(
+        self,
+        name: str,
+        description: str,
+        formatter: typing.Callable[[typing.List[version.PHPVersion]], str],
+        condition: typing.Callable[[version.PHPVersion], bool],
+    ):
+        self.name = name
+        self.description = description
+        self.formatter = formatter
+        self.condition = condition
+
+    def _do_check(self) -> bool:
+        log.debug("Checking that all installed PHP versions satisfy the condition")
+
+        installed_violating_php = php.get_php_versions_by_condition(
+            lambda php: not self.condition(php) and packages.is_package_installed(f"plesk-php{php.major}{php.minor}")
+        )
+
+        if len(installed_violating_php) == 0:
+            log.debug("No installed PHP versions violate the condition")
+            return True
+
+        self.description = self.formatter(installed_violating_php)
+
+        return False
+
+
+class AssertInstalledPhpVersionsInList(AssertInstalledPhpVersionsByCondition):
+    def __init__(
+        self,
+        allowed_versions: typing.Set[str],
+    ):
+        _allowed_versions = {version.PHPVersion(ver) for ver in allowed_versions}
+        super().__init__(
+            name="check for not supported PHP versions",
+            description="""Not supported PHP versions were detected: {versions}.
+\tRemove unsupported PHP packages via Plesk Installer to proceed with the conversion:
+\tYou can do it by calling the following command:
+\tplesk installer remove --components {remove_arg}
+""",
+            formatter=lambda installed_unsupported_php: self._format_description(installed_unsupported_php),
+            condition=lambda php: php in _allowed_versions,
+        )
+
+    def _format_description(self, installed_unsupported_php: typing.List[version.PHPVersion]) -> str:
+        unsupported_php_descriptions = [str(php) for php in installed_unsupported_php]
+        return self.description.format(
+            versions=", ".join(unsupported_php_descriptions),
+            remove_arg=" ".join([php_version.replace(" ", "") for php_version in unsupported_php_descriptions]).lower()
+        )
+
+
+class AssertMinPhpVersionInstalled(AssertInstalledPhpVersionsByCondition):
     def __init__(
         self,
         min_version: str,
     ):
-        self.name = "check for outdated PHP versions"
-        self.min_version = version.PHPVersion(min_version)
-        self.description = """Outdated PHP versions were detected: {versions}.
+        minimal_php_version = version.PHPVersion(min_version)
+        super().__init__(
+            name="check for outdated PHP versions",
+            description="""Outdated PHP versions were detected: {versions}.
 \tRemove outdated PHP packages via Plesk Installer to proceed with the conversion:
 \tYou can do it by calling the following command:
 \tplesk installer remove --components {remove_arg}
-"""
-
-    def _do_check(self) -> bool:
-        log.debug(f"Checking for minimum installed PHP version of {self.min_version}")
-        # TODO: get rid of the explicit version list
-        known_php_versions = php.get_known_php_versions()
-
-        log.debug(f"Known PHP versions: {known_php_versions}")
-        outdated_php_versions = [php for php in known_php_versions if php < self.min_version]
-        outdated_php_packages = {f"plesk-php{php.major}{php.minor}": str(php) for php in outdated_php_versions}
-        log.debug(f"Outdated PHP versions: {outdated_php_versions}")
-
-        installed_pkgs = packages.filter_installed_packages(outdated_php_packages.keys())
-        log.debug(f"Outdated PHP packages installed: {installed_pkgs}")
-        if len(installed_pkgs) == 0:
-            log.debug("No outdated PHP versions installed")
-            return True
-
-        self.description = self.description.format(
-            versions=", ".join([outdated_php_packages[installed] for installed in installed_pkgs]),
-            remove_arg=" ".join(outdated_php_packages[installed].replace(" ", "") for installed in installed_pkgs).lower()
+""",
+            formatter=lambda installed_unsupported_php: self._format_description(installed_unsupported_php),
+            condition=lambda php: php >= minimal_php_version,
         )
 
-        log.debug("Outdated PHP versions found")
-        return False
+    def _format_description(self, installed_unsupported_php: typing.List[version.PHPVersion]) -> str:
+        unsupported_php_descriptions = [str(php) for php in installed_unsupported_php]
+        return self.description.format(
+            versions=", ".join(unsupported_php_descriptions),
+            remove_arg=" ".join([php_version.replace(" ", "") for php_version in unsupported_php_descriptions]).lower()
+        )
 
 
-class AssertMinPhpVersionUsedByWebsites(action.CheckAction):
-    min_version: version.PHPVersion
+class AssertPhpVersionsUsedByWebsitesByCondition(action.CheckAction):
+    condition: typing.Callable[[version.PHPVersion], bool]
+    formatter: typing.Callable[[typing.List[str]], str]
     optional: bool
 
     def __init__(
         self,
-        min_version: str,
+        name: str,
+        description: str,
+        formatter: typing.Callable[[typing.List[str]], str],
+        condition: typing.Callable[[version.PHPVersion], bool],
         optional: bool = True,
     ):
-        self.name = "checking domains uses outdated PHP"
-        self.min_version = version.PHPVersion(min_version)
+        self.name = name
+        self.description = description
+        self.formatter = formatter
+        self.condition = condition
         self.optional = optional
-        self.description = """We have identified that the domains are using older versions of PHP.
-\tSwitch the following domains to {modern} or later in order to continue with the conversion process:
-\t- {domains}
-
-\tYou can achieve this by executing the following command:
-\t> plesk bin domain -u [domain] -php_handler_id plesk-php80-fastcgi
-"""
 
     def _do_check(self) -> bool:
-        log.debug(f"Checking the minimum PHP version being used by the websites. The restriction is: {self.min_version}")
+        log.debug("Checking that all PHP versions being used by the websites satisfy the condition")
         if not plesk.is_plesk_database_ready():
             if self.optional:
                 log.info("Plesk database is not ready. Skipping the minimum PHP for websites check.")
                 return True
             raise RuntimeError("Plesk database is not ready. Skipping the minimum PHP for websites check.")
 
-        outdated_php_handlers = [f"'{handler}'" for handler in php.get_outdated_php_handlers(self.min_version)]
-        log.debug(f"Outdated PHP handlers: {outdated_php_handlers}")
+        violating_php_handlers = [f"'{handler}'" for handler in php.get_php_handlers_by_condition(lambda php: not self.condition(php))]
+        log.debug(f"Violating PHP handlers: {violating_php_handlers}")
         try:
             looking_for_domains_sql_request = """
                 SELECT d.name FROM domains d JOIN hosting h ON d.id = h.dom_id WHERE h.php_handler_id in ({});
-            """.format(", ".join(outdated_php_handlers))
+            """.format(", ".join(violating_php_handlers))
 
-            outdated_php_domains = plesk.get_from_plesk_database(looking_for_domains_sql_request)
-            if not outdated_php_domains:
+            violating_php_domains = plesk.get_from_plesk_database(looking_for_domains_sql_request)
+            if not violating_php_domains:
                 return True
 
-            log.debug(f"Outdated PHP domains: {outdated_php_domains}")
-            outdated_php_domains = "\n\t- ".join(outdated_php_domains)
-            self.description = self.description.format(
-                modern=self.min_version,
-                domains=outdated_php_domains
-            )
+            log.debug(f"Violating PHP domains: {violating_php_domains}")
+            violating_php_domains = "\n\t- ".join(violating_php_domains)
+            self.description = self._format_description(violating_php_domains)
         except Exception as ex:
             log.err("Unable to get domains list from plesk database!")
             raise RuntimeError("Unable to get domains list from plesk database!") from ex
@@ -190,56 +228,176 @@ class AssertMinPhpVersionUsedByWebsites(action.CheckAction):
         return False
 
 
-class AssertMinPhpVersionUsedByCron(action.CheckAction):
-    min_version: version.PHPVersion
+class AssertPhpVersionsUsedByWebsitesInList(AssertPhpVersionsUsedByWebsitesByCondition):
+    allowed_versions: typing.Set[version.PHPVersion]
     optional: bool
+
+    def __init__(
+        self,
+        allowed_versions: typing.Set[str],
+        optional: bool = True,
+    ):
+        self.allowed_versions = {version.PHPVersion(ver) for ver in allowed_versions}
+        super().__init__(
+            name="checking domains using not supported PHP",
+            description="""We have identified that the domains are using not supported versions of PHP.
+\tSupported PHP versions are: {versions}.
+\tSwitch the following domains to one of the supported versions in order to continue with the conversion process:
+\t- {domains}
+
+\tYou can achieve this by executing the following command:
+\t> plesk bin domain -u [domain] -php_handler_id plesk-php80-fastcgi
+""",
+            formatter=lambda installed_unsupported_php: self._format_description(installed_unsupported_php),
+            condition=lambda php: php in self.allowed_versions,
+            optional=optional,
+        )
+
+    def _format_description(self, violating_php_domains: typing.List[str]) -> str:
+        return self.description.format(
+            versions=sorted([str(php) for php in self.allowed_versions]),
+            domains=violating_php_domains
+        )
+
+
+class AssertMinPhpVersionUsedByWebsites(AssertPhpVersionsUsedByWebsitesByCondition):
+    min_version: version.PHPVersion
 
     def __init__(
         self,
         min_version: str,
         optional: bool = True,
     ):
-        self.name = "checking cronjob uses outdated PHP"
         self.min_version = version.PHPVersion(min_version)
-        self.optional = optional
-        self.description = """We have detected that some cronjobs are using outdated PHP versions.
-\tSwitch the following cronjobs to {modern} or later in order to continue with the conversion process:"
-\t- {cronjobs}
+        super().__init__(
+            name="checking domains using outdated PHP",
+            description="""We have identified that the domains are using older versions of PHP.
+\tSwitch the following domains to {modern} or later in order to continue with the conversion process:
+\t- {domains}
 
-\tYou can do this in the Plesk web interface by going “Tools & Settings” → “Scheduled Tasks”.
-"""
+\tYou can achieve this by executing the following command:
+\t> plesk bin domain -u [domain] -php_handler_id plesk-php80-fastcgi
+""",
+            formatter=lambda installed_unsupported_php: self._format_description(installed_unsupported_php),
+            condition=lambda php: php >= self.min_version,
+            optional=optional,
+        )
+
+    def _format_description(self, violating_php_domains: typing.List[str]) -> str:
+        return self.description.format(
+            modern=str(self.min_version),
+            domains=violating_php_domains
+        )
+
+
+class AssertPhpVersionsUsedByCronByCondition(action.CheckAction):
+    condition: typing.Callable[[version.PHPVersion], bool]
+    formatter: typing.Callable[[typing.List[str]], str]
+    optional: bool
+
+    def __init__(
+        self,
+        name: str,
+        description: str,
+        formatter: typing.Callable[[typing.List[str]], str],
+        condition: typing.Callable[[version.PHPVersion], bool],
+        optional: bool = True,
+    ):
+        self.name = name
+        self.description = description
+        self.formatter = formatter
+        self.condition = condition
+        self.optional = optional
 
     def _do_check(self) -> bool:
-        log.debug(f"Checking the minimum PHP version used in cronjobs. Restriction is: {self.min_version}")
+        log.debug("Checking that all PHP versions being used in cronjobs satisfy the condition")
         if not plesk.is_plesk_database_ready():
             if self.optional:
                 log.info("Plesk database is not ready. Skipping the minimum PHP for cronjobs check.")
                 return True
             raise RuntimeError("Plesk database is not ready. Skipping the minimum PHP for cronjobs check.")
 
-        outdated_php_handlers = [f"'{handler}'" for handler in php.get_outdated_php_handlers(self.min_version)]
-        log.debug(f"Outdated PHP handlers: {outdated_php_handlers}")
+        violating_php_handlers = [f"'{handler}'" for handler in php.get_php_handlers_by_condition(lambda php: not self.condition(php))]
+        log.debug(f"violating PHP handlers: {violating_php_handlers}")
 
         try:
             looking_for_cronjobs_sql_request = """
                 SELECT command from ScheduledTasks WHERE type = "php" and phpHandlerId in ({});
-            """.format(", ".join(outdated_php_handlers))
+            """.format(", ".join(violating_php_handlers))
 
-            outdated_php_cronjobs = plesk.get_from_plesk_database(looking_for_cronjobs_sql_request)
-            if not outdated_php_cronjobs:
+            violating_php_cronjobs = plesk.get_from_plesk_database(looking_for_cronjobs_sql_request)
+            if not violating_php_cronjobs:
                 return True
 
-            log.debug(f"Outdated PHP cronjobs: {outdated_php_cronjobs}")
-            outdated_php_cronjobs = "\n\t- ".join(outdated_php_cronjobs)
+            log.debug(f"violating PHP cronjobs: {violating_php_cronjobs}")
+            violating_php_cronjobs = "\n\t- ".join(violating_php_cronjobs)
 
-            self.description = self.description.format(
-                modern=self.min_version,
-                cronjobs=outdated_php_cronjobs)
+            self.description = self._format_description(violating_php_cronjobs)
         except Exception as ex:
             log.err("Unable to get cronjobs list from plesk database!")
             raise RuntimeError("Unable to get cronjobs list from plesk database!") from ex
 
         return False
+
+
+class AssertPhpVersionsUsedByCronInList(AssertPhpVersionsUsedByCronByCondition):
+    allowed_versions: typing.Set[version.PHPVersion]
+    optional: bool
+
+    def __init__(
+        self,
+        allowed_versions: typing.Set[str],
+        optional: bool = True,
+    ):
+        self.allowed_versions = {version.PHPVersion(ver) for ver in allowed_versions}
+        super().__init__(
+            name="checking cronjob using outdated PHP",
+            description="""We have detected that some cronjobs are using not supported PHP versions.
+    \tSupported PHP versions are: {versions}.
+    \tSwitch the following cronjobs to one of the supported versions in order to continue with the conversion process:"
+    \t- {cronjobs}
+
+    \tYou can do this in the Plesk web interface by going “Tools & Settings” → “Scheduled Tasks”.
+    """,
+            formatter=lambda installed_unsupported_php: self._format_description(installed_unsupported_php),
+            condition=lambda php: php in self.allowed_versions,
+            optional=optional,
+        )
+
+    def _format_description(self, violating_php_cronjobs: typing.List[str]) -> str:
+        return self.description.format(
+            versions=sorted([str(php) for php in self.allowed_versions]),
+            cronjobs=violating_php_cronjobs
+        )
+
+
+class AssertMinPhpVersionUsedByCron(AssertPhpVersionsUsedByCronByCondition):
+    min_version: version.PHPVersion
+
+    def __init__(
+        self,
+        min_version: str,
+        optional: bool = True,
+    ):
+        self.min_version = version.PHPVersion(min_version)
+        super().__init__(
+            name="checking cronjob using outdated PHP",
+            description="""We have detected that some cronjobs are using outdated PHP versions.
+    \tSwitch the following cronjobs to {modern} or later in order to continue with the conversion process:"
+    \t- {cronjobs}
+
+    \tYou can do this in the Plesk web interface by going “Tools & Settings” → “Scheduled Tasks”.
+    """,
+            formatter=lambda installed_unsupported_php: self._format_description(installed_unsupported_php),
+            condition=lambda php: php >= self.min_version,
+            optional=optional,
+        )
+
+    def _format_description(self, violating_php_domains: typing.List[str]) -> str:
+        return self.description.format(
+            modern=self.min_version,
+            cronjobs=violating_php_domains
+        )
 
 
 class AssertOsVendorPhpUsedByWebsites(action.CheckAction):
