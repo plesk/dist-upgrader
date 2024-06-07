@@ -164,3 +164,78 @@ class UninstallTuxcareEls(action.ActiveAction):
 
     def estimate_revert_time(self) -> int:
         return 20
+
+
+class AssertPleskExtensions(action.CheckAction):
+    installed: typing.Set[str]
+    not_installed: typing.Set[str]
+    installed_description: str
+    not_installed_description: str
+    installed_violations: typing.Set[str]
+    not_installed_violations: typing.Set[str]
+    _name: str
+
+    def __init__(
+        self,
+        installed: typing.Optional[typing.Iterable[str]] = None,
+        not_installed: typing.Optional[typing.Iterable[str]] = None,
+        name: str = "check Plesk extensions state:",
+        installed_description: typing.Optional[str] = None,
+        not_installed_description: typing.Optional[str] = None,
+    ):
+        if installed is None and not_installed is None:
+            raise ValueError("'installed' and 'not_installed' can't be both None")
+        self.installed = set(installed) if installed is not None else set()
+        self.not_installed = set(not_installed) if not_installed is not None else set()
+        self._name = name
+        self.installed_violations = set()
+        self.not_installed_violations = set()
+
+        self._installed_description = "Required Plesk extensions are missing. To continue, please install the following extensions:\n\t- {installed_violations}"
+        if installed_description is not None:
+            self._installed_description = installed_description
+
+        self._not_installed_description = "There are conflicting Plesk extensions installed. To proceed, please remove the following extensions:\n\t- {not_installed_violations}"
+        if not_installed_description is not None:
+            self._not_installed_description = not_installed_description
+
+    @property
+    def name(self) -> str:
+        res = self._name
+        if res.endswith(":"):
+            comp_list = [f"+{c}" for c in self.installed]
+            comp_list += [f"-{c}" for c in self.not_installed]
+            comp_list.sort()
+            res += f" {', '.join(comp_list)}"
+        return res
+
+    @name.setter
+    def name(self, val: str) -> None:
+        self._name = val
+
+    @property
+    def description(self) -> str:
+        desc: typing.List[str] = []
+        if self._installed_description and self.installed_violations:
+            desc.append(self._installed_description.format(installed_violations='\n\t- '.join(self.installed_violations)))
+        if self._not_installed_description and self.not_installed_violations:
+            desc.append(self._not_installed_description.format(not_installed_violations='\n\t- '.join(self.not_installed_violations)))
+        if desc:
+            return "\n\t".join(desc)
+        return "Plesk extensions state check passed"
+
+    @description.setter
+    def description(self, val: str) -> None:
+        raise NotImplementedError
+
+    def _do_check(self) -> bool:
+        extensions = dict(plesk.list_installed_extensions())
+        log.debug(f"Detected installed Plesk extensions: {extensions}")
+
+        self.installed_violations = set(extension for extension in self.installed if extension not in extensions)
+        log.debug(f"Missing required extensions: {self.installed_violations}")
+
+        self.not_installed_violations = set(extension for extension in self.not_installed if extension in extensions)
+        log.debug(f"Installed conflicting extensions: {self.not_installed_violations}")
+
+        return not self.installed_violations and not self.not_installed_violations

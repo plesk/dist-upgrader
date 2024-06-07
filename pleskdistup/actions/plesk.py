@@ -365,10 +365,14 @@ class AssertPleskComponents(action.CheckAction):
         self._name = name
         self.installed_violations = set()
         self.not_installed_violations = set()
-        if installed_description is None:
-            self._installed_description = "These not installed Plesk components need to be installed before upgrading to the new OS version: {installed_violations}. Please install them using Plesk installer."
-        if not_installed_description is None:
-            self._not_installed_description = "These installed Plesk components need to be removed before upgrading to the new OS version: {not_installed_violations}. Please remove them using Plesk installer."
+
+        self._installed_description = "These not installed Plesk components need to be installed before upgrading to the new OS version: {installed_violations}. Please install them using Plesk installer."
+        if installed_description is not None:
+            self._installed_description = installed_description
+
+        self._not_installed_description = "These installed Plesk components need to be removed before upgrading to the new OS version: {not_installed_violations}. Please remove them using Plesk installer."
+        if not_installed_description is not  None:
+            self._not_installed_description = not_installed_description
 
     @property
     def name(self) -> str:
