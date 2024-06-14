@@ -2,6 +2,7 @@
 
 import typing
 
+
 class KernelVersion():
     """Linux kernel version representation class."""
 
@@ -45,7 +46,12 @@ class KernelVersion():
 
     def _extract_no_build(self, version: str) -> None:
         self.build = ""
-        self.major, self.minor, self.patch, self.distro, self.arch = version.split(".")
+
+        self.major, self.minor, self.patch, self.distro, self.arch, *_ = version.split(".") + [""] * 5
+        if self.minor == "":
+            self.minor = "0"
+        if self.patch == "":
+            self.patch = "0"
 
     def _remove_prefix(self, version: str) -> str:
         while not version[0].isdigit():

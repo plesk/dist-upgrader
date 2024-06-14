@@ -25,6 +25,15 @@ class KernelVersionTests(unittest.TestCase):
     def test_kernel_parse_virtuozo(self):
         self._check_parse("3.10.0-1160.90.1.vz7.200.7", "3.10.0-1160.90.1.vz7")
 
+    def test_kernel_parse_only_major(self):
+        self._check_parse("3", "3.0.0")
+
+    def test_kernel_parse_major_minor(self):
+        self._check_parse("3.10", "3.10.0")
+
+    def test_kernel_parse_major_minor_patch(self):
+        self._check_parse("3.10.5", "3.10.5")
+
     def test_kernel_parse_small(self):
         self._check_parse("3.14.43-1", "3.14.43-1")
 
