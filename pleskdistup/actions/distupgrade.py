@@ -1,5 +1,8 @@
 # Copyright 2023-2024. WebPros International GmbH. All rights reserved.
+
 import os
+import re
+import shutil
 import subprocess
 
 from pleskdistup.common import action, dpkg, files, log, packages, util
@@ -66,41 +69,132 @@ class SetupUbuntu20Repositories(action.ActiveAction):
 
 
 class SetupAptRepositories(action.ActiveAction):
+    system_type: str
     from_codename: str
+    from_version: str
     to_codename: str
+    to_version: str
     sources_list_path: str
     sources_list_d_path: str
     _name: str
+    _sources_backup_suffix: str = ".pleskdistup-old"
 
     def __init__(
         self,
+        system_type: str,
         from_codename: str,
+        from_version: str,
         to_codename: str,
+        to_version: str,
         sources_list_path: str = "/etc/apt/sources.list",
         sources_list_d_path: str = "/etc/apt/sources.list.d/",
-        name: str = "set up APT repositories to upgrade from {self.from_codename!r} to {self.to_codename!r}",
+        name: str = "set up APT repositories to upgrade from {self.from_system!r} to {self.to_system!r}",
     ):
+        self.system_type = system_type
         self.from_codename = from_codename
+        self.from_version = from_version
         self.to_codename = to_codename
+        self.to_version = to_version
         self.sources_list_path = sources_list_path
         self.sources_list_d_path = sources_list_d_path
 
         self._name = name
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._name.format(self=self)
 
-    def _change_sources_codename(self, from_codename: str, to_codename: str) -> None:
-        files.replace_string(self.sources_list_path, from_codename, to_codename)
+    @name.setter
+    def name(self, value) -> None:
+        self._name = value
 
+    @property
+    def from_system(self) -> str:
+        res = f"{self.system_type}"
+        if self.from_version:
+            res += f" {self.from_version}"
+        if self.from_codename:
+            res += f" ({self.from_codename})"
+        return res
+
+    @property
+    def to_system(self) -> str:
+        res = f"{self.system_type}"
+        if self.to_version:
+            res += f" {self.to_version}"
+        if self.from_codename:
+            res += f" ({self.to_codename})"
+        return res
+
+    def _change_sources_in_file(
+        self,
+        path: str,
+        system_type: str,
+        from_codename: str,
+        from_version: str,
+        to_codename: str,
+        to_version: str,
+    ):
+        def escape_backslash(s):
+            return s.replace("\\", "\\\\")
+
+        log.debug(f"Replacing APT sources in {path!r}")
+        subs_src = [
+            (f"(https://packages.microsoft.com/{re.escape(system_type.lower())}/){re.escape(from_version)}/", f"\\g<1>{escape_backslash(to_version)}/"),
+            (f"\\b{re.escape(from_codename)}\\b", escape_backslash(to_codename))
+        ]
+        subs = [(re.compile(item[0]), item[1]) for item in subs_src]
+        with open(path, "r") as origf, open(path + ".next", "w") as nextf:
+            for line in origf:
+                sline = line.strip()
+                if not sline or sline[0] == "#":
+                    log.debug(f"Skipped comment {line}")
+                    continue
+                log.debug(f"Processing line: {line!r}")
+                for sub_patt, sub_repl in subs:
+                    line, subnum = sub_patt.subn(sub_repl, line)
+                    if subnum > 0:
+                        log.debug(f"Pattern {sub_patt} matched, new line: {line!r}")
+                log.debug(f"Writing line: {line!r}")
+                nextf.write(line)
+
+        shutil.move(path, path + self._sources_backup_suffix)
+        shutil.move(path + ".next", path)
+
+    def _get_source_list_paths(self, suffix: str = ""):
+        if os.path.exists(self.sources_list_path + suffix):
+            yield self.sources_list_path + suffix
         for root, _, filenames in os.walk(self.sources_list_d_path):
             for f in filenames:
-                if f.endswith(".list"):
-                    files.replace_string(os.path.join(root, f), from_codename, to_codename)
+                if f.endswith(".list" + suffix):
+                    yield os.path.join(root, f)
+
+    def _change_sources(
+        self,
+        system_type: str,
+        from_codename: str,
+        from_version: str,
+        to_codename: str,
+        to_version: str,
+    ) -> None:
+        for f in self._get_source_list_paths():
+            self._change_sources_in_file(
+                f,
+                self.system_type,
+                self.from_codename,
+                self.from_version,
+                self.to_codename,
+                self.to_version,
+            )
 
     def _prepare_action(self) -> action.ActionResult:
-        self._change_sources_codename(self.from_codename, self.to_codename)
+        self._change_sources(
+            self.system_type,
+            self.from_codename,
+            self.from_version,
+            self.to_codename,
+            self.to_version,
+        )
         packages.update_package_list()
         return action.ActionResult()
 
@@ -108,7 +202,11 @@ class SetupAptRepositories(action.ActiveAction):
         return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
-        self._change_sources_codename(self.to_codename, self.from_codename)
+        for path in self._get_source_list_paths(self._sources_backup_suffix):
+            if path[-len(self._sources_backup_suffix):] == self._sources_backup_suffix:
+                newpath = path[:-len(self._sources_backup_suffix)]
+                if newpath:
+                    shutil.move(path, newpath)
         packages.update_package_list()
         return action.ActionResult()
 
@@ -119,8 +217,14 @@ class SetupAptRepositories(action.ActiveAction):
         return 20
 
 
-SetupDebianRepositories = SetupAptRepositories
-SetupUbuntuRepositories = SetupAptRepositories
+class SetupDebianRepositories(SetupAptRepositories):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Debian", *args, **kwargs)
+
+
+class SetupUbuntuRepositories(SetupAptRepositories):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Ubuntu", *args, **kwargs)
 
 
 class InstallNextKernelVersion(action.ActiveAction):
