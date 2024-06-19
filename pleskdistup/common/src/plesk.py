@@ -14,6 +14,7 @@ from . import log, mariadb, systemd, version, util
 # including all versions of Plesk.
 DEFAULT_AUTOINSTALL_PRODUCTS_FILE = "http://autoinstall.plesk.com/products.inf3"
 
+
 def send_error_report(error_message: str) -> None:
     log.debug(f"Error report: {error_message}")
     # Todo. For now we works only on RHEL-based distros, so the path

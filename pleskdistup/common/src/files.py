@@ -46,9 +46,6 @@ def push_front_strings(filename: str, strings: typing.List[str]) -> None:
 
 
 def rewrite_json_file(filename: str, jobj: typing.Union[dict, typing.List]) -> None:
-    if filename is None or jobj is None:
-        return
-
     log.debug("Going to write json '{file}' with new data".format(file=filename))
 
     with open(filename + ".next", "w") as dst:
