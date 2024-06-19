@@ -1,10 +1,11 @@
 # Copyright 2023-2024. WebPros International GmbH. All rights reserved.
+
 import json
 import os
 import shutil
 import subprocess
 
-from pleskdistup.common import action, files, log, motd, plesk, util
+from pleskdistup.common import action, files, log, motd, util
 
 
 class SetMinDovecotDhParamSize(action.ActiveAction):

@@ -371,7 +371,7 @@ class AssertPleskComponents(action.CheckAction):
             self._installed_description = installed_description
 
         self._not_installed_description = "These installed Plesk components need to be removed before upgrading to the new OS version: {not_installed_violations}. Please remove them using Plesk installer."
-        if not_installed_description is not  None:
+        if not_installed_description is not None:
             self._not_installed_description = not_installed_description
 
     @property
