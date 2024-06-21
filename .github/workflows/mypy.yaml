@@ -19,5 +19,7 @@ jobs:
           python-version: "3.x"
       - name: Install mypy
         run: pip install mypy
-      - name: Perform mypy lint
-        run: mypy ./pleskdistup/main.py
+      - name: Perform mypy lint of the pleskdistup package
+        run: mypy --exclude pleskdistup/common/tests --package pleskdistup
+      - name: Perform mypy lint of pleskdistup/common/tests
+        run: MYPYPATH=pleskdistup/common mypy --explicit-package-bases pleskdistup/common/tests
