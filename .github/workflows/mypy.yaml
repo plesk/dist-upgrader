@@ -1,6 +1,6 @@
 name: MyPy Lint
 on:
-  pull_request:
+  push
 
 jobs:
   mypy:
