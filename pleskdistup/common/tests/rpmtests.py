@@ -397,3 +397,35 @@ class repositoryHasNoneLinkTest(unittest.TestCase):
 
     def test_links_are_fine(self):
         self.assertFalse(rpm.repository_has_none_link("id", "name", "url", "metalink", "mirrorlist"))
+
+
+class repositorySourceIsIp(unittest.TestCase):
+    def test_no_links(self):
+        self.assertFalse(rpm.repository_source_is_ip(None, None, None))
+
+    def test_url_is_ip(self):
+        self.assertTrue(rpm.repository_source_is_ip("https://192.168.0.1/repo", None, None))
+
+    def test_metalink_is_ip(self):
+        self.assertTrue(rpm.repository_source_is_ip(None, "https://192.168.0.1/repo", None))
+
+    def test_mirrorlist_is_ip(self):
+        self.assertTrue(rpm.repository_source_is_ip(None, None, "https://192.168.0.1/repo"))
+
+    def test_all_are_fine(self):
+        self.assertFalse(rpm.repository_source_is_ip("https://my.repo/repo", "https://my.repo/repo", "https://my.repo/repo"))
+
+    def test_ipv6_address(self):
+        self.assertTrue(rpm.repository_source_is_ip("https://[2001:0db8:85a3:0000:0000:8a2e:0370:7334]/repo", None, None))
+
+    def test_url_is_ip_with_port(self):
+        self.assertTrue(rpm.repository_source_is_ip("https://192.168.0.1:8080/repo", None, None))
+
+    def test_url_is_ip_with_credentials(self):
+        self.assertTrue(rpm.repository_source_is_ip("https://user:pass@192.168.0.1:8080/repo", None, None))
+
+    def test_url_is_not_ip_but_ip_in_path(self):
+        self.assertFalse(rpm.repository_source_is_ip("https://my.repo/repo/192.168.0.1/target", None, None))
+
+    def test_non_url_string(self):
+        self.assertFalse(rpm.repository_source_is_ip("Just a random string", None, None))

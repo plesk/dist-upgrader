@@ -1,9 +1,12 @@
 # Copyright 2023-2024. WebPros International GmbH. All rights reserved.
+import ipaddress
 import itertools
 import os
 import shutil
 import subprocess
 import typing
+
+from urllib.parse import urlparse
 
 from . import files, util, log
 
@@ -229,4 +232,35 @@ def repository_has_none_link(
         if link is not None and link.lower() == "none":
             return True
 
+    return False
+
+
+def repository_source_is_ip(
+    baseurl: typing.Optional[str],
+    metalink: typing.Optional[str],
+    mirrorlist: typing.Optional[str]
+) -> bool:
+    """
+    Checks if any of the provided repository source URLs (baseurl, metalink, mirrorlist) is an IP address.
+
+    Parameters:
+    - baseurl (typing.Optional[str]): The base URL of the repository. Could be None.
+    - metalink (typing.Optional[str]): The metalink URL of the repository. Could be None.
+    - mirrorlist (typing.Optional[str]): The mirrorlist URL of the repository. Could be None.
+
+    Returns:
+    - bool: True if any of the URLs is an IP address, False otherwise.
+    """
+    for link in (baseurl, metalink, mirrorlist):
+        if link is None:
+            continue
+
+        hostname = urlparse(link).hostname
+        if not hostname:
+            continue
+        try:
+            ipaddress.ip_address(hostname)
+            return True
+        except ValueError:
+            continue
     return False
