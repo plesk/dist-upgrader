@@ -1,0 +1,26 @@
+name: Flake8 Lint
+on:
+  pull_request
+
+jobs:
+  flake8:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository and submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          # We use tags to determine version, so fetch them
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+      - name: Install flake8
+        run: pip install flake8
+      - name: Perform flake8 lint
+        # F401: module imported but unused
+        # F403: 'from module import *' used; unable to detect undefined names
+        # E501: line too long
+        run: flake8 --extend-ignore=E501 --per-file-ignores='pleskdistup/__init__.py:F401,F403 pleskdistup/*/__init__.py:F401,F403' --extend-exclude '*.defs.py'
