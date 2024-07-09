@@ -11,6 +11,7 @@ import time
 import traceback
 import typing
 from collections import Counter
+from contextlib import contextmanager
 from datetime import datetime
 
 import pleskdistup
@@ -291,6 +292,37 @@ def read_resume_data(resume_path: PathType) -> ResumeData:
         raise
 
 
+@contextmanager
+def try_lock(lock_file: PathType) -> typing.Generator[bool, None, None]:
+    try:
+        lock_acquired = False
+        lock_fd = None
+        current_pid = os.getpid()
+
+        log.info(f"Going to obtain lockfile {lock_file!r}...")
+        # O_EXCL is used to ensure that the file is created only if it does not already exist.
+        # This guarantees that we will not acquire the lock if another process has already taken it.
+        lock_fd = os.open(lock_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        lock_acquired = True
+        os.write(lock_fd, str(current_pid).encode())
+        os.close(lock_fd)
+        log.info(f"Lockfile obtained for pid {current_pid!r}")
+        yield True
+    except FileExistsError:
+        log.info("Lock already obtained by another process")
+        yield False
+    except Exception as ex:
+        log.info(f"Unable to obtain lockfile {lock_file!r}: {ex}")
+        yield False
+    finally:
+        if lock_acquired:
+            log.info(f"Going to free lockfile {lock_file!r}...")
+            try:
+                os.unlink(lock_file)
+            except Exception as ex:
+                log.warn(f"Failed to remove lockfile {lock_file!r}: {ex}")
+
+
 DESC_MESSAGE = """Use this utility to dist-upgrade your server with Plesk.
 
 The utility writes a log to the file specified by --logfile. If there are any issues, you can find more information in the log file.
@@ -548,16 +580,24 @@ def main():
             "You can change the directory using --state-dir."
         )
         return 1
-    options.status_flag_path = os.path.join(options.state_dir, "dist-upgrade-conversion.flag")
-    options.completion_flag_path = os.path.join(options.state_dir, "dist-upgrade-done.flag")
 
-    convert_res = do_convert(upgrader, options, status_file_path, logfile_path, util_name, options.show_plan)
-    if convert_res == 0 and os.path.exists(options.completion_flag_path):
-        log.info("Dist-upgrade process completed, cleaning up...")
-        if os.path.exists(options.resume_path):
-            os.unlink(options.resume_path)
-            log.debug(f"Removed the resume file {options.resume_path!r}")
-        os.unlink(options.completion_flag_path)
+    lock_file = options.state_dir + f"/{util_name}.lock"
+    with try_lock(lock_file) as lock_acquired:
+        if not lock_acquired:
+            printerr(f"{util_name} is ongoing. To check its status, please use `--monitor` or `--status`")
+            return 1
+
+        options.status_flag_path = os.path.join(options.state_dir, "dist-upgrade-conversion.flag")
+        options.completion_flag_path = os.path.join(options.state_dir, "dist-upgrade-done.flag")
+
+        convert_res = do_convert(upgrader, options, status_file_path, logfile_path, util_name, options.show_plan)
+        if convert_res == 0 and os.path.exists(options.completion_flag_path):
+            log.info("Dist-upgrade process completed, cleaning up...")
+            if os.path.exists(options.resume_path):
+                os.unlink(options.resume_path)
+                log.debug(f"Removed the resume file {options.resume_path!r}")
+            os.unlink(options.completion_flag_path)
+
     return convert_res
 
 
