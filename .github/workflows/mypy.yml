@@ -1,4 +1,4 @@
-name: MyPy Lint
+name: Mypy Lint
 on:
   pull_request
 
