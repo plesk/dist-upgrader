@@ -1,8 +1,10 @@
 # Copyright 2023-2024. WebPros International GmbH. All rights reserved.
+
 import json
 import os
 import subprocess
 import typing
+from abc import abstractmethod
 
 from pleskdistup.common import action, log, packages, php, plesk, version
 
@@ -219,13 +221,16 @@ class AssertPhpVersionsUsedByWebsitesByCondition(action.CheckAction):
                 return True
 
             log.debug(f"Violating PHP domains: {violating_php_domains}")
-            violating_php_domains = "\n\t- ".join(violating_php_domains)
             self.description = self._format_description(violating_php_domains)
         except Exception as ex:
             log.err("Unable to get domains list from plesk database!")
             raise RuntimeError("Unable to get domains list from plesk database!") from ex
 
         return False
+
+    @abstractmethod
+    def _format_description(self, violating_php_domains: typing.List[str]) -> str:
+        pass
 
 
 class AssertPhpVersionsUsedByWebsitesInList(AssertPhpVersionsUsedByWebsitesByCondition):
@@ -256,7 +261,7 @@ class AssertPhpVersionsUsedByWebsitesInList(AssertPhpVersionsUsedByWebsitesByCon
     def _format_description(self, violating_php_domains: typing.List[str]) -> str:
         return self.description.format(
             versions=sorted([str(php) for php in self.allowed_versions]),
-            domains=violating_php_domains
+            domains="\n\t- ".join(violating_php_domains),
         )
 
 
@@ -286,7 +291,7 @@ class AssertMinPhpVersionUsedByWebsites(AssertPhpVersionsUsedByWebsitesByConditi
     def _format_description(self, violating_php_domains: typing.List[str]) -> str:
         return self.description.format(
             modern=str(self.min_version),
-            domains=violating_php_domains
+            domains="\n\t- ".join(violating_php_domains),
         )
 
 
@@ -330,14 +335,16 @@ class AssertPhpVersionsUsedByCronByCondition(action.CheckAction):
                 return True
 
             log.debug(f"violating PHP cronjobs: {violating_php_cronjobs}")
-            violating_php_cronjobs = "\n\t- ".join(violating_php_cronjobs)
-
             self.description = self._format_description(violating_php_cronjobs)
         except Exception as ex:
             log.err("Unable to get cronjobs list from plesk database!")
             raise RuntimeError("Unable to get cronjobs list from plesk database!") from ex
 
         return False
+
+    @abstractmethod
+    def _format_description(self, violating_php_cronjobs: typing.List[str]) -> str:
+        pass
 
 
 class AssertPhpVersionsUsedByCronInList(AssertPhpVersionsUsedByCronByCondition):
@@ -367,7 +374,7 @@ class AssertPhpVersionsUsedByCronInList(AssertPhpVersionsUsedByCronByCondition):
     def _format_description(self, violating_php_cronjobs: typing.List[str]) -> str:
         return self.description.format(
             versions=sorted([str(php) for php in self.allowed_versions]),
-            cronjobs=violating_php_cronjobs
+            cronjobs="\n\t- ".join(violating_php_cronjobs),
         )
 
 
@@ -393,10 +400,10 @@ class AssertMinPhpVersionUsedByCron(AssertPhpVersionsUsedByCronByCondition):
             optional=optional,
         )
 
-    def _format_description(self, violating_php_domains: typing.List[str]) -> str:
+    def _format_description(self, violating_php_cronjobs: typing.List[str]) -> str:
         return self.description.format(
             modern=self.min_version,
-            cronjobs=violating_php_domains
+            cronjobs="\n\t- ".join(violating_php_cronjobs),
         )
 
 
@@ -436,10 +443,9 @@ class AssertOsVendorPhpUsedByWebsites(action.CheckAction):
                 return True
 
             log.debug(f"OS vendor PHP domains: {os_vendor_php_domains}")
-            os_vendor_php_domains = "\n\t- ".join(os_vendor_php_domains)
             self.description = self.description.format(
                 modern=self.min_version,
-                domains=os_vendor_php_domains
+                domains="\n\t- ".join(os_vendor_php_domains),
             )
         except Exception as ex:
             error_msg = "Unable to retrieve the list of domains using the PHP provided by the operating system vendor from the Plesk database"

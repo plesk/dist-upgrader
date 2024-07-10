@@ -17,12 +17,12 @@ class AddMappingTests(unittest.TestCase):
             if os.path.exists(files):
                 os.remove(files)
 
-    def _perform_test(self, repos: typing.Dict[str, str], expected_repos: str, expected_mapping: str, ignore: bool = None) -> None:
+    def _perform_test(self, repos: typing.Dict[str, str], expected_repos: str, expected_mapping: str, ignore: typing.Optional[typing.List[str]] = None) -> None:
         for filename, content in repos.items():
             with open(filename, "w") as f:
                 f.write(content)
 
-        leapp_configs.add_repositories_mapping(repos, ignore=ignore,
+        leapp_configs.add_repositories_mapping(list(repos), ignore=ignore,
                                                leapp_repos_file_path=self.LEAPP_REPO_FILE,
                                                mapfile_path=self.LEAPP_MAP_FILE)
 

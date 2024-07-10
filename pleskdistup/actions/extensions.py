@@ -114,7 +114,7 @@ class RebundleRubyApplications(action.ActiveAction):
 
             app_directory, bundle = self._get_ruby_application_paths(domain_path)
 
-            if bundle is None or not os.path.isdir(bundle):
+            if bundle is None or not os.path.isdir(bundle) or app_directory is None:
                 log.debug(f"Skip re-bundling for non bundling domain '{domain_path}'")
                 continue
 

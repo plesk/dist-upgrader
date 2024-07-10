@@ -293,7 +293,7 @@ def read_resume_data(resume_path: PathType) -> ResumeData:
 
 DESC_MESSAGE = """Use this utility to dist-upgrade your server with Plesk.
 
-The utility writes a log to the file specified by --logfile. If there are any issues, you can find more information in the log file.
+The utility writes a log to the file specified by --log-file. If there are any issues, you can find more information in the log file.
 
 Plesk dist-upgrader framework version {pleskdistup_revision}.
 """
