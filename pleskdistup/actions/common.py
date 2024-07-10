@@ -85,7 +85,9 @@ To monitor the conversion progress in real time, run the '{path_to_util} --monit
 
 
 class DisablePleskSshBanner(action.ActiveAction):
-    def __init__(self):
+    banner_command_path: str
+
+    def __init__(self) -> None:
         self.name = "disable Plesk SSH banner"
         self.banner_command_path = "/root/.plesk_banner"
 

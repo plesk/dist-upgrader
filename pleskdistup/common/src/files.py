@@ -82,7 +82,7 @@ def __get_files_recursive(path: str) -> typing.Iterator[str]:
             yield os.path.relpath(os.path.join(root, file), path)
 
 
-def find_files_case_insensitive(path: str, regexps_strings: typing.Union[typing.List, str], recursive: bool = False):
+def find_files_case_insensitive(path: str, regexps_strings: typing.Union[typing.List, str], recursive: bool = False) -> typing.List[str]:
     # Todo. We should add typing for our functions
     if not isinstance(regexps_strings, list) and not isinstance(regexps_strings, str):
         raise TypeError("find_files_case_insensitive argument regexps_strings must be a list")
@@ -105,7 +105,7 @@ def find_files_case_insensitive(path: str, regexps_strings: typing.Union[typing.
     return result
 
 
-def is_directory_empty(path: str):
+def is_directory_empty(path: str) -> bool:
     return not os.path.exists(path) or len(os.listdir(path)) == 0
 
 

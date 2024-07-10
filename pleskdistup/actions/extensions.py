@@ -45,7 +45,7 @@ class DisableGrafana(action.ActiveAction):
 class RebundleRubyApplications(action.ActiveAction):
     plesk_apache_configs_path: str
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.name = "rebundling ruby applications"
         self.description = "rebundling ruby applications"
 

@@ -21,7 +21,7 @@ class AddUpgradeSystemdService(action.ActiveAction):
         options: typing.Any,
         name: str = "add the service {self.service_name!r} to resume Plesk dist-upgrade after reboot",
         service_name: str = "plesk-dist-upgrade-resume.service",
-    ):
+    ) -> None:
         self.util_path = util_path
         self.options = options
         self.service_name = service_name
@@ -81,7 +81,7 @@ class DisablePleskRelatedServicesDuringUpgrade(action.ActiveAction):
     plesk_systemd_services: typing.List[str]
     oneshot_services: typing.List[str]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.name = "disable plesk related services"
         plesk_known_systemd_services = [
             "crond.service",
@@ -133,19 +133,20 @@ class DisablePleskRelatedServicesDuringUpgrade(action.ActiveAction):
         util.logged_check_call(["/usr/bin/systemctl", "start"] + self.plesk_systemd_services)
         return action.ActionResult()
 
-    def estimate_prepare_time(self):
+    def estimate_prepare_time(self) -> int:
         return 10
 
-    def estimate_post_time(self):
+    def estimate_post_time(self) -> int:
         return 5
 
-    def estimate_revert_time(self):
+    def estimate_revert_time(self) -> int:
         return 10
 
 
 class StartPleskBasicServices(action.ActiveAction):
+    plesk_basic_services: typing.List[str]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.name = "starting plesk services"
         self.plesk_basic_services = [
             "mariadb.service",
