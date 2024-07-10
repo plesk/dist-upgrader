@@ -209,7 +209,7 @@ def do_convert(
     util_name: str,
     show_plan: bool,
 ) -> int:
-    if not options.resume and not required_conditions_satisfied(upgrader, options, options.phase):
+    if not options.resume and not options.phase == Phase.REVERT and not required_conditions_satisfied(upgrader, options, options.phase):
         printerr("Conversion can't be performed due to the problems noted above")
         if not show_plan:
             return 1
