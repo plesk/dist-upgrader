@@ -1,6 +1,6 @@
 name: Test with Buck
-
-on: [push]
+on:
+  pull_request
 
 jobs:
   test:
