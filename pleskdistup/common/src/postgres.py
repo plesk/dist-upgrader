@@ -6,7 +6,7 @@ _PATH_TO_PSQL_UTIL = '/usr/bin/psql'
 
 
 def is_postgres_installed() -> bool:
-    return os.path.exists(get_phsql_root_path()) and os.path.exists(_PATH_TO_PSQL_UTIL)
+    return os.path.exists(get_pgsql_root_path()) and os.path.exists(_PATH_TO_PSQL_UTIL)
 
 
 def get_postgres_major_version() -> int:
@@ -14,16 +14,16 @@ def get_postgres_major_version() -> int:
     return int(version_out.split(' ')[2].split('.')[0])
 
 
-def get_phsql_root_path() -> str:
+def get_pgsql_root_path() -> str:
     return '/var/lib/pgsql'
 
 
 def get_data_path() -> str:
-    return os.path.join(get_phsql_root_path(), 'data')
+    return os.path.join(get_pgsql_root_path(), 'data')
 
 
 def get_saved_data_path() -> str:
-    return os.path.join(get_phsql_root_path(), 'data-old')
+    return os.path.join(get_pgsql_root_path(), 'data-old')
 
 
 def is_database_initialized() -> bool:
