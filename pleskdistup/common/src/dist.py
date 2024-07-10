@@ -129,6 +129,7 @@ class CloudLinux(StoredVersionMixin, RhelBasedDistro):
     def name(self) -> str:
         return "CloudLinux"
 
+
 _distro_mapping = {
     ("CentOS Linux", "7"): CentOs("7"),
     ("AlmaLinux", "8"): AlmaLinux("8"),
