@@ -202,6 +202,21 @@ def find_duplicate_actions(
     return None
 
 
+def print_plan(
+    actions_map: typing.Dict[str, typing.List[action.ActiveAction]],
+    options: typing.Any,
+) -> pleskdistup.convert.ConvertResult:
+    for stage_id, actions in actions_map.items():
+        if not options.show_hidden_stages and stage_id.startswith("_"):
+            continue
+        print(f"Stage {stage_id!r}:")
+        for act in actions:
+            if not options.show_hidden_stages and act.name.startswith("_"):
+                continue
+            print(f"- {act.name}")
+    return pleskdistup.convert.ConvertResult(success=True, reboot_requested=False)
+
+
 def do_convert(
     upgrader: DistUpgrader,
     options: typing.Any,
@@ -209,64 +224,56 @@ def do_convert(
     logfile_path: PathType,
     util_name: str,
     show_plan: bool,
-) -> typing.Optional[pleskdistup.convert.ConvertResult]:
+) -> pleskdistup.convert.ConvertResult:
     if not options.resume and not options.phase == Phase.REVERT and not required_conditions_satisfied(upgrader, options, options.phase):
         printerr("Conversion can't be performed due to the problems noted above")
         if not show_plan:
-            return pleskdistup.convert.ConvertResult(successful=False, reboot_requested=False)
+            return pleskdistup.convert.ConvertResult(success=False, reboot_requested=False)
 
     actions_map = upgrader.construct_actions(sys.argv[0], options, options.phase)
     dup = find_duplicate_actions(actions_map)
     if dup:
         printerr(f"Stage {dup[0]!r} contains duplicate actions: {dup[1]}")
-        return pleskdistup.convert.ConvertResult(successful=False, reboot_requested=False)
+        return pleskdistup.convert.ConvertResult(success=False, reboot_requested=False)
 
-    if not show_plan:
-        resume_tracker = ResumeTracker(options.resume_data, options.resume_path)
-        if options.resume:
-            # Restore status flag in resume mode (it could be removed by
-            # plesk.send_conversion_status() called by handle_error() in
-            # case of error)
-            if not os.path.exists(options.status_flag_path):
-                log.debug(f"Restoring lost status flag at {options.status_flag_path!r} due to resume mode")
-                plesk.prepare_conversion_flag(options.status_flag_path)
-        else:
-            # Write initial resume file
-            resume_tracker()
+    if show_plan:
+        return print_plan(actions_map, options)
 
-        try:
-            convert_result = pleskdistup.convert.convert(
-                options.phase,
-                options.resume_stage,
-                actions_map,
-                options.state_dir,
-                status_file_path,
-                messages.TIME_EXCEEDED_MESSAGE.format(logfile_path=logfile_path),
-                resume_tracker,
-            )
-            if options.phase == Phase.REVERT:
-                print(messages.REVERT_FINISHED_MESSAGE, end='')
-            return convert_result
-
-        except (UnicodeEncodeError, UnicodeDecodeError) as e:
-            if locale.getpreferredencoding(False).lower() != "utf-8":
-                printerr(messages.ENCODING_INCONSISTENCY_ERROR_MESSAGE)
-
-            handle_error(str(e), logfile_path, util_name, options.status_flag_path, options.phase, upgrader)
-            return pleskdistup.convert.ConvertResult(successful=False, reboot_requested=False)
-        except Exception as e:
-            handle_error(str(e), logfile_path, util_name, options.status_flag_path, options.phase, upgrader)
-            return pleskdistup.convert.ConvertResult(successful=False, reboot_requested=False)
+    resume_tracker = ResumeTracker(options.resume_data, options.resume_path)
+    if options.resume:
+        # Restore status flag in resume mode (it could be removed by
+        # plesk.send_conversion_status() called by handle_error() in
+        # case of error)
+        if not os.path.exists(options.status_flag_path):
+            log.debug(f"Restoring lost status flag at {options.status_flag_path!r} due to resume mode")
+            plesk.prepare_conversion_flag(options.status_flag_path)
     else:
-        for stage_id, actions in actions_map.items():
-            if not options.show_hidden_stages and stage_id.startswith("_"):
-                continue
-            print(f"Stage {stage_id!r}:")
-            for act in actions:
-                if not options.show_hidden_stages and act.name.startswith("_"):
-                    continue
-                print(f"- {act.name}")
-        return pleskdistup.convert.ConvertResult(successful=True, reboot_requested=False)
+        # Write initial resume file
+        resume_tracker()
+
+    try:
+        convert_result = pleskdistup.convert.convert(
+            options.phase,
+            options.resume_stage,
+            actions_map,
+            options.state_dir,
+            status_file_path,
+            messages.TIME_EXCEEDED_MESSAGE.format(logfile_path=logfile_path),
+            resume_tracker,
+        )
+        if options.phase == Phase.REVERT:
+            print(messages.REVERT_FINISHED_MESSAGE, end='')
+        return convert_result
+
+    except (UnicodeEncodeError, UnicodeDecodeError) as e:
+        if locale.getpreferredencoding(False).lower() != "utf-8":
+            printerr(messages.ENCODING_INCONSISTENCY_ERROR_MESSAGE)
+
+        handle_error(str(e), logfile_path, util_name, options.status_flag_path, options.phase, upgrader)
+        return pleskdistup.convert.ConvertResult(success=False, reboot_requested=False)
+    except Exception as e:
+        handle_error(str(e), logfile_path, util_name, options.status_flag_path, options.phase, upgrader)
+        return pleskdistup.convert.ConvertResult(success=False, reboot_requested=False)
 
 
 def read_resume_data(resume_path: PathType) -> ResumeData:
@@ -578,7 +585,7 @@ def main():
         options.completion_flag_path = os.path.join(options.state_dir, "dist-upgrade-done.flag")
 
         convert_result = do_convert(upgrader, options, status_file_path, logfile_path, util_name, options.show_plan)
-        if convert_result is not None and convert_result.successful and os.path.exists(options.completion_flag_path):
+        if convert_result is not None and convert_result.success and os.path.exists(options.completion_flag_path):
             log.info("Dist-upgrade process completed, cleaning up...")
             if os.path.exists(options.resume_path):
                 os.unlink(options.resume_path)
@@ -599,7 +606,7 @@ def main():
             print(messages.FINISH_RESTART_MESSAGE, end='')
         systemd.do_reboot()
 
-    return 0 if convert_result.successful else 1
+    return 0 if convert_result.success else 1
 
 
 if __name__ == "__main__":
