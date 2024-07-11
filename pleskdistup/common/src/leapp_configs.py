@@ -164,7 +164,7 @@ def adopt_repositories(repofile: str, ignore: typing.Optional[typing.List[str]] 
     if ignore is None:
         ignore = []
 
-    log.debug("Adopt repofile '{filename}' for AlmaLinux 8".format(filename=repofile))
+    log.debug(f"Adopt repofile '{repofile}'")
 
     if not os.path.exists(repofile):
         log.warn("The repository adapter has tried to open an unexistent file: {filename}".format(filename=repofile))
