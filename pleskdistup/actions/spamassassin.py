@@ -1,6 +1,7 @@
 # Copyright 2023-2024. WebPros International GmbH. All rights reserved.
 import os
 import shutil
+import typing
 
 from pleskdistup.common import action, dist, packages, motd, rpm, util
 
