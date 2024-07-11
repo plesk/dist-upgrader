@@ -209,17 +209,17 @@ def do_convert(
     logfile_path: PathType,
     util_name: str,
     show_plan: bool,
-) -> int:
+) -> typing.Optional[pleskdistup.convert.ConvertResult]:
     if not options.resume and not options.phase == Phase.REVERT and not required_conditions_satisfied(upgrader, options, options.phase):
         printerr("Conversion can't be performed due to the problems noted above")
         if not show_plan:
-            return 1
+            return pleskdistup.convert.ConvertResult(successful=False, reboot_requested=False)
 
     actions_map = upgrader.construct_actions(sys.argv[0], options, options.phase)
     dup = find_duplicate_actions(actions_map)
     if dup:
         printerr(f"Stage {dup[0]!r} contains duplicate actions: {dup[1]}")
-        return 1
+        return pleskdistup.convert.ConvertResult(successful=False, reboot_requested=False)
 
     if not show_plan:
         resume_tracker = ResumeTracker(options.resume_data, options.resume_path)
@@ -244,28 +244,19 @@ def do_convert(
                 messages.TIME_EXCEEDED_MESSAGE.format(logfile_path=logfile_path),
                 resume_tracker,
             )
-            if not options.no_reboot and convert_result.reboot_requested:
-                log.info("Going to reboot the system")
-                if options.phase is Phase.CONVERT:
-                    print(
-                        messages.CONVERT_RESTART_MESSAGE.format(
-                            time=datetime.now().strftime("%H:%M:%S"),
-                            util_path=os.path.abspath(sys.argv[0])
-                        ),
-                        end='',
-                    )
-                elif options.phase is Phase.FINISH:
-                    print(messages.FINISH_RESTART_MESSAGE, end='')
-                systemd.do_reboot()
+            if options.phase == Phase.REVERT:
+                print(messages.REVERT_FINISHED_MESSAGE, end='')
+            return convert_result
+
         except (UnicodeEncodeError, UnicodeDecodeError) as e:
             if locale.getpreferredencoding(False).lower() != "utf-8":
                 printerr(messages.ENCODING_INCONSISTENCY_ERROR_MESSAGE)
 
             handle_error(str(e), logfile_path, util_name, options.status_flag_path, options.phase, upgrader)
-            return 1
+            return pleskdistup.convert.ConvertResult(successful=False, reboot_requested=False)
         except Exception as e:
             handle_error(str(e), logfile_path, util_name, options.status_flag_path, options.phase, upgrader)
-            return 1
+            return pleskdistup.convert.ConvertResult(successful=False, reboot_requested=False)
     else:
         for stage_id, actions in actions_map.items():
             if not options.show_hidden_stages and stage_id.startswith("_"):
@@ -275,11 +266,7 @@ def do_convert(
                 if not options.show_hidden_stages and act.name.startswith("_"):
                     continue
                 print(f"- {act.name}")
-
-    if options.phase == Phase.REVERT:
-        print(messages.REVERT_FINISHED_MESSAGE, end='')
-
-    return 0
+        return pleskdistup.convert.ConvertResult(successful=True, reboot_requested=False)
 
 
 def read_resume_data(resume_path: PathType) -> ResumeData:
@@ -590,15 +577,29 @@ def main():
         options.status_flag_path = os.path.join(options.state_dir, "dist-upgrade-conversion.flag")
         options.completion_flag_path = os.path.join(options.state_dir, "dist-upgrade-done.flag")
 
-        convert_res = do_convert(upgrader, options, status_file_path, logfile_path, util_name, options.show_plan)
-        if convert_res == 0 and os.path.exists(options.completion_flag_path):
+        convert_result = do_convert(upgrader, options, status_file_path, logfile_path, util_name, options.show_plan)
+        if convert_result is not None and convert_result.successful and os.path.exists(options.completion_flag_path):
             log.info("Dist-upgrade process completed, cleaning up...")
             if os.path.exists(options.resume_path):
                 os.unlink(options.resume_path)
                 log.debug(f"Removed the resume file {options.resume_path!r}")
             os.unlink(options.completion_flag_path)
 
-    return convert_res
+    if not options.no_reboot and convert_result.reboot_requested:
+        log.info("Going to reboot the system")
+        if options.phase is Phase.CONVERT:
+            print(
+                messages.CONVERT_RESTART_MESSAGE.format(
+                    time=datetime.now().strftime("%H:%M:%S"),
+                    util_path=os.path.abspath(sys.argv[0])
+                ),
+                end='',
+            )
+        elif options.phase is Phase.FINISH:
+            print(messages.FINISH_RESTART_MESSAGE, end='')
+        systemd.do_reboot()
+
+    return 0 if convert_result.successful else 1
 
 
 if __name__ == "__main__":
