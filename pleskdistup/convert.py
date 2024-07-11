@@ -47,12 +47,15 @@ def start_flow(
 # Unfortunately, dataclasses available since Python 3.7 aren't supported
 # on Ubuntu 18 (Python 3.6)
 class ConvertResult:
+    success: bool
     reboot_requested: bool
 
     def __init__(
         self,
+        success: bool = True,
         reboot_requested: bool = False,
     ):
+        self.success = success
         self.reboot_requested = reboot_requested
 
     def __repr__(self) -> str:
@@ -74,4 +77,4 @@ def convert(
         start_flow(flow, status_file_path, time_exceeded_msg)
         if flow.is_failed():
             raise RuntimeError(flow.get_error())
-        return ConvertResult(reboot_requested=(flow.reboot_requested is not None))
+        return ConvertResult(success=True, reboot_requested=(flow.reboot_requested is not None))
