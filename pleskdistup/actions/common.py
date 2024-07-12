@@ -11,7 +11,10 @@ from pleskdistup.phase import Phase
 
 
 class MoveOldBindConfigToNamed(action.ActiveAction):
-    def __init__(self):
+    old_bind_config_path: str
+    dst_config_path: str
+
+    def __init__(self) -> None:
         self.name = "move old BIND configuration to named"
         self.old_bind_config_path = "/etc/default/bind9"
         self.dst_config_path = "/etc/default/named"
@@ -39,7 +42,7 @@ class AddFinishSshLoginMessage(action.ActiveAction):
     """
     finish_message: str
 
-    def __init__(self, new_os: str):
+    def __init__(self, new_os: str) -> None:
         self.name = "add finish SSH login message"
         self.finish_message = f"""The server has been upgraded to {new_os}.\n"""
 
@@ -57,7 +60,9 @@ class AddFinishSshLoginMessage(action.ActiveAction):
 
 
 class AddInProgressSshLoginMessage(action.ActiveAction):
-    def __init__(self, new_os: str):
+    in_progress_message: str
+
+    def __init__(self, new_os: str) -> None:
         self.name = "add in progress SSH login message"
         path_to_util = os.path.abspath(sys.argv[0])
         self.in_progress_message = f"""
@@ -85,7 +90,9 @@ To monitor the conversion progress in real time, run the '{path_to_util} --monit
 
 
 class DisablePleskSshBanner(action.ActiveAction):
-    def __init__(self):
+    banner_command_path: str
+
+    def __init__(self) -> None:
         self.name = "disable Plesk SSH banner"
         self.banner_command_path = "/root/.plesk_banner"
 
@@ -106,7 +113,6 @@ class DisablePleskSshBanner(action.ActiveAction):
 
 
 class HandleConversionStatus(action.ActiveAction):
-    name: str
     status_flag_path: str
     completion_flag_path: str
 
@@ -114,7 +120,7 @@ class HandleConversionStatus(action.ActiveAction):
         self,
         status_flag_path: str,
         completion_flag_path: str,
-    ):
+    ) -> None:
         self.name = "prepare and send conversion status"
         self.status_flag_path = status_flag_path
         self.completion_flag_path = completion_flag_path
@@ -141,7 +147,9 @@ class HandleConversionStatus(action.ActiveAction):
 
 
 class CleanApparmorCacheConfig(action.ActiveAction):
-    def __init__(self):
+    possible_locations: typing.List[str]
+
+    def __init__(self) -> None:
         self.name = "clean AppArmor cache configuration"
         self.possible_locations = ["/etc/apparmor/cache", "/etc/apparmor.d/cache"]
 
@@ -170,13 +178,13 @@ class CleanApparmorCacheConfig(action.ActiveAction):
                 shutil.move(location + ".backup", location)
         return action.ActionResult()
 
-    def estimate_prepare_time(self):
+    def estimate_prepare_time(self) -> int:
         return 1
 
-    def estimate_post_time(self):
+    def estimate_post_time(self) -> int:
         return 1
 
-    def estimate_revert_time(self):
+    def estimate_revert_time(self) -> int:
         return 1
 
 
@@ -186,7 +194,6 @@ class Reboot(action.ActiveAction):
     prepare_next_phase: typing.Optional[Phase]
     post_reboot: typing.Optional[action.RebootType]
     post_next_phase: typing.Optional[Phase]
-    name: str
 
     def __init__(
         self,
@@ -195,7 +202,7 @@ class Reboot(action.ActiveAction):
         post_reboot: typing.Optional[action.RebootType] = None,
         post_next_phase: typing.Optional[Phase] = None,
         name: str = "reboot the system",
-    ):
+    ) -> None:
         self.prepare_reboot = prepare_reboot
         self.prepare_next_phase = prepare_next_phase
         self.post_reboot = post_reboot
@@ -219,13 +226,13 @@ class Reboot(action.ActiveAction):
     def _revert_action(self) -> action.ActionResult:
         return action.ActionResult()
 
-    def estimate_prepare_time(self):
+    def estimate_prepare_time(self) -> int:
         return 60 if self.prepare_reboot else 0
 
-    def estimate_post_time(self):
+    def estimate_post_time(self) -> int:
         return 60 if self.post_reboot else 0
 
-    def estimate_revert_time(self):
+    def estimate_revert_time(self) -> int:
         return 0
 
 
@@ -233,7 +240,7 @@ class DisableSelinuxDuringUpgrade(action.ActiveAction):
     selinux_config: str
     getenforce_cmd: str
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.name = "rule selinux status"
         self.selinux_config = "/etc/selinux/config"
         self.getenforce_cmd = "/usr/sbin/getenforce"
@@ -258,11 +265,10 @@ class DisableSelinuxDuringUpgrade(action.ActiveAction):
 
 
 class PreRebootPause(action.ActiveAction):
-    name: str
     pause_time: int
     message: str
 
-    def __init__(self, reboot_message: str, pause_time: int = 45):
+    def __init__(self, reboot_message: str, pause_time: int = 45) -> None:
         self.name = "pause before reboot"
         self.pause_time = pause_time
         self.message = reboot_message
@@ -282,7 +288,7 @@ class PreRebootPause(action.ActiveAction):
 class RevertChangesInGrub(action.ActiveAction):
     grub_configs_paths: typing.List[str]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.name = "revert changes in GRUB made by ELevate"
         self.grub_configs_paths = [
             "/boot/grub2/grub.cfg",

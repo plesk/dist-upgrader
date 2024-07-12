@@ -1,5 +1,6 @@
 # Copyright 2023-2024. WebPros International GmbH. All rights reserved.
 
+import configparser
 import json
 import os
 import subprocess
@@ -466,8 +467,20 @@ class AssertNotInContainer(action.CheckAction):
     def _is_podman(self) -> bool:
         return os.path.exists("/run/.containerenv")
 
+    def _is_cloudlinux(self) -> bool:
+        try:
+            os_release_filename = '/etc/os-release'
+            section_name = 'top'
+            config = configparser.ConfigParser()
+            with open(os_release_filename, encoding='utf-8') as stream:
+                config.read_string(f"[{section_name}]\n" + stream.read())
+            os_name = config.get(section_name, 'ID').strip('"')
+            return os_name == "cloudlinux"
+        except (OSError, IOError, configparser.Error):
+            return False
+
     def _is_vz_like(self) -> bool:
-        return os.path.exists("/proc/vz")
+        return os.path.exists("/proc/vz") and not self._is_cloudlinux()
 
     def _do_check(self) -> bool:
         log.debug("Checking if running in a container")

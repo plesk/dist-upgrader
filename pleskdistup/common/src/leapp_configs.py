@@ -118,6 +118,7 @@ def _do_url_replacement(url: typing.Optional[str]) -> typing.Optional[str]:
         _fix_mariadb_repository,
         _fix_postgresql_official_repository,
         lambda to_change: to_change.replace("rpm-CentOS-7", "rpm-RedHat-el8"),
+        lambda to_change: to_change.replace("CloudLinux-7", "CloudLinux-8"),
         lambda to_change: to_change.replace("epel-7", "epel-8"),
         lambda to_change: to_change.replace("epel-debug-7", "epel-debug-8"),
         lambda to_change: to_change.replace("epel-source-7", "epel-source-8"),
@@ -163,7 +164,7 @@ def adopt_repositories(repofile: str, ignore: typing.Optional[typing.List[str]] 
     if ignore is None:
         ignore = []
 
-    log.debug("Adopt repofile '{filename}' for AlmaLinux 8".format(filename=repofile))
+    log.debug(f"Adopt repofile '{repofile}'")
 
     if not os.path.exists(repofile):
         log.warn("The repository adapter has tried to open an unexistent file: {filename}".format(filename=repofile))

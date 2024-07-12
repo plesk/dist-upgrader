@@ -1,6 +1,7 @@
 # Copyright 2023-2024. WebPros International GmbH. All rights reserved.
 import os
 import shutil
+import typing
 
 from pleskdistup.common import action, dist, packages, motd, rpm, util
 
@@ -8,12 +9,11 @@ SPAMASSASIN_CONFIG_PATH = "/etc/mail/spamassassin/init.pre"
 
 
 class RestoreCurrentSpamassasinConfiguration(action.ActiveAction):
-    name: str
     state_dir: str
     spamassasin_config_path: str
     spamassasin_backup_path: str
 
-    def __init__(self, state_dir: str):
+    def __init__(self, state_dir: str) -> None:
         self.state_dir = state_dir
         self.name = "restore current spamassassin configuration after conversion"
         self.spamassasin_config_path = "/etc/spamassassin/local.cf"
@@ -38,7 +38,7 @@ class RestoreCurrentSpamassasinConfiguration(action.ActiveAction):
 class HandleUpdatedSpamassassinConfig(action.ActiveAction):
     # Make sure the trick is preformed before any call of 'systemctl daemon-reload'
     # because we change spamassassin.service configuration in scope of this action.
-    def __init__(self):
+    def __init__(self) -> None:
         self.name = "handle spamassassin configuration update"
 
     def _is_required(self) -> bool:
@@ -75,7 +75,9 @@ class HandleUpdatedSpamassassinConfig(action.ActiveAction):
 
 
 class AssertSpamassassinAdditionalPluginsDisabled(action.CheckAction):
-    def __init__(self):
+    supported_plugins: typing.List[str]
+
+    def __init__(self) -> None:
         self.name = "check spamassassin additional plugins are disabled"
         self.description = """There are additional plugins enabled in spamassassin configuration:
 \t- {}
