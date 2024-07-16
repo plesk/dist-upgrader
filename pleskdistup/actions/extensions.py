@@ -146,6 +146,10 @@ class UninstallTuxcareEls(action.ActiveAction):
         self.ext_name = "tuxcare-els"
 
     def _is_required(self) -> bool:
+        # If database is not ready, we can't be sure about installed extensions
+        if (not plesk.is_plesk_database_ready()):
+            return False
+
         return self.ext_name in dict(plesk.list_installed_extensions())
 
     def _prepare_action(self) -> action.ActionResult:
