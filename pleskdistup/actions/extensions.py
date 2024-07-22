@@ -146,21 +146,28 @@ class UninstallTuxcareEls(action.ActiveAction):
         self.ext_name = "tuxcare-els"
 
     def _is_required(self) -> bool:
-        # If database is not ready, we can't be sure about installed extensions
-        if (not plesk.is_plesk_database_ready()):
+        try:
+            return self.ext_name in dict(plesk.list_installed_extensions())
+        except plesk.PleskDatabaseIsDown:
+            # If database is not ready we will not be able to uninstall the extension anyway
+            log.warn("Mark the Tuxcare ELS extension uninstallation as unnecessary because the Plesk database isn't running")
             return False
 
-        return self.ext_name in dict(plesk.list_installed_extensions())
-
     def _prepare_action(self) -> action.ActionResult:
-        plesk.uninstall_extension(self.ext_name)
+        try:
+            plesk.uninstall_extension(self.ext_name)
+        except plesk.PleskDatabaseIsDown:
+            log.warn("Removing TuxCare ELS extension called when Plesk database is already down")
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
         return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
-        plesk.install_extension(self.ext_name)
+        try:
+            plesk.install_extension(self.ext_name)
+        except plesk.PleskDatabaseIsDown:
+            log.warn("Re-installing TuxCare ELS extension called when Plesk database is still down")
         return action.ActionResult()
 
     def estimate_prepare_time(self) -> int:
@@ -233,13 +240,16 @@ class AssertPleskExtensions(action.CheckAction):
         raise NotImplementedError
 
     def _do_check(self) -> bool:
-        extensions = dict(plesk.list_installed_extensions())
-        log.debug(f"Detected installed Plesk extensions: {extensions}")
+        try:
+            extensions = dict(plesk.list_installed_extensions())
+            log.debug(f"Detected installed Plesk extensions: {extensions}")
 
-        self.installed_violations = set(extension for extension in self.installed if extension not in extensions)
-        log.debug(f"Missing required extensions: {self.installed_violations}")
+            self.installed_violations = set(extension for extension in self.installed if extension not in extensions)
+            log.debug(f"Missing required extensions: {self.installed_violations}")
 
-        self.not_installed_violations = set(extension for extension in self.not_installed if extension in extensions)
-        log.debug(f"Installed conflicting extensions: {self.not_installed_violations}")
+            self.not_installed_violations = set(extension for extension in self.not_installed if extension in extensions)
+            log.debug(f"Installed conflicting extensions: {self.not_installed_violations}")
 
-        return not self.installed_violations and not self.not_installed_violations
+            return not self.installed_violations and not self.not_installed_violations
+        except plesk.PleskDatabaseIsDown:
+            return True

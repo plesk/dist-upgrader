@@ -114,6 +114,9 @@ def remove_conversion_flag(status_flag_path: str) -> None:
 
 
 def list_installed_extensions() -> typing.List[typing.Tuple[str, str]]:
+    if not is_plesk_database_ready():
+        raise PleskDatabaseIsDown("retrieving installed extensions")
+
     ext_info = subprocess.check_output(["/usr/sbin/plesk", "bin", "extension", "--list"], universal_newlines=True).splitlines()
     res: typing.List[typing.Tuple[str, str]] = []
     for line in ext_info:
@@ -124,10 +127,16 @@ def list_installed_extensions() -> typing.List[typing.Tuple[str, str]]:
 
 
 def install_extension(name: str) -> None:
+    if not is_plesk_database_ready():
+        raise PleskDatabaseIsDown(f"extension {name!r} installation")
+
     util.logged_check_call(["/usr/sbin/plesk", "bin", "extension", "--install", name])
 
 
 def uninstall_extension(name: str) -> None:
+    if not is_plesk_database_ready():
+        raise PleskDatabaseIsDown(f"extension {name!r} uninstallation")
+
     util.logged_check_call(["/usr/sbin/plesk", "bin", "extension", "--uninstall", name])
 
 
@@ -196,6 +205,12 @@ def list_installed_components() -> typing.Dict[str, PleskComponent]:
             log.debug(f"Discovered component {c}")
             res[c.name] = c
     return res
+
+
+class PleskDatabaseIsDown(Exception):
+    def __init__(self, message: str = ""):
+        self.message = f"Plesk database is not ready at: {message}"
+        super().__init__(self.message)
 
 
 def is_plesk_database_ready() -> bool:

@@ -237,7 +237,12 @@ class UpdatePleskExtensions(action.ActiveAction):
         return res
 
     def _prepare_action(self) -> action.ActionResult:
-        installed_extensions = set(ext[0] for ext in plesk.list_installed_extensions())
+        try:
+            installed_extensions = set(ext[0] for ext in plesk.list_installed_extensions())
+        except plesk.PleskDatabaseIsDown:
+            log.warn("Plesk database is down, can't retrieve installed extensions")
+            installed_extensions = set()
+
         log.debug(f"Currently installed extensions: {installed_extensions}")
         if installed_extensions:
             res_ext = installed_extensions
@@ -262,7 +267,10 @@ class UpdatePleskExtensions(action.ActiveAction):
         if self.extensions_to_update is not None:
             extnum = len(self.extensions_to_update)
         else:
-            extnum = len(set(ext[0] for ext in plesk.list_installed_extensions()))
+            try:
+                extnum = len(set(ext[0] for ext in plesk.list_installed_extensions()))
+            except plesk.PleskDatabaseIsDown:
+                extnum = 0
         return 20 * extnum
 
     def estimate_post_time(self) -> int:
