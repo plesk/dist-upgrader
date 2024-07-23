@@ -111,12 +111,24 @@ def _fix_postgresql_official_repository(to_change: str) -> str:
     return to_change
 
 
+def _fix_rackspace_epel_repository(to_change: str) -> str:
+    # The Rackspace EPEL repository for version 8 has a slightly different path, including 'Everything' in it
+    # Additionally, some repositories use '7Server' instead of 7.
+    # Therefore, we need to handle these cases specifically.
+    if "iad.mirror.rackspace.com/epel/7/" in to_change:
+        return to_change.replace("7", "8/Everything")
+    if "iad.mirror.rackspace.com/epel/7Server" in to_change:
+        return to_change.replace("7Server", "8/Everything")
+    return to_change
+
+
 def _do_url_replacement(url: typing.Optional[str]) -> typing.Optional[str]:
     return _do_replacement(url, [
         _fixup_old_php_urls,
         _fix_rackspace_repository,
         _fix_mariadb_repository,
         _fix_postgresql_official_repository,
+        _fix_rackspace_epel_repository,
         lambda to_change: to_change.replace("rpm-CentOS-7", "rpm-RedHat-el8"),
         lambda to_change: to_change.replace("CloudLinux-7", "CloudLinux-8"),
         lambda to_change: to_change.replace("cloudlinux/7", "cloudlinux/8"),
