@@ -415,6 +415,69 @@ pgdg14-source-updates-testing,alma-pgdg14-source-updates-testing,alma-pgdg14-sou
         self._perform_test({"pgdg-redhat-all.repo": postgresql_like_repos},
                            expected_postgresql_repos, expected_postgresql_mapping)
 
+    def test_rackspace_mapping(self):
+        mariadb_like_repos = """[epel]
+name=Extra Packages for Enterprise Linux 7 - $basearch
+baseurl=http://iad.mirror.rackspace.com/epel/7Server/x86_64/
+#metalink=https://mirrors.fedoraproject.org/metalink?repo=epel-7&arch=$basearch&infra=$infra&content=$contentdir
+failovermethod=priority
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-7
+
+[epel-debuginfo]
+name=Extra Packages for Enterprise Linux 7 - $basearch - Debug
+baseurl=http://iad.mirror.rackspace.com/epel/7Server/x86_64/debug/
+#metalink=https://mirrors.fedoraproject.org/metalink?repo=epel-debug-7&arch=$basearch&infra=$infra&content=$contentdir
+failovermethod=priority
+enabled=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-7
+gpgcheck=1
+
+[epel-source]
+name=Extra Packages for Enterprise Linux 7 - $basearch - Source
+baseurl=http://iad.mirror.rackspace.com/epel/7Server/SRPMS/
+#metalink=https://mirrors.fedoraproject.org/metalink?repo=epel-source-7&arch=$basearch&infra=$infra&content=$contentdir
+failovermethod=priority
+enabled=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-7
+gpgcheck=1
+"""
+
+        expected_mariadb_repos = """[alma-epel]
+name=Alma Extra Packages for Enterprise Linux 8 - $basearch
+baseurl=http://iad.mirror.rackspace.com/epel/8/Everything/x86_64/
+#metalink=https://mirrors.fedoraproject.org/metalink?repo=epel-7&arch=$basearch&infra=$infra&content=$contentdir
+failovermethod=priority
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-8
+[alma-epel-debuginfo]
+name=Alma Extra Packages for Enterprise Linux 8 - $basearch - Debug
+baseurl=http://iad.mirror.rackspace.com/epel/8/Everything/x86_64/debug/
+#metalink=https://mirrors.fedoraproject.org/metalink?repo=epel-debug-7&arch=$basearch&infra=$infra&content=$contentdir
+failovermethod=priority
+enabled=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-8
+gpgcheck=1
+[alma-epel-source]
+name=Alma Extra Packages for Enterprise Linux 8 - $basearch - Source
+baseurl=http://iad.mirror.rackspace.com/epel/8/Everything/SRPMS/
+#metalink=https://mirrors.fedoraproject.org/metalink?repo=epel-source-7&arch=$basearch&infra=$infra&content=$contentdir
+failovermethod=priority
+enabled=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-8
+gpgcheck=1
+"""
+
+        expected_mariadb_mapping = """epel,alma-epel,alma-epel,all,all,x86_64,rpm,ga,ga
+epel-debuginfo,alma-epel-debuginfo,alma-epel-debuginfo,all,all,x86_64,rpm,ga,ga
+epel-source,alma-epel-source,alma-epel-source,all,all,x86_64,rpm,ga,ga
+"""
+
+        self._perform_test({"mariadb.repo": mariadb_like_repos},
+                           expected_mariadb_repos, expected_mariadb_mapping)
+
 
 class SetPackageRepositoryTests(unittest.TestCase):
     INITIAL_JSON = {
