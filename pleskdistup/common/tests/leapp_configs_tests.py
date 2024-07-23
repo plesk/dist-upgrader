@@ -215,6 +215,13 @@ baseurl = http://yum.mariadb.org/10.11/centos7-amd64
 module_hotfixes=1
 gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
 gpgcheck=1
+
+[mariadb rhel]
+name = Other MariaDB
+baseurl=http://yum.mariadb.org/10.11.8/rhel7-amd64
+module_hotfixes=1
+gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
+gpgcheck=1
 """
 
         expected_mariadb_repos = """[alma-mariadb]
@@ -223,9 +230,16 @@ baseurl=http://yum.mariadb.org/10.11/rhel8-amd64
 module_hotfixes=1
 gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
 gpgcheck=1
+[alma-mariadb rhel]
+name=Alma Other MariaDB
+baseurl=http://yum.mariadb.org/10.11.8/rhel8-amd64
+module_hotfixes=1
+gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
+gpgcheck=1
 """
 
         expected_mariadb_mapping = """mariadb,alma-mariadb,alma-mariadb,all,all,x86_64,rpm,ga,ga
+mariadb rhel,alma-mariadb rhel,alma-mariadb rhel,all,all,x86_64,rpm,ga,ga
 """
 
         self._perform_test({"mariadb.repo": mariadb_like_repos},
