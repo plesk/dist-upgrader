@@ -43,6 +43,9 @@ class KernelVersionTests(unittest.TestCase):
     def test_kernel_start_with_plus_prefix(self):
         self._check_parse("kernel-plus-3.10.0-327.36.3.el7.centos.plus.x86_64", "3.10.0-327.36.3.el7.centos.plus.x86_64")
 
+    def test_linode_kernel_parse(self):
+        self._check_parse("6.2.9-x86_64-linode160", "6.2.9.x86_64")
+
     def test_kernel_with_underline(self):
         kernel = version.KernelVersion("kernel-3.14.43_1-2.x86_64")
         self.assertEqual(str(kernel), "3.14.43-1.2.x86_64")
