@@ -174,7 +174,7 @@ def is_repo_ok(
     return True
 
 
-def adopt_repositories(repofile: str, ignore: typing.Optional[typing.List[str]] = None) -> None:
+def adopt_repositories(repofile: str, ignore: typing.Optional[typing.List[str]] = None, keep_id: bool = False) -> None:
     if ignore is None:
         ignore = []
 
@@ -195,7 +195,9 @@ def adopt_repositories(repofile: str, ignore: typing.Optional[typing.List[str]] 
 
             log.debug("Adopt repository with id '{id}' is extracted.".format(id=id))
 
-            id = _do_id_replacement(id)
+            if not keep_id:
+                id = _do_id_replacement(id)
+
             name = _do_name_replacement(name)
             if url is not None:
                 url = _do_url_replacement(url)
