@@ -53,6 +53,11 @@ class KernelVersion():
         if self.patch == "":
             self.patch = "0"
 
+    def _extract_linode_kernel_version(self, version: str) -> None:
+        self.build = ""
+        main_part, self.arch, *_ = version.split("-")
+        self.major, self.minor, self.patch = main_part.split(".")
+
     def _remove_prefix(self, version: str) -> str:
         while not version[0].isdigit():
             version = version.split("-", 1)[-1]
@@ -68,7 +73,9 @@ class KernelVersion():
         self.arch = ""
 
         version = self._remove_prefix(version)
-        if "-" in version:
+        if "-linode" in version:
+            self._extract_linode_kernel_version(version)
+        elif "-" in version:
             self._extract_with_build(version)
         else:
             self._extract_no_build(version)
