@@ -91,7 +91,6 @@ class DisablePleskRelatedServicesDuringUpgrade(action.ActiveAction):
             "httpd.service",
             "mailman.service",
             "mariadb.service",
-            "mysqld.service",
             "named-chroot.service",
             "plesk-ext-monitoring-hcd.service",
             "plesk-ssh-terminal.service",
@@ -110,6 +109,11 @@ class DisablePleskRelatedServicesDuringUpgrade(action.ActiveAction):
         self.oneshot_services = [
             "plesk-ip-remapping.service",
         ]
+
+        # Once MariaDB has started, systemctl will not be able to control mysqld as a linked unit.
+        # Therefore, we should manage mysqld separately and only if MariaDB is not present
+        if "mariadb.service" not in self.plesk_systemd_services and systemd.is_service_startable("mysqld.service"):
+            self.plesk_systemd_services.append("mysqld.service")
 
         # We don't remove postfix service when remove it during qmail installation
         # so we should choose the right smtp service, otherwise they will conflict
