@@ -71,7 +71,7 @@ class MariaDBVersion():
 
     def __str__(self):
         """Return a string representation of a PHPVersion object."""
-        return f"PHP {self.major}.{self.minor}.{self.patch}"
+        return f"{self.major}.{self.minor}.{self.patch}"
 
     def __lt__(self, other):
         return self.major < other.major or (self.major == other.major and self.minor < other.minor) or (self.major == other.major and self.minor == other.minor and self.patch < other.patch)
