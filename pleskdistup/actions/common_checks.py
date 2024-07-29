@@ -631,8 +631,8 @@ class AssertGrub2Installed(action.CheckAction):
     def __init__(self):
         self.name = "checking if grub2 is installed"
         self.description = """Grub2 does not appear to be installed.
-\tTo proceed with the conversion, please install the 'grub2' and/or 'grub2-common' packages
+\tTo proceed with the conversion, please install the 'grub2', 'grub2-common' and/or 'grub2-tools' packages
 """
 
     def _do_check(self) -> bool:
-        return packages.is_package_installed("grub2-common")
+        return os.path.exists("/etc/default/grub") and packages.is_package_installed("grub2-common")
