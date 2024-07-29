@@ -191,3 +191,9 @@ def restore_installation() -> None:
 def do_distupgrade() -> None:
     util.logged_check_call(["apt-get", "dist-upgrade", "-y"] + APT_CHOOSE_OLD_FILES_OPTIONS,
                            env={"PATH": os.environ["PATH"], "DEBIAN_FRONTEND": "noninteractive"})
+
+
+def get_installed_packages_list(regex: str) -> typing.List[str]:
+    res = subprocess.check_output(["/usr/bin/dpkg-query", "-W", "-f", "${binary:Package}\n", regex],
+                                  universal_newlines=True)
+    return res.splitlines()
