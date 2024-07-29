@@ -154,13 +154,17 @@ class StartPleskBasicServices(action.ActiveAction):
         self.name = "starting plesk services"
         self.plesk_basic_services = [
             "mariadb.service",
-            "mysqld.service",
             "plesk-task-manager.service",
             "plesk-web-socket.service",
             "sw-cp-server.service",
             "sw-engine.service",
         ]
         self.plesk_basic_services = [service for service in self.plesk_basic_services if systemd.is_service_exists(service)]
+
+        # Once MariaDB has started, systemctl will not be able to control mysqld as a linked unit.
+        # Therefore, we should manage mysqld separately and only if MariaDB is not present
+        if "mariadb.service" not in self.plesk_basic_services and systemd.is_service_startable("mysqld.service"):
+            self.plesk_basic_services.append("mysqld.service")
 
     def _enable_services(self) -> action.ActionResult:
         # MariaDB could be started before, so we should stop it first

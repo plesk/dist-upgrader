@@ -76,3 +76,13 @@ def autoremove_outdated_packages() -> None:
         return rpm.autoremove_outdated_packages()
     else:
         raise NotImplementedError(f"Unsupported distro {started_on}")
+
+
+def get_installed_packages_list(regex: str) -> typing.List[str]:
+    started_on = dist.get_distro()
+    if started_on.deb_based:
+        return dpkg.get_installed_packages_list(regex)
+    elif started_on.rhel_based:
+        return rpm.get_installed_packages_list(regex)
+    else:
+        raise NotImplementedError(f"Unsupported distro {started_on}")
