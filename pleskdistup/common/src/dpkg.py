@@ -194,6 +194,6 @@ def do_distupgrade() -> None:
 
 
 def get_installed_packages_list(regex: str) -> typing.List[str]:
-    res = subprocess.check_output(["/usr/bin/dpkg-query", "-W", "-f", "${binary:Package}\n", regex],
+    res = subprocess.check_output(["/usr/bin/dpkg-query", "-W", "-f", "${binary:Package} ${Version}\n", regex],
                                   universal_newlines=True)
     return res.splitlines()
