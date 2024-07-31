@@ -161,7 +161,7 @@ def install_packages(pkgs: typing.List[str], repository: typing.Optional[str] = 
 
 
 def get_installed_packages_list(regex: str) -> typing.List[str]:
-    res = subprocess.check_output(["/usr/bin/rpm", "-qa", "--queryformat", "%{NAME}\n", regex], universal_newlines=True)
+    res = subprocess.check_output(["/usr/bin/rpm", "-qa", "--queryformat", "%{NAME} %{VERSION}-%{RELEASE}\n", regex], universal_newlines=True)
     return res.splitlines()
 
 
