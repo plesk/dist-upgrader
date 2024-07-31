@@ -636,3 +636,21 @@ class AssertGrub2Installed(action.CheckAction):
 
     def _do_check(self) -> bool:
         return os.path.exists("/etc/default/grub") and packages.is_package_installed("grub2-common")
+
+
+class AssertNoMoreThenOneKernelDevelInstalled(action.CheckAction):
+    def __init__(self):
+        self.name = "checking if more than one kernel-devel package is installed"
+        self.description = """More than one kernel-devel package is installed.
+\tTo proceed with the conversion, please remove all kernel-devel packages except the one that corresponds to the running kernel.
+\tKernel packages list:
+\t- {}
+"""
+
+    def _do_check(self) -> bool:
+        kernel_devel_packages = packages.get_installed_packages_list("kernel-devel")
+        if len(kernel_devel_packages) <= 1:
+            return True
+
+        self.description = self.description.format("\n\t- ".join([pkg.replace(" ", "-") for pkg in kernel_devel_packages]))
+        return False
