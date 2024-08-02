@@ -283,3 +283,29 @@ class AssertEnoughRamForAmavis(action.CheckAction):
         # Therefore, it's advisable to inform users about potential issues beforehand
         # If you add support for other OSes it worth to check the RAM requirements for amavis on them
         return not packages.is_package_installed("amavis") or self._get_available_ram() > self.required_ram or self.amavis_upgrade_allowed
+
+
+class ReinstallAmavisAntivirus(action.ActiveAction):
+    def __init__(self):
+        self.name = "reinstalling amavis antivirus"
+
+    def _is_required(self) -> bool:
+        return packages.is_package_installed("amavis")
+
+    def _prepare_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        packages.install_packages(["amavis"])
+
+        amavis_systemd_service = "amavisd.service"
+        if systemd.is_service_startable(amavis_systemd_service):
+            util.logged_check_call(["/usr/bin/systemctl", "enable", amavis_systemd_service])
+
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def estimate_post_time(self) -> int:
+        return 30
