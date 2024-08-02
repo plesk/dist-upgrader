@@ -2,9 +2,10 @@
 import os
 import pwd
 import shutil
+import sys
 import typing
 
-from pleskdistup.common import action, dist, files, plesk, log, systemd, util
+from pleskdistup.common import action, dist, files, packages, plesk, log, systemd, util
 
 
 class DisableGrafana(action.ActiveAction):
@@ -253,3 +254,58 @@ class AssertPleskExtensions(action.CheckAction):
             return not self.installed_violations and not self.not_installed_violations
         except plesk.PleskDatabaseIsDown:
             return True
+
+
+class AssertEnoughRamForAmavis(action.CheckAction):
+    required_ram: int
+    amavis_upgrade_allowed: bool
+
+    def __init__(self, required_ram: int, amavis_upgrade_allowed: bool):
+        self.name = "asserting enough RAM for Amavis"
+        self.required_ram = required_ram
+        self.amavis_upgrade_allowed = amavis_upgrade_allowed
+        self.description = f"""You have Amavis antivirus installed. It needs at least {required_ram / 1073741824} GB of RAM to work properly on the target OS.
+\tIf you don’t have enough RAM, Amavis might crash or cause your system to stop working.
+\tIf you accept this risk, you can proceed by running `{os.path.basename(sys.argv[0])} --amavis-upgrade-allowed`.
+\tAlternatively, you can remove Amavis antivirus to proceed with the conversion.
+"""
+
+    def _get_available_ram(self) -> int:
+        with open('/proc/meminfo', 'r') as meminfo:
+            for line in meminfo:
+                if line.startswith('MemAvailable:'):
+                    # We got data in KB, so we need to convert it to bytes
+                    return int(line.split()[1]) * 1024
+        return 0
+
+    def _do_check(self) -> bool:
+        # Amavis consumes a lot of RAM on AlmaLinux 8, which for example causes hangs on t2.micro instances
+        # Therefore, it's advisable to inform users about potential issues beforehand
+        # If you add support for other OSes it worth to check the RAM requirements for amavis on them
+        return not packages.is_package_installed("amavis") or self._get_available_ram() > self.required_ram or self.amavis_upgrade_allowed
+
+
+class ReinstallAmavisAntivirus(action.ActiveAction):
+    def __init__(self):
+        self.name = "reinstalling amavis antivirus"
+
+    def _is_required(self) -> bool:
+        return packages.is_package_installed("amavis")
+
+    def _prepare_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        packages.install_packages(["amavis"])
+
+        amavis_systemd_service = "amavisd.service"
+        if systemd.is_service_startable(amavis_systemd_service):
+            util.logged_check_call(["/usr/bin/systemctl", "enable", amavis_systemd_service])
+
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def estimate_post_time(self) -> int:
+        return 30
