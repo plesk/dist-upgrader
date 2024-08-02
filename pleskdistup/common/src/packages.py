@@ -78,7 +78,7 @@ def autoremove_outdated_packages() -> None:
         raise NotImplementedError(f"Unsupported distro {started_on}")
 
 
-def get_installed_packages_list(regex: str) -> typing.List[str]:
+def get_installed_packages_list(regex: str) -> typing.List[typing.Tuple[str, str]]:
     started_on = dist.get_distro()
     if started_on.deb_based:
         return dpkg.get_installed_packages_list(regex)

@@ -160,9 +160,13 @@ def install_packages(pkgs: typing.List[str], repository: typing.Optional[str] = 
     util.logged_check_call(command)
 
 
-def get_installed_packages_list(regex: str) -> typing.List[str]:
-    res = subprocess.check_output(["/usr/bin/rpm", "-qa", "--queryformat", "%{NAME} %{VERSION}-%{RELEASE}\n", regex], universal_newlines=True)
-    return res.splitlines()
+def get_installed_packages_list(regex: str) -> typing.List[typing.Tuple[str, str]]:
+    pkgs_info = subprocess.check_output(["/usr/bin/rpm", "-qa", "--queryformat", "%{NAME} %{VERSION}-%{RELEASE}\n", regex], universal_newlines=True)
+    result = []
+    for line in pkgs_info.splitlines():
+        name, version = line.split(" ", 1)
+        result.append((name, version))
+    return result
 
 
 def remove_packages(pkgs: typing.List[str]) -> None:

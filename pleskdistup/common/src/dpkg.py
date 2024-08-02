@@ -193,7 +193,11 @@ def do_distupgrade() -> None:
                            env={"PATH": os.environ["PATH"], "DEBIAN_FRONTEND": "noninteractive"})
 
 
-def get_installed_packages_list(regex: str) -> typing.List[str]:
-    res = subprocess.check_output(["/usr/bin/dpkg-query", "-W", "-f", "${binary:Package} ${Version}\n", regex],
-                                  universal_newlines=True)
-    return res.splitlines()
+def get_installed_packages_list(regex: str) -> typing.List[typing.Tuple[str, str]]:
+    pkgs_info = subprocess.check_output(["/usr/bin/dpkg-query", "-W", "-f", "${binary:Package} ${Version}\n", regex],
+                                        universal_newlines=True)
+    result = []
+    for pkg in pkgs_info.splitlines():
+        name, version = pkg.split(" ", 1)
+        result.append((name, version))
+    return result
