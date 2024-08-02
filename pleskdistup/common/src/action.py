@@ -393,7 +393,9 @@ class ReverseActionFlow(ActiveFlow):
         return self
 
     def __exit__(self, *kwargs):
-        if os.path.exists(self.path_to_actions_data):
+        # Do not remove the actions data if an error occurs because
+        # customer will likely want to retry after correcting the error on their end
+        if self.error is not None and os.path.exists(self.path_to_actions_data):
             os.remove(self.path_to_actions_data)
 
     def _get_flow(self) -> typing.Dict[str, typing.List[ActiveAction]]:
