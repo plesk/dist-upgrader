@@ -231,6 +231,26 @@ class TestFinishActionsFlow(TestCase):
     def test_finish_skip_based_on_failed_saved_state(self):
         check_saved_state("finish", "test_finish_skip_based_on_failed_saved_state", "failed", False)
 
+    def test_actions_json_removed(self):
+        simple_action = SimpleAction()
+        simple_action._post_action = mock.Mock(return_value=action.ActionResult())
+        with FinishActionsFlowForTests({"test_one_simple_action": [simple_action]}) as flow:
+            flow.validate_actions()
+            flow.pass_actions()
+
+        simple_action._post_action.assert_called_once()
+        self.assertFalse(os.path.exists("actions.json"))
+
+    def test_actions_json_not_removed_on_fail(self):
+        simple_action = SimpleAction()
+        simple_action._post_action = mock.Mock(return_value=action.ActionResult(action.ActionState.FAILED))
+        with FinishActionsFlowForTests({"test_one_simple_action": [simple_action]}) as flow:
+            flow.validate_actions()
+            flow.pass_actions()
+
+        simple_action._post_action.assert_called_once()
+        self.assertTrue(os.path.exists("actions.json"))
+
 
 class RevertActionsFlowForTests(action.RevertActionsFlow):
     def __init__(self, stages):
