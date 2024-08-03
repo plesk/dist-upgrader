@@ -652,5 +652,5 @@ class AssertNoMoreThenOneKernelDevelInstalled(action.CheckAction):
         if len(kernel_devel_packages) <= 1:
             return True
 
-        self.description = self.description.format("\n\t- ".join([pkg[0] + "-" + pkg[1] for pkg, _ in kernel_devel_packages]))
+        self.description = self.description.format("\n\t- ".join([pkg + "-" + ver for pkg, ver in kernel_devel_packages]))
         return False
