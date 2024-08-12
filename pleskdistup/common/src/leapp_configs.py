@@ -306,6 +306,55 @@ def set_package_repository(package: str, repository: str, leapp_pkgs_conf_path: 
     files.rewrite_json_file(leapp_pkgs_conf_path, pkg_mapping)
 
 
+def take_free_packageset_id(pkg_mapping: dict) -> int:
+    max_id: int = 0
+    if "packageinfo" not in pkg_mapping:
+        return 1
+
+    for info in pkg_mapping["packageinfo"]:
+        input_set_id = 0
+        if "in_packageset" in info and info["in_packageset"] and info["in_packageset"]["set_id"]:
+            input_set_id = int(info["in_packageset"]["set_id"])
+
+        output_set_id = 0
+        if "out_packageset" in info and info["out_packageset"] and info["out_packageset"]["set_id"]:
+            output_set_id = int(info["out_packageset"]["set_id"])
+
+        max_id = max(max_id, input_set_id, output_set_id)
+
+    return max_id + 1
+
+
+def set_package_mapping(
+        in_package: str,
+        source_repository: str,
+        out_package: str,
+        target_repository: str,
+        leapp_pkgs_conf_path: str = LEAPP_PKGS_CONF_PATH
+) -> None:
+    pkg_mapping = None
+    log.debug(f"Reconfigure mapping for package {in_package!r} from repository {source_repository!r} to package {out_package!r} from repository {target_repository!r}")
+    with open(leapp_pkgs_conf_path, "r") as pkg_mapping_file:
+        pkg_mapping = json.load(pkg_mapping_file)
+        for info in pkg_mapping["packageinfo"]:
+            if not info["in_packageset"] or not info["in_packageset"]["package"]:
+                continue
+
+            if all(inpkg["name"] != in_package or inpkg["repository"] != source_repository for inpkg in info["in_packageset"]["package"]):
+                continue
+
+            log.debug(f"Change '{in_package}' package repository in info '{info['id']}' -> in packageset '{info['in_packageset']['set_id']}'")
+            if "out_packageset" not in info or not info["out_packageset"]:
+                info["out_packageset"] = {"set_id": take_free_packageset_id(pkg_mapping), "package": []}
+                info["out_packageset"]["package"].append({"name": out_package, "repository": target_repository})
+            else:
+                info["out_packageset"]["package"] = []
+                info["out_packageset"]["package"].append({"name": out_package, "repository": target_repository})
+
+    log.debug(f"Write json into '{leapp_pkgs_conf_path}'")
+    files.rewrite_json_file(leapp_pkgs_conf_path, pkg_mapping)
+
+
 # The following types are defined in the leapp-repository repository and can be used
 # to define the action type of the package in the pes-events.json file.
 class LeappActionType(IntEnum):
@@ -332,6 +381,26 @@ def set_package_action(package: str, actionType: LeappActionType, leapp_pkgs_con
                 if inpackage["name"] == package:
                     log.debug(f"Change '{package}' package action in info '{info['id']}' -> out packageset '{info['in_packageset']['set_id']}'")
                     info["action"] = actionType
+
+    log.debug(f"Write json into '{leapp_pkgs_conf_path}'")
+    files.rewrite_json_file(leapp_pkgs_conf_path, pkg_mapping)
+
+
+def remove_package_action(package: str, repository: str, leapp_pkgs_conf_path: str = LEAPP_PKGS_CONF_PATH):
+    log.debug(f"Remove action for package '{package}' from repository '{repository}'")
+
+    def is_action_for_target_package(action: dict) -> bool:
+        if "in_packageset" not in action or action["in_packageset"] is None or "package" not in action["in_packageset"]:
+            return False
+        return any(inpackage["name"] == package and inpackage["repository"] == repository for inpackage in action["in_packageset"]["package"])
+
+    pkg_mapping = None
+    with open(leapp_pkgs_conf_path, "r") as pkg_mapping_file:
+        pkg_mapping = json.load(pkg_mapping_file)
+        if "packageinfo" not in pkg_mapping:
+            return
+
+        pkg_mapping["packageinfo"] = [action for action in pkg_mapping["packageinfo"] if not is_action_for_target_package(action)]
 
     log.debug(f"Write json into '{leapp_pkgs_conf_path}'")
     files.rewrite_json_file(leapp_pkgs_conf_path, pkg_mapping)

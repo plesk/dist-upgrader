@@ -635,3 +635,441 @@ class SetPackageActionTests(unittest.TestCase):
         with open(self.JSON_FILE_PATH, "r") as f:
             json_data = json.load(f)
             self.assertEqual(json_data, self.INITIAL_JSON)
+
+
+class TakeFreePackagesetIdTests(unittest.TestCase):
+    def test_simple_take(self):
+        json_data = {
+            "packageinfo": [
+                {
+                    "action": 1,
+                    "id": "1",
+                    "in_packageset": {
+                        "package": [
+                            {
+                                "name": "some",
+                                "repository": "some-repo",
+                            },
+                            {
+                                "name": "some2",
+                                "repository": "some-repo",
+                            },
+                        ],
+                        "set_id": "1",
+                    },
+                    "out_packageset": {
+                        "package": [
+                            {
+                                "name": "some",
+                                "repository": "other-repo",
+                            },
+                            {
+                                "name": "some2",
+                                "repository": "other-repo",
+                            },
+                        ],
+                        "set_id": "2",
+                    },
+                }
+            ]
+        }
+        self.assertEqual(leapp_configs.take_free_packageset_id(json_data), 3)
+
+    def test_no_data(self):
+        json_data = {}
+        self.assertEqual(leapp_configs.take_free_packageset_id(json_data), 1)
+
+    def test_empty_packageinfo(self):
+        json_data = {"packageinfo": []}
+        self.assertEqual(leapp_configs.take_free_packageset_id(json_data), 1)
+
+    def test_reversed_ids(self):
+        json_data = {
+            "packageinfo": [
+                {
+                    "action": 1,
+                    "id": "1",
+                    "in_packageset": {
+                        "package": [
+                            {
+                                "name": "some",
+                                "repository": "some-repo",
+                            },
+                            {
+                                "name": "some2",
+                                "repository": "some-repo",
+                            },
+                        ],
+                        "set_id": "2",
+                    },
+                    "out_packageset": {
+                        "package": [
+                            {
+                                "name": "some",
+                                "repository": "other-repo",
+                            },
+                            {
+                                "name": "some2",
+                                "repository": "other-repo",
+                            },
+                        ],
+                        "set_id": "1",
+                    },
+                }
+            ]
+        }
+        self.assertEqual(leapp_configs.take_free_packageset_id(json_data), 3)
+
+    def test_no_in_packageset(self):
+        json_data = {
+            "packageinfo": [
+                {
+                    "action": 1,
+                    "id": "1",
+                    "in_packageset": None,
+                    "out_packageset": {
+                        "package": [
+                            {
+                                "name": "some",
+                                "repository": "other-repo",
+                            },
+                            {
+                                "name": "some2",
+                                "repository": "other-repo",
+                            },
+                        ],
+                        "set_id": "2",
+                    },
+                }
+            ]
+        }
+        self.assertEqual(leapp_configs.take_free_packageset_id(json_data), 3)
+
+    def test_no_out_packageset(self):
+        json_data = {
+            "packageinfo": [
+                {
+                    "action": 1,
+                    "id": "1",
+                    "in_packageset": {
+                        "package": [
+                            {
+                                "name": "some",
+                                "repository": "other-repo",
+                            },
+                            {
+                                "name": "some2",
+                                "repository": "other-repo",
+                            },
+                        ],
+                        "set_id": "1",
+                    },
+                    "out_packageset": None,
+                }
+            ]
+        }
+        self.assertEqual(leapp_configs.take_free_packageset_id(json_data), 2)
+
+    def test_several_packageinfos(self):
+        json_data = {
+            "packageinfo": [
+                {
+                    "action": 1,
+                    "id": "1",
+                    "in_packageset": {
+                        "package": [
+                            {
+                                "name": "some",
+                                "repository": "some-repo",
+                            },
+                            {
+                                "name": "some2",
+                                "repository": "some-repo",
+                            },
+                        ],
+                        "set_id": "1",
+                    },
+                    "out_packageset": {
+                        "package": [
+                            {
+                                "name": "some",
+                                "repository": "other-repo",
+                            },
+                            {
+                                "name": "some2",
+                                "repository": "other-repo",
+                            },
+                        ],
+                        "set_id": "2",
+                    },
+                },
+                {
+                    "action": 1,
+                    "id": "2",
+                    "in_packageset": {
+                        "package": [
+                            {
+                                "name": "some",
+                                "repository": "some-repo",
+                            },
+                            {
+                                "name": "some2",
+                                "repository": "some-repo",
+                            },
+                        ],
+                        "set_id": "3",
+                    },
+                    "out_packageset": {
+                        "package": [
+                            {
+                                "name": "some",
+                                "repository": "other-repo",
+                            },
+                            {
+                                "name": "some2",
+                                "repository": "other-repo",
+                            },
+                        ],
+                        "set_id": "4",
+                    },
+                }
+            ]
+        }
+        self.assertEqual(leapp_configs.take_free_packageset_id(json_data), 5)
+
+
+class SetPackageMapptingTests(unittest.TestCase):
+    INITIAL_JSON = {
+        "packageinfo": [
+            {
+                "id": "1",
+                "action": 1,
+                "in_packageset": {
+                    "package": [
+                        {
+                            "name": "some",
+                            "repository": "some-repo",
+                        },
+                    ],
+                    "set_id": "1",
+                },
+            },
+            {
+                "id": "2",
+                "action": 4,
+                "in_packageset": {
+                    "package": [
+                        {
+                            "name": "other",
+                            "repository": "some-repo",
+                        },
+                    ],
+                    "set_id": "2",
+                },
+                "out_packageset": {
+                    "package": [
+                        {
+                            "name": "other",
+                            "repository": "other-repo",
+                        },
+                    ],
+                    "set_id": "3",
+                },
+            },
+            {
+                "id": "3",
+                "action": 4,
+                "in_packageset": {
+                    "package": [
+                        {
+                            "name": "known",
+                            "repository": "some-repo",
+                        },
+                    ],
+                    "set_id": "4",
+                },
+                "out_packageset": {
+                    "package": [
+                        {
+                            "name": "unknown",
+                            "repository": "other-repo",
+                        },
+                    ],
+                    "set_id": "5",
+                },
+            },
+            {
+                "id": "4",
+                "action": 4,
+                "in_packageset": None,
+                "out_packageset": None,
+            },
+        ]
+    }
+
+    JSON_FILE_PATH = "leapp_upgrade_repositories.json"
+
+    def setUp(self):
+        with open(self.JSON_FILE_PATH, "w") as f:
+            f.write(json.dumps(self.INITIAL_JSON, indent=4))
+
+    def tearDown(self):
+        if os.path.exists(self.JSON_FILE_PATH):
+            os.remove(self.JSON_FILE_PATH)
+
+    def test_add_missing_out_packageset(self):
+        leapp_configs.set_package_mapping("some", "some-repo", "some", "right-repo", leapp_pkgs_conf_path=self.JSON_FILE_PATH)
+
+        with open(self.JSON_FILE_PATH) as f:
+            json_data = json.load(f)
+            self.assertEqual(json_data["packageinfo"][0]["out_packageset"]["package"][0]["name"], "some")
+            self.assertEqual(json_data["packageinfo"][0]["out_packageset"]["package"][0]["repository"], "right-repo")
+
+    def test_change_existed_out_packageset(self):
+        leapp_configs.set_package_mapping("other", "some-repo", "other", "right-repo", leapp_pkgs_conf_path=self.JSON_FILE_PATH)
+
+        with open(self.JSON_FILE_PATH) as f:
+            json_data = json.load(f)
+            self.assertEqual(json_data["packageinfo"][1]["out_packageset"]["package"][0]["name"], "other")
+            self.assertEqual(json_data["packageinfo"][1]["out_packageset"]["package"][0]["repository"], "right-repo")
+
+    def test_replace_into_existed_out_packageset(self):
+        leapp_configs.set_package_mapping("known", "some-repo", "known", "right-repo", leapp_pkgs_conf_path=self.JSON_FILE_PATH)
+
+        with open(self.JSON_FILE_PATH) as f:
+            json_data = json.load(f)
+            self.assertEqual(json_data["packageinfo"][2]["out_packageset"]["package"][0]["name"], "known")
+            self.assertEqual(json_data["packageinfo"][2]["out_packageset"]["package"][0]["repository"], "right-repo")
+            self.assertEqual(len(json_data["packageinfo"][2]["out_packageset"]["package"]), 1)
+
+    def test_no_target_package(self):
+        leapp_configs.set_package_mapping("no", "some-repo", "other", "right-repo", leapp_pkgs_conf_path=self.JSON_FILE_PATH)
+
+        with open(self.JSON_FILE_PATH) as f:
+            json_data = json.load(f)
+            self.assertEqual(json_data, self.INITIAL_JSON)
+
+    def test_no_target_repo(self):
+        leapp_configs.set_package_mapping("some", "unknown-repo", "other", "right-repo", leapp_pkgs_conf_path=self.JSON_FILE_PATH)
+
+        with open(self.JSON_FILE_PATH) as f:
+            json_data = json.load(f)
+            self.assertEqual(json_data, self.INITIAL_JSON)
+
+
+class RemovePackageActionTests(unittest.TestCase):
+    INITIAL_JSON = {
+        "packageinfo": [
+            {
+                "id": "1",
+                "action": 1,
+                "in_packageset": {
+                    "package": [
+                        {
+                            "name": "some",
+                            "repository": "some-repo",
+                        },
+                    ],
+                    "set_id": "1",
+                },
+            },
+            {
+                "id": "2",
+                "action": 4,
+                "in_packageset": {
+                    "package": [
+                        {
+                            "name": "other",
+                            "repository": "other-repo",
+                        },
+                    ],
+                    "set_id": "3",
+                },
+            },
+            {
+                "id": "3",
+                "action": 4,
+                "in_packageset": {
+                    "package": [
+                        {
+                            "name": "known",
+                            "repository": "some-repo",
+                        },
+                    ],
+                    "set_id": "4",
+                },
+                "out_packageset": {
+                    "package": [
+                        {
+                            "name": "unknown",
+                            "repository": "other-repo",
+                        },
+                    ],
+                    "set_id": "5",
+                },
+            },
+            {
+                "id": "4",
+                "action": 4,
+                "in_packageset": None,
+                "out_packageset": None,
+            },
+            {
+                "id": "6",
+                "action": 1,
+                "in_packageset": {
+                    "package": [
+                        {
+                            "name": "some",
+                            "repository": "some-repo",
+                        },
+                    ],
+                    "set_id": "1",
+                },
+            },
+        ]
+    }
+
+    JSON_FILE_PATH = "leapp_upgrade_repositories.json"
+
+    def setUp(self):
+        with open(self.JSON_FILE_PATH, "w") as f:
+            f.write(json.dumps(self.INITIAL_JSON, indent=4))
+
+    def tearDown(self):
+        if os.path.exists(self.JSON_FILE_PATH):
+            os.remove(self.JSON_FILE_PATH)
+
+    def test_remove_single_action(self):
+        leapp_configs.remove_package_action("other", "other-repo", leapp_pkgs_conf_path=self.JSON_FILE_PATH)
+
+        with open(self.JSON_FILE_PATH) as f:
+            json_data = json.load(f)
+            self.assertTrue(all("2" != package["id"] for package in json_data["packageinfo"]))
+
+    def test_remove_multiple_actions(self):
+        leapp_configs.remove_package_action("some", "some-repo", leapp_pkgs_conf_path=self.JSON_FILE_PATH)
+
+        with open(self.JSON_FILE_PATH) as f:
+            json_data = json.load(f)
+            self.assertTrue(all("1" != package["id"] for package in json_data["packageinfo"]))
+            self.assertTrue(all("6" != package["id"] for package in json_data["packageinfo"]))
+
+    def test_no_target_package(self):
+        leapp_configs.remove_package_action("no", "no-repo", leapp_pkgs_conf_path=self.JSON_FILE_PATH)
+
+        with open(self.JSON_FILE_PATH) as f:
+            json_data = json.load(f)
+            self.assertEqual(json_data, self.INITIAL_JSON)
+
+    def test_empty_json_target_package(self):
+        if os.path.exists(self.JSON_FILE_PATH):
+            os.remove(self.JSON_FILE_PATH)
+        with open(self.JSON_FILE_PATH, "w") as f:
+            f.write(json.dumps({}, indent=4))
+
+        leapp_configs.remove_package_action("no", "no-repo", leapp_pkgs_conf_path=self.JSON_FILE_PATH)
+
+        with open(self.JSON_FILE_PATH) as f:
+            json_data = json.load(f)
+            self.assertEqual({}, json_data)
