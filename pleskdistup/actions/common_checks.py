@@ -654,3 +654,26 @@ class AssertNoMoreThenOneKernelDevelInstalled(action.CheckAction):
 
         self.description = self.description.format("\n\t- ".join([pkg + "-" + ver for pkg, ver in kernel_devel_packages]))
         return False
+
+
+class AssertSshPermitRootLoginConfigured(action.CheckAction):
+    def __init__(self):
+        self.name = "checking if PermitRootLogin is configured in sshd_config"
+        self.description = """The PermitRootLogin setting is missing in the /etc/ssh/sshd_config file.
+\tBy default, this will be set to 'prohibit-password' on the new system, which may prevent SSH connection.
+\tTo proceed with the conversion, you need to set PermitRootLogin explicitly in /etc/ssh/sshd_config.
+\t- If you use password authentication, add "PermitRootLogin yes" to the file.
+\t- If you use key-based authentication, add "PermitRootLogin prohibit-password" to the file.
+"""
+
+    def _do_check(self) -> bool:
+        sshd_config = "/etc/ssh/sshd_config"
+        if not os.path.exists(sshd_config):
+            return False
+
+        with open(sshd_config, "r") as f:
+            for line in f:
+                if line.strip().startswith("PermitRootLogin yes") or line.strip().startswith("PermitRootLogin prohibit-password"):
+                    return True
+
+        return False
