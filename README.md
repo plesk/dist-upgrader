@@ -7,6 +7,7 @@ This utility is the official tool to dist-upgrade servers with Plesk on Debian a
 > This repository only contains framework code which can't be used by itself without an upgrader module suitable for your system.
 > Check the following repositories for versions of this tool endowed with upgrader modules for particular systems:
 > - [Dist-upgrade Ubuntu 18 to 20](https://github.com/plesk/ubuntu18to20)
+> - [Dist-upgrade Ubuntu 20 to 22](https://github.com/plesk/ubuntu20to22)
 > - [Dist-upgrade Debian 11 to 12](https://github.com/plesk/debian11to12)
 
 General information about Plesk dist-upgrade tool and its default behavior follows. Please see the documentation of specific tools like ubuntu18to20 for details pertaining to particular systems.
