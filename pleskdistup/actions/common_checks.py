@@ -657,7 +657,7 @@ class AssertNoMoreThenOneKernelDevelInstalled(action.CheckAction):
 
 
 class AssertSshPermitRootLoginConfigured(action.CheckAction):
-    def __init__(self):
+    def __init__(self) -> None:
         self.name = "checking if PermitRootLogin is configured in sshd_config"
         self.description = """The PermitRootLogin setting is missing in the /etc/ssh/sshd_config file.
 \tBy default, this will be set to 'prohibit-password' on the new system, which may prevent SSH connection.
