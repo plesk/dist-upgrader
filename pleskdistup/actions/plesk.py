@@ -5,7 +5,7 @@ import pathlib
 import subprocess
 import typing
 
-from pleskdistup.common import action, packages, plesk, log, util, version
+from pleskdistup.common import action, dist, packages, plesk, log, util, version
 
 
 def _change_plesk_components(
@@ -192,7 +192,7 @@ class UpdatePlesk(action.ActiveAction):
         # new Plesk packages have been published, such as hotfixes, so the impact of the problem is low.
         # However, because we don't do a rollback for every conversion failure, this scenario is possible
         # and could be confusing for users. Therefore, we've decided to handle it proactively.
-        if not packages.is_package_installed("python36-lxml"):
+        if dist.get_distro() == dist.CentOs("7") and not packages.is_package_installed("python36-lxml"):
             packages.install_packages(["python36-lxml"])
 
         util.logged_check_call(["/usr/sbin/plesk", "installer", "update"] + self.update_cmd_args)
