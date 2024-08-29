@@ -68,23 +68,21 @@ class SetupUbuntu20Repositories(action.ActiveAction):
         return 0
 
 
-class UpdateLegacyPHPRepositories(action.ActiveAction):
+class UpdateLegacyPhpRepositories(action.ActiveAction):
     legacy_php_versions_inf3_urls: typing.List[str]
     from_os: dist.Distro
     to_os: dist.Distro
     sources_list_d_path: str
 
     def __init__(
-            self,
-            from_os: dist.Distro,
-            to_os: dist.Distro,
-            sources_list_d_path: str = "/etc/apt/sources.list.d/",
+        self,
+        from_os: dist.Distro,
+        to_os: dist.Distro,
+        sources_list_d_path: str = "/etc/apt/sources.list.d/",
     ):
         self.name = "update legacy PHP repositories"
         self.legacy_php_versions_inf3_urls = [
-            "https://autoinstall.plesk.com/php71.inf3",
-            "https://autoinstall.plesk.com/php72.inf3",
-            "https://autoinstall.plesk.com/php73.inf3",
+            "https://autoinstall.plesk.com/php{}.inf3".format(version) for version in [71, 72, 73]
         ]
         self.from_os = from_os
         self.to_os = to_os
