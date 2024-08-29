@@ -246,6 +246,14 @@ def get_repository_by_os_from_inf3(inf3_content: typing.Union[ElementTree.Elemen
         inf3_content = ElementTree.fromstring(inf3_content)
 
     for build in inf3_content.findall(".//build"):
-        if build.get("os_vendor") == os.name and build.get("os_version").split('.')[0] == os.version:
-            return build.get("config").rsplit("/", 1)[0]
+        entry_os_vendor = build.get("os_vendor")
+        entry_os_version = build.get("os_version")
+        if not entry_os_vendor or not entry_os_version:
+            continue
+
+        if entry_os_vendor == os.name and entry_os_version.split('.')[0] == os.version:
+            entry_config_attr = build.get("config")
+            if entry_config_attr:
+                return entry_config_attr.rsplit("/", 1)[0]
+            return None
     return None
