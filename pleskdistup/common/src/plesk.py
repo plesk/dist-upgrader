@@ -8,7 +8,7 @@ import typing
 import urllib.request
 import xml.etree.ElementTree as ElementTree
 
-from . import log, mariadb, systemd, version, util
+from . import dist, log, mariadb, systemd, version, util
 
 # http://autoinstall.plesk.com/products.inf3 is an xml file with available products,
 # including all versions of Plesk.
@@ -237,3 +237,15 @@ def get_from_plesk_database(query: str) -> typing.Optional[typing.List[str]]:
     )
     log.debug(f"Command {cmd} returned {proc.returncode}, stdout: '{proc.stdout}', stderr: '{proc.stderr}'")
     return proc.stdout.splitlines()
+
+
+def get_repository_by_os_from_inf3(inf3_content: typing.Union[ElementTree.Element, str], os: dist.Distro) -> typing.Optional[str]:
+    if isinstance(inf3_content, str):
+        if not inf3_content:
+            return None
+        inf3_content = ElementTree.fromstring(inf3_content)
+
+    for build in inf3_content.findall(".//build"):
+        if build.get("os_vendor") == os.name and build.get("os_version").split('.')[0] == os.version:
+            return build.get("config").rsplit("/", 1)[0]
+    return None

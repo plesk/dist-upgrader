@@ -1,7 +1,7 @@
 # Copyright 2023-2024. WebPros International GmbH. All rights reserved.
 import unittest
 
-from src import plesk, version
+from src import dist, plesk, version
 
 
 class TestProductsFileParser(unittest.TestCase):
@@ -88,3 +88,43 @@ class TestProductsFileParser(unittest.TestCase):
 """
 
         self.assertEqual([], plesk.extract_plesk_versions(data))
+
+
+class TestGetRepositoryByOSFromInf3(unittest.TestCase):
+    DEFAULT_TEST_DATA = """
+<addon id="php73" name="PHP v 7.3">
+<release id="PHP_7_3" name="PHP v 7.3" version="7.3.33">
+<compatibility_info>
+<compatible product_id="plesk" from_version="17.8.11" to_version="18.0.99"/>
+</compatibility_info>
+<build os_name="Linux" os_vendor="Debian" os_version="11.0" os_arch="x86_64" config="pool/PHP_7.3.33_13/php73-deb11.0-x86_64.inf3"/>
+<build os_name="Linux" os_vendor="Ubuntu" os_version="22.04" os_arch="x86_64" config="pool/PHP_7.3.33_13/php73-ubt22.04-x86_64.inf3"/>
+</release>
+<release id="PHP73_17" name="PHP v 7.3" version="7.3">
+<compatibility_info>
+<compatible product_id="plesk" from_version="17.8.11" to_version="18.0.99"/>
+</compatibility_info>
+<build os_name="Linux" os_vendor="AlmaLinux" os_version="8" os_arch="x86_64" config="pool/PHP_7.3.33_248/php73-cos8-x86_64.inf3"/>
+<build os_name="Linux" os_vendor="CentOS" os_version="7" os_arch="x86_64" config="pool/PHP_7.3.33_248/php73-cos7-x86_64.inf3"/>
+<build os_name="Linux" os_vendor="CentOS" os_version="8" os_arch="x86_64" config="pool/PHP_7.3.33_248/php73-cos8-x86_64.inf3"/>
+<build os_name="Linux" os_vendor="Ubuntu" os_version="20.04" os_arch="x86_64" config="pool/PHP_7.3.33_248/php73-ubt20.04-x86_64.inf3"/>
+</release>
+</addon>
+"""
+
+    def test_first_release_parsing(self):
+        self.assertEqual("pool/PHP_7.3.33_13", plesk.get_repository_by_os_from_inf3(self.DEFAULT_TEST_DATA, dist.Ubuntu("22")))
+
+    def test_second_release_parsing(self):
+        self.assertEqual("pool/PHP_7.3.33_248", plesk.get_repository_by_os_from_inf3(self.DEFAULT_TEST_DATA, dist.Ubuntu("20")))
+
+    def test_first_release_from_xml_object(self):
+        import xml.etree.ElementTree as ElementTree
+        root = ElementTree.fromstring(self.DEFAULT_TEST_DATA)
+        self.assertEqual("pool/PHP_7.3.33_13", plesk.get_repository_by_os_from_inf3(root, dist.Ubuntu("22")))
+
+    def test_no_such_release(self):
+        self.assertEqual(None, plesk.get_repository_by_os_from_inf3(self.DEFAULT_TEST_DATA, dist.Ubuntu("21")))
+
+    def test_empty_xml(self):
+        self.assertEqual(None, plesk.get_repository_by_os_from_inf3("", dist.Ubuntu("22")))
