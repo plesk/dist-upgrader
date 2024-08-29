@@ -7,8 +7,6 @@ import xml.etree.ElementTree as ElementTree
 
 from pleskdistup.common import action, dist, dpkg, files, log, packages, plesk, util
 
-PathType = typing.Union[os.PathLike, str]
-
 
 class InstallUbuntuUpdateManager(action.ActiveAction):
     def __init__(self):
@@ -71,16 +69,16 @@ class SetupUbuntu20Repositories(action.ActiveAction):
 
 
 class UpdateLegacyPHPRepositories(action.ActiveAction):
-    legacy_php_versions_inf3_urls: typing.List[PathType]
+    legacy_php_versions_inf3_urls: typing.List[str]
     from_os: dist.Distro
     to_os: dist.Distro
-    sources_list_d_path: PathType
+    sources_list_d_path: str
 
     def __init__(
             self,
             from_os: dist.Distro,
             to_os: dist.Distro,
-            sources_list_d_path: PathType = "/etc/apt/sources.list.d/",
+            sources_list_d_path: str = "/etc/apt/sources.list.d/",
     ):
         self.name = "update legacy PHP repositories"
         self.legacy_php_versions_inf3_urls = [
