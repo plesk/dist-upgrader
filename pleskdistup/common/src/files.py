@@ -64,6 +64,10 @@ def backup_file(filename: str) -> None:
         shutil.copy(filename, filename + ".bak")
 
 
+def backup_exists(filename: str) -> bool:
+    return os.path.exists(filename + ".bak")
+
+
 def restore_file_from_backup(filename: str, remove_if_no_backup: bool = False) -> None:
     if os.path.exists(filename + ".bak"):
         shutil.move(filename + ".bak", filename)
