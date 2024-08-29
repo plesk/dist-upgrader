@@ -9,6 +9,7 @@ from pleskdistup.common import action, dist, dpkg, files, log, packages, plesk, 
 
 PathType = typing.Union[os.PathLike, str]
 
+
 class InstallUbuntuUpdateManager(action.ActiveAction):
     def __init__(self):
         self.name = "install Ubuntu update manager"
