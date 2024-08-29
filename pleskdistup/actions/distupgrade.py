@@ -1,8 +1,11 @@
 # Copyright 2023-2024. WebPros International GmbH. All rights reserved.
 import os
 import subprocess
+import typing
+import urllib.request
+import xml.etree.ElementTree as ElementTree
 
-from pleskdistup.common import action, dpkg, files, log, packages, util
+from pleskdistup.common import action, dist, dpkg, files, log, packages, plesk, util
 
 
 class InstallUbuntuUpdateManager(action.ActiveAction):
@@ -63,6 +66,83 @@ class SetupUbuntu20Repositories(action.ActiveAction):
 
     def estimate_revert_time(self) -> int:
         return 0
+
+
+class UpdateLegacyPhpRepositories(action.ActiveAction):
+    legacy_php_versions_inf3_urls: typing.List[str]
+    from_os: dist.Distro
+    to_os: dist.Distro
+    sources_list_d_path: str
+
+    def __init__(
+        self,
+        from_os: dist.Distro,
+        to_os: dist.Distro,
+        sources_list_d_path: str = "/etc/apt/sources.list.d/",
+    ):
+        self.name = "update legacy PHP repositories"
+        self.legacy_php_versions_inf3_urls = [
+            "https://autoinstall.plesk.com/php{}.inf3".format(version) for version in [71, 72, 73]
+        ]
+        self.from_os = from_os
+        self.to_os = to_os
+        self.sources_list_d_path = sources_list_d_path
+
+    def _retrieve_php_version_repositories_mapping(self, url: str, from_os: dist.Distro, to_os: dist.Distro) -> typing.Dict[str, str]:
+        try:
+            response = urllib.request.urlopen(url)
+            xml_content = response.read().decode('utf-8')
+            log.debug(f"Retrieved PHP version repositories mapping from {url!r}. Content: {xml_content}")
+            root = ElementTree.fromstring(xml_content)
+
+            to_repo = plesk.get_repository_by_os_from_inf3(root, to_os)
+            from_repo = plesk.get_repository_by_os_from_inf3(root, from_os)
+            if to_repo and from_repo:
+                return {from_repo: to_repo}
+        except urllib.error.URLError as ex:
+            log.warn(f"Unable to download {url!r}: {ex}")
+        except ElementTree.ParseError as ex:
+            log.warn(f"Unable to parse inf3 file from {url!r}: {ex}")
+        except Exception as ex:
+            log.warn(f"Unable to retrieve PHP version repositories mapping from {url!r}: {ex}")
+
+        return {}
+
+    def _prepare_action(self) -> action.ActionResult:
+        mappings = {}
+        for url in self.legacy_php_versions_inf3_urls:
+            mappings.update(self._retrieve_php_version_repositories_mapping(url, self.from_os, self.to_os))
+
+        for list_file in files.find_files_case_insensitive(self.sources_list_d_path, "*.list", True):
+            if not files.backup_exists(list_file):
+                files.backup_file(list_file)
+
+            for from_repo, target_repo in mappings.items():
+                log.debug(f"Replacing {from_repo!r} with {target_repo!r} in {list_file!r}")
+                files.replace_string(list_file, from_repo, target_repo)
+
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        # Source lists backups are not relevant after the upgrade, so we can remove them from any
+        # action that uses them.
+        for list_file in files.find_files_case_insensitive(self.sources_list_d_path, "*.list", True):
+            files.remove_backup(list_file)
+
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        for list_file in files.find_files_case_insensitive(self.sources_list_d_path, "*.list", True):
+            files.restore_file_from_backup(list_file)
+
+        packages.update_package_list()
+        return action.ActionResult()
+
+    def estimate_prepare_time(self) -> int:
+        return 20
+
+    def estimate_revert_time(self) -> int:
+        return 20
 
 
 class SetupAptRepositories(action.ActiveAction):
