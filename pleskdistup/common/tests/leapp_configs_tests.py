@@ -478,6 +478,26 @@ epel-source,alma-epel-source,alma-epel-source,all,all,x86_64,rpm,ga,ga
         self._perform_test({"mariadb.repo": mariadb_like_repos},
                            expected_mariadb_repos, expected_mariadb_mapping)
 
+    def test_avoid_duplicated_prefixes(self):
+        prefixed_repo = """[alma-repo1]
+name=Alma repo1
+baseurl=http://repo1/rpm-CentOS-7
+enabled=1
+gpgcheck=0
+"""
+
+        expected_leapp_repos = """[alma-repo1]
+name=Alma repo1
+baseurl=http://repo1/rpm-RedHat-el8
+enabled=1
+gpgcheck=0
+"""
+
+        expected_leapp_mapping = """alma-repo1,alma-repo1,alma-repo1,all,all,x86_64,rpm,ga,ga
+"""
+
+        self._perform_test({"prefixed.repo": prefixed_repo}, expected_leapp_repos, expected_leapp_mapping)
+
 
 class SetPackageRepositoryTests(unittest.TestCase):
     INITIAL_JSON = {
