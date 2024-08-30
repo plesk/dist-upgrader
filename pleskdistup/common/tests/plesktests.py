@@ -90,7 +90,7 @@ class TestProductsFileParser(unittest.TestCase):
         self.assertEqual([], plesk.extract_plesk_versions(data))
 
 
-class TestGetRepositoryByOSFromInf3(unittest.TestCase):
+class TestGetRepositoryByOsFromInf3(unittest.TestCase):
     DEFAULT_TEST_DATA = """
 <addon id="php73" name="PHP v 7.3">
 <release id="PHP_7_3" name="PHP v 7.3" version="7.3.33">
