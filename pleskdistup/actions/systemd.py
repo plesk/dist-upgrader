@@ -147,6 +147,35 @@ class DisablePleskRelatedServicesDuringUpgrade(action.ActiveAction):
         return 10
 
 
+class HandlePleskFirewallService(action.ActiveAction):
+    plesk_firewall_service: str
+
+    def __init__(self) -> None:
+        self.name = "handle plesk-firewall service"
+        self.plesk_firewall_service = "plesk-firewall.service"
+
+    def _is_required(self) -> bool:
+        return systemd.is_service_startable(self.plesk_firewall_service) and systemd.is_service_active(self.plesk_firewall_service)
+
+    def _prepare_action(self) -> action.ActionResult:
+        # We avoid handling Plesk Firewall and Firewalld services during the preparation stage because
+        # we will not be able to restart them during the revert stage without causing a loss of network connection
+        # If we lose the connection, the revert process will be interrupted, which is undesirable.
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        # The firewalld service conflicts with the plesk-firewall service, so we need to ensure
+        # that it does not start on the target system
+        if systemd.is_service_exists("firewalld.service"):
+            util.logged_check_call(["/usr/bin/systemctl", "stop", "firewalld.service"])
+            util.logged_check_call(["/usr/bin/systemctl", "disable", "firewalld.service"])
+
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+
 class StartPleskBasicServices(action.ActiveAction):
     plesk_basic_services: typing.List[str]
 
