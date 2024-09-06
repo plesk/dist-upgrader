@@ -133,6 +133,7 @@ def _do_url_replacement(url: typing.Optional[str]) -> typing.Optional[str]:
         lambda to_change: to_change.replace("CloudLinux-7", "CloudLinux-8"),
         lambda to_change: to_change.replace("cloudlinux/7", "cloudlinux/8"),
         lambda to_change: to_change.replace("epel-7", "epel-8"),
+        lambda to_change: to_change.replace("epel/7", "epel/8"),
         lambda to_change: to_change.replace("epel-debug-7", "epel-debug-8"),
         lambda to_change: to_change.replace("epel-source-7", "epel-source-8"),
         lambda to_change: to_change.replace("centos7", "centos8"),
