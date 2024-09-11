@@ -47,7 +47,7 @@ def is_service_masked(service: str) -> bool:
         universal_newlines=True
     )
 
-    if res.stdout == 'masked':
+    if res.stdout.startswith('masked'):
         return True
     return False
 
