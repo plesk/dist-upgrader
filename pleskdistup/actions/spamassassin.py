@@ -3,7 +3,7 @@ import os
 import shutil
 import typing
 
-from pleskdistup.common import action, dist, packages, motd, rpm, util
+from pleskdistup.common import action, dist, packages, motd, rpm, systemd, util
 
 SPAMASSASIN_CONFIG_PATH = "/etc/mail/spamassassin/init.pre"
 
@@ -54,7 +54,10 @@ class HandleUpdatedSpamassassinConfig(action.ActiveAction):
         util.logged_check_call(["/usr/sbin/plesk", "sbin", "spammng", "--update", "--enable-server-configs", "--enable-user-configs"])
 
         util.logged_check_call(["/usr/bin/systemctl", "daemon-reload"])
-        util.logged_check_call(["/usr/bin/systemctl", "enable", "spamassassin.service"])
+        # There might be an issue if spamassassin.service is disabled. However, we still need to reconfigure
+        # spamassassin, so we should not skip the action, but simply avoid enabling the service.
+        if systemd.is_service_startable("spamassassin.service"):
+            util.logged_check_call(["/usr/bin/systemctl", "enable", "spamassassin.service"])
 
         # TODO. Following action is not supported on deb-based system. Actually it will be just skipped.
         # So if you are going to use the action on deb-based, you should be ready there will be no .rpmnew
