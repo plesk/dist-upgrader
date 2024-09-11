@@ -36,17 +36,20 @@ class RestoreCurrentSpamassasinConfiguration(action.ActiveAction):
 
 
 class HandleUpdatedSpamassassinConfig(action.ActiveAction):
+    spamassasin_service_name: str
+
     # Make sure the trick is preformed before any call of 'systemctl daemon-reload'
     # because we change spamassassin.service configuration in scope of this action.
     def __init__(self) -> None:
         self.name = "handle spamassassin configuration update"
+        self.spamassasin_service_name = "spamassassin.service"
 
     def _is_required(self) -> bool:
         return packages.is_package_installed("psa-spamassassin")
 
     def _prepare_action(self) -> action.ActionResult:
-        util.logged_check_call(["/usr/bin/systemctl", "stop", "spamassassin.service"])
-        util.logged_check_call(["/usr/bin/systemctl", "disable", "spamassassin.service"])
+        util.logged_check_call(["/usr/bin/systemctl", "stop", self.spamassasin_service_name])
+        util.logged_check_call(["/usr/bin/systemctl", "disable", self.spamassasin_service_name])
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
@@ -56,8 +59,8 @@ class HandleUpdatedSpamassassinConfig(action.ActiveAction):
         util.logged_check_call(["/usr/bin/systemctl", "daemon-reload"])
         # There might be an issue if spamassassin.service is disabled. However, we still need to reconfigure
         # spamassassin, so we should not skip the action, but simply avoid enabling the service.
-        if systemd.is_service_startable("spamassassin.service"):
-            util.logged_check_call(["/usr/bin/systemctl", "enable", "spamassassin.service"])
+        if systemd.is_service_startable(self.spamassasin_service_name):
+            util.logged_check_call(["/usr/bin/systemctl", "enable", self.spamassasin_service_name])
 
         # TODO. Following action is not supported on deb-based system. Actually it will be just skipped.
         # So if you are going to use the action on deb-based, you should be ready there will be no .rpmnew
@@ -72,8 +75,8 @@ class HandleUpdatedSpamassassinConfig(action.ActiveAction):
         return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
-        util.logged_check_call(["/usr/bin/systemctl", "enable", "spamassassin.service"])
-        util.logged_check_call(["/usr/bin/systemctl", "start", "spamassassin.service"])
+        util.logged_check_call(["/usr/bin/systemctl", "enable", self.spamassasin_service_name])
+        util.logged_check_call(["/usr/bin/systemctl", "start", self.spamassasin_service_name])
         return action.ActionResult()
 
 
