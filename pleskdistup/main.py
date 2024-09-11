@@ -6,6 +6,7 @@ import json
 import locale
 import logging
 import os
+import signal
 import sys
 import time
 import traceback
@@ -317,6 +318,12 @@ def try_lock(lock_file: PathType) -> typing.Generator[bool, None, None]:
                 log.warn(f"Failed to remove lockfile {lock_file!r}: {ex}")
 
 
+def exit_signal_handler(signum, frame):
+    # exit will trigger blocks finalization, so lockfile will be removed
+    log.info(f"Received signal {signum}, going to exit...")
+    sys.exit(1)
+
+
 DESC_MESSAGE = """Use this utility to dist-upgrade your server with Plesk.
 
 The utility writes a log to the file specified by --log-file. If there are any issues, you can find more information in the log file.
@@ -405,6 +412,10 @@ def main():
         parser.print_help()
     else:
         options.help = False
+
+    # signals handler initialization
+    for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP, signal.SIGABRT):
+        signal.signal(signum, exit_signal_handler)
 
     # Configure locale to avoid problems on systems where LANG or LC_CTYPE changed,
     # while files on the system still has utf-8 encoding
