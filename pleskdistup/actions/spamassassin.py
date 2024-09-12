@@ -75,8 +75,10 @@ class HandleUpdatedSpamassassinConfig(action.ActiveAction):
         return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
-        util.logged_check_call(["/usr/bin/systemctl", "enable", self.spamassasin_service_name])
-        util.logged_check_call(["/usr/bin/systemctl", "start", self.spamassasin_service_name])
+        if systemd.is_service_startable(self.spamassasin_service_name):
+            util.logged_check_call(["/usr/bin/systemctl", "enable", self.spamassasin_service_name])
+            util.logged_check_call(["/usr/bin/systemctl", "start", self.spamassasin_service_name])
+
         return action.ActionResult()
 
 
