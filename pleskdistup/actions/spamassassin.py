@@ -40,9 +40,9 @@ class HandleUpdatedSpamassassinConfig(action.ActiveAction):
 
     # Make sure the trick is preformed before any call of 'systemctl daemon-reload'
     # because we change spamassassin.service configuration in scope of this action.
-    def __init__(self) -> None:
+    def __init__(self, spamassasin_service_name: str = "spamassassin.service") -> None:
         self.name = "handle spamassassin configuration update"
-        self.spamassasin_service_name = "spamassassin.service"
+        self.spamassasin_service_name = spamassasin_service_name
 
     def _is_required(self) -> bool:
         return packages.is_package_installed("psa-spamassassin")
