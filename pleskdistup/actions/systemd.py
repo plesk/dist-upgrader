@@ -89,7 +89,6 @@ class DisablePleskRelatedServicesDuringUpgrade(action.ActiveAction):
             "drwebd.service",
             "fail2ban.service",
             "httpd.service",
-            "mailman.service",
             "mariadb.service",
             "named-chroot.service",
             "plesk-ext-monitoring-hcd.service",
@@ -173,6 +172,33 @@ class HandlePleskFirewallService(action.ActiveAction):
         return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+
+# We need to handle the mailman service separately because it is not configured and is stopped by default
+# If we try to start an unconfigured service, it will fail, causing issues during the revert and finish stages
+class HandleMailmanService(action.ActiveAction):
+    mailman_service: str
+
+    def __init__(self) -> None:
+        self.name = "handle mailman service"
+        self.mailman_service = "mailman.service"
+
+    def _is_required(self) -> bool:
+        return systemd.is_service_startable(self.mailman_service) and systemd.is_service_active(self.mailman_service)
+
+    def _prepare_action(self) -> action.ActionResult:
+        util.logged_check_call(["/usr/bin/systemctl", "stop", self.mailman_service])
+        util.logged_check_call(["/usr/bin/systemctl", "disable", self.mailman_service])
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        util.logged_check_call(["/usr/bin/systemctl", "enable", self.mailman_service])
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        util.logged_check_call(["/usr/bin/systemctl", "enable", self.mailman_service])
+        util.logged_check_call(["/usr/bin/systemctl", "start", self.mailman_service])
         return action.ActionResult()
 
 
