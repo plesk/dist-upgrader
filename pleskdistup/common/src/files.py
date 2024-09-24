@@ -11,6 +11,7 @@ from . import log
 
 PathType = typing.Union[os.PathLike, str]
 
+DEFAULT_BACKUP_EXTENSION = ".conversion.bak"
 
 def replace_string(filename: str, original_substring: str, new_substring: str) -> None:
     with open(filename, "r") as original, open(filename + ".next", "w") as dst:
@@ -59,25 +60,32 @@ def get_last_lines(filename: PathType, n: int) -> typing.List[str]:
         return f.readlines()[-n:]
 
 
-def backup_file(filename: str) -> None:
+def backup_file(filename: str, ext: str = DEFAULT_BACKUP_EXTENSION) -> None:
     if os.path.exists(filename):
-        shutil.copy(filename, filename + ".bak")
+        shutil.copy(filename, filename + ext)
 
 
-def backup_exists(filename: str) -> bool:
-    return os.path.exists(filename + ".bak")
+def backup_exists(filename: str, ext: str = DEFAULT_BACKUP_EXTENSION) -> bool:
+    return os.path.exists(filename + ext)
 
 
-def restore_file_from_backup(filename: str, remove_if_no_backup: bool = False) -> None:
-    if os.path.exists(filename + ".bak"):
-        shutil.move(filename + ".bak", filename)
+def restore_file_from_backup(filename: str, remove_if_no_backup: bool = False,
+        ext: str = DEFAULT_BACKUP_EXTENSION) -> None:
+    if os.path.exists(filename + ext):
+        shutil.move(filename + ext, filename)
     elif remove_if_no_backup and os.path.exists(filename):
         os.remove(filename)
 
 
-def remove_backup(filename: str) -> None:
-    if os.path.exists(filename + ".bak"):
-        os.remove(filename + ".bak")
+def remove_backup(filename: str, logf : typing.Optional[typing.Callable] = None,
+        ext: str = DEFAULT_BACKUP_EXTENSION) -> None:
+    try:
+        if os.path.exists(filename + ext):
+            os.remove(filename + ext)
+    except Exception as ex:
+        if logf is None:
+            raise
+        logf(f"failed to remove backup ({filename}): {ex}")
 
 
 def __get_files_recursive(path: str) -> typing.Iterator[str]:

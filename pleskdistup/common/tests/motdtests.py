@@ -4,6 +4,7 @@ import os
 import tempfile
 
 import src.motd as motd
+import src.files as files
 
 
 class InprogressSshLoginMessageTests(unittest.TestCase):
@@ -11,7 +12,7 @@ class InprogressSshLoginMessageTests(unittest.TestCase):
         self.motd_path = tempfile.mktemp()
 
     def tearDown(self):
-        for path in [self.motd_path, self.motd_path + ".bak"]:
+        for path in [self.motd_path, self.motd_path + files.DEFAULT_BACKUP_EXTENSION]:
             if os.path.exists(path):
                 os.remove(path)
 
@@ -37,7 +38,7 @@ class InprogressSshLoginMessageTests(unittest.TestCase):
         with open(self.motd_path) as motd_file:
             self.assertEqual(motd_file.read(), "old\nnew\n")
 
-        with open(self.motd_path + ".bak") as motd_file:
+        with open(self.motd_path + files.DEFAULT_BACKUP_EXTENSION) as motd_file:
             self.assertEqual(motd_file.read(), "old\n")
 
     def test_restore(self):
@@ -57,7 +58,7 @@ class FinishSshLoginMessageTests(unittest.TestCase):
         self.motd_path = tempfile.mktemp()
 
     def tearDown(self):
-        for path in [self.motd_path, self.motd_path + ".bak", self.motd_path + ".next"]:
+        for path in [self.motd_path, self.motd_path + files.DEFAULT_BACKUP_EXTENSION, self.motd_path + ".next"]:
             if os.path.exists(path):
                 os.remove(path)
 
@@ -106,7 +107,7 @@ You can remove this message from the {} file.
 ===============================================================================
 """.format(motd.MOTD_PATH)
 
-        with open(self.motd_path + ".bak", "w") as motd_file:
+        with open(self.motd_path + files.DEFAULT_BACKUP_EXTENSION, "w") as motd_file:
             motd_file.write("old\n")
 
         motd.add_inprogress_ssh_login_message("new\n", self.motd_path)

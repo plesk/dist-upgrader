@@ -1,5 +1,6 @@
 # Copyright 2023-2024. WebPros International GmbH. All rights reserved.
 import os
+import re
 import subprocess
 import typing
 import urllib.request
@@ -143,6 +144,92 @@ class UpdateLegacyPhpRepositories(action.ActiveAction):
 
     def estimate_revert_time(self) -> int:
         return 20
+
+
+class ReplaceAptReposRegexp(action.ActiveAction):
+    from_regexp: str
+    to_regexp: str
+    sources_list_path: str
+    sources_list_d_path: str
+    _name: str
+
+    def __init__(
+        self,
+        from_regexp: str,
+        to_regexp: str,
+        sources_list_path: str = "/etc/apt/sources.list",
+        sources_list_d_path: str = "/etc/apt/sources.list.d/",
+        name: str = "set up APT repositories to change from {self.from_regexp!r} to {self.to_regexp!r}",
+    ) -> None:
+        self.from_regexp = from_regexp
+        self.to_regexp = to_regexp
+        self.sources_list_path = sources_list_path
+        self.sources_list_d_path = sources_list_d_path
+
+        self._name = name
+
+    @property
+    def name(self):
+        return self._name.format(self=self)
+
+    def _apply_replace_to_file(self, fpath: str, ptrn: re.Pattern, to_regexp: str) -> None:
+        changed = False
+        new_lines = []
+        with open(fpath) as f:
+            for line in f:
+                new_lines.append(ptrn.sub(to_regexp, line))
+                if new_lines[-1] != line:
+                    changed = True
+        if not changed:
+            return
+        files.backup_file(fpath)
+        with open(fpath, 'w') as f:
+            f.writelines(new_lines)
+
+    def _get_all_repo_list_files(self) -> typing.List[str]:
+        ret = [self.sources_list_path]
+        for root, _, filenames in os.walk(self.sources_list_d_path):
+            for f in filenames:
+                if f.endswith(".list"):
+                    ret.append(os.path.join(root, f))
+        return ret
+
+    def _rm_backups(self) -> None:
+        for f in self._get_all_repo_list_files():
+            files.remove_backup(f, log.debug)
+
+    def _change_by_regexp(self, from_regexp: str, to_regexp: str) -> None:
+        p = re.compile(from_regexp)
+        for f in self._get_all_repo_list_files():
+            self._apply_replace_to_file(f, p, to_regexp)
+
+    def _revert_all(self) -> None:
+        for f in self._get_all_repo_list_files():
+            files.restore_file_from_backup(f)
+
+    def _prepare_action(self) -> action.ActionResult:
+        self._change_by_regexp(self.from_regexp, self.to_regexp)
+        packages.update_package_list()
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        self._rm_backups()
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        self._revert_all()
+        packages.update_package_list()
+        return action.ActionResult()
+
+    def estimate_prepare_time(self) -> int:
+        return 22
+
+    def estimate_revert_time(self) -> int:
+        return 22
+
+
+ReplaceAptReposRegexpDebian = ReplaceAptReposRegexp
+ReplaceAptReposRegexpUbuntu = ReplaceAptReposRegexp
 
 
 class SetupAptRepositories(action.ActiveAction):
