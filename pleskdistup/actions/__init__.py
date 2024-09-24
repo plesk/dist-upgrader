@@ -5,6 +5,7 @@ from .common import *
 from .distupgrade import *
 from .emails import *
 from .extensions import *
+from .grub import *
 from .mariadb import *
 from .packages import *
 from .plesk import *
