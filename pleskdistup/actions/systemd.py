@@ -83,6 +83,8 @@ class DisablePleskRelatedServicesDuringUpgrade(action.ActiveAction):
 
     def __init__(self) -> None:
         self.name = "disable plesk related services"
+        # Be cautious when adding the mailman service here. If mailman is not configured, the service will not start.
+        # The best way to handle mailman is to use the DisableServiceDuringUpgrade action.
         plesk_known_systemd_services = [
             "crond.service",
             "dovecot.service",
@@ -175,30 +177,28 @@ class HandlePleskFirewallService(action.ActiveAction):
         return action.ActionResult()
 
 
-# We need to handle the mailman service separately because it is not configured and is stopped by default
-# If we try to start an unconfigured service, it will fail, causing issues during the revert and finish stages
-class HandleMailmanService(action.ActiveAction):
-    mailman_service: str
+class DisableServiceDuringUpgrade(action.ActiveAction):
+    target_service: str
 
-    def __init__(self) -> None:
-        self.name = "handle mailman service"
-        self.mailman_service = "mailman.service"
+    def __init__(self, target_service: str) -> None:
+        self.name = f"handle {target_service} service"
+        self.target_service = target_service
 
     def _is_required(self) -> bool:
-        return systemd.is_service_startable(self.mailman_service) and systemd.is_service_active(self.mailman_service)
+        return systemd.is_service_startable(self.target_service) and systemd.is_service_active(self.target_service)
 
     def _prepare_action(self) -> action.ActionResult:
-        util.logged_check_call(["/usr/bin/systemctl", "stop", self.mailman_service])
-        util.logged_check_call(["/usr/bin/systemctl", "disable", self.mailman_service])
+        util.logged_check_call(["/usr/bin/systemctl", "stop", self.target_service])
+        util.logged_check_call(["/usr/bin/systemctl", "disable", self.target_service])
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
-        util.logged_check_call(["/usr/bin/systemctl", "enable", self.mailman_service])
+        util.logged_check_call(["/usr/bin/systemctl", "enable", self.target_service])
         return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
-        util.logged_check_call(["/usr/bin/systemctl", "enable", self.mailman_service])
-        util.logged_check_call(["/usr/bin/systemctl", "start", self.mailman_service])
+        util.logged_check_call(["/usr/bin/systemctl", "enable", self.target_service])
+        util.logged_check_call(["/usr/bin/systemctl", "start", self.target_service])
         return action.ActionResult()
 
 
