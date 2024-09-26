@@ -321,6 +321,14 @@ def try_lock(lock_file: PathType) -> typing.Generator[bool, None, None]:
 def exit_signal_handler(signum, frame):
     # exit will trigger blocks finalization, so lockfile will be removed
     log.info(f"Received signal {signum}, going to exit...")
+    print(f"The dist-upgrade process was stopped by signal {signum}. Please use the `--revert` option before trying again.")
+
+    motd.add_finish_ssh_login_message("""
+The dist-upgrade process was stopped by signal.
+Please use the `--revert` option before trying again.
+""")
+    motd.publish_finish_ssh_login_message()
+
     sys.exit(1)
 
 
