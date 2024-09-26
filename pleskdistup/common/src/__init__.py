@@ -2,6 +2,7 @@
 
 from . import action
 from . import dist
+from . import dns
 from . import dpkg
 from . import log
 from . import mariadb
