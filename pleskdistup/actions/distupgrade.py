@@ -146,6 +146,49 @@ class UpdateLegacyPhpRepositories(action.ActiveAction):
         return 20
 
 
+class CheckAptReposBackups(action.CheckAction):
+    description: str
+    _name: str
+    sources_list_path: str
+    sources_list_d_path: str
+
+    @staticmethod
+    def get_all_repo_list_files(sources_list_path: str, sources_list_d_path: str) -> typing.List[str]:
+        ret = [sources_list_path]
+        for root, _, filenames in os.walk(sources_list_d_path):
+            for f in filenames:
+                if f.endswith(".list"):
+                    ret.append(os.path.join(root, f))
+        return ret
+
+    def __init__(self,
+        sources_list_path: str = "/etc/apt/sources.list",
+        sources_list_d_path: str = "/etc/apt/sources.list.d/",
+    ) -> None:
+        self._name = "Check repo.list leftovers from previous conversion"
+        self.description = "These repo.list files are found with backups, please check/restore them, and delete the backups: {}"
+        self.sources_list_path = sources_list_path
+        self.sources_list_d_path = sources_list_d_path
+
+    @property
+    def name(self) -> str:
+        return self._name.format(self)
+
+    @name.setter
+    def name(self, val: str) -> None:
+        self._name = val
+
+    def _do_check(self) -> bool:
+        log.debug(f"Checking leftover repo.list files")
+        archived_files = [f for f in
+            CheckAptReposBackups.get_all_repo_list_files(self.sources_list_path, self.sources_list_d_path)
+                if files.backup_exists(f)]
+        if archived_files:
+            self.description = self.description.format(",".join(archived_files))
+            return False
+        return True
+
+
 class ReplaceAptReposRegexp(action.ActiveAction):
     from_regexp: str
     to_regexp: str
@@ -191,12 +234,8 @@ class ReplaceAptReposRegexp(action.ActiveAction):
             f.writelines(new_lines)
 
     def _get_all_repo_list_files(self) -> typing.List[str]:
-        ret = [self.sources_list_path]
-        for root, _, filenames in os.walk(self.sources_list_d_path):
-            for f in filenames:
-                if f.endswith(".list"):
-                    ret.append(os.path.join(root, f))
-        return ret
+        return CheckAptReposBackups.get_all_repo_list_files(self.sources_list_path,
+                    self.sources_list_d_path)
 
     def _rm_backups(self) -> None:
         for f in self._get_all_repo_list_files():
