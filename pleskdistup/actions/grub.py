@@ -5,6 +5,7 @@ from pleskdistup.common import action, util
 
 DEBCONF_CMD = "/usr/bin/debconf-show"
 
+
 class AssertGrubInstallDeviceExists(action.CheckAction):
     def __init__(self) -> None:
         self.name = "check GRUB installation device exists"
