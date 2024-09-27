@@ -169,8 +169,12 @@ class ReplaceAptReposRegexp(action.ActiveAction):
         self._name = name
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._name.format(self=self)
+
+    @name.setter
+    def name(self, val: str) -> None:
+        self._name = val
 
     def _apply_replace_to_file(self, fpath: str, ptrn: re.Pattern, to_regexp: str) -> None:
         changed = False
