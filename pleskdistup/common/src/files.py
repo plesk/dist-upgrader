@@ -77,15 +77,18 @@ def restore_file_from_backup(filename: str, remove_if_no_backup: bool = False,
         os.remove(filename)
 
 
-def remove_backup(filename: str, logf : typing.Optional[typing.Callable] = None,
+def remove_backup(filename: str,
+        raise_exception: bool = True,
+        logf : typing.Optional[typing.Callable] = None,
         ext: str = DEFAULT_BACKUP_EXTENSION) -> None:
     try:
         if os.path.exists(filename + ext):
             os.remove(filename + ext)
     except Exception as ex:
-        if logf is None:
+        if logf is not None:
+            logf(f"failed to remove backup ({filename}): {ex}")
+        if raise_exception:
             raise
-        logf(f"failed to remove backup ({filename}): {ex}")
 
 
 def __get_files_recursive(path: str) -> typing.Iterator[str]:

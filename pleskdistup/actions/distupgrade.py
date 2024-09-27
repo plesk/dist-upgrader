@@ -239,7 +239,7 @@ class ReplaceAptReposRegexp(action.ActiveAction):
 
     def _rm_backups(self) -> None:
         for f in self._get_all_repo_list_files():
-            files.remove_backup(f, log.debug)
+            files.remove_backup(f, False, log.debug)
 
     def _change_by_regexp(self, from_regexp: str, to_regexp: str) -> None:
         p = re.compile(from_regexp)
