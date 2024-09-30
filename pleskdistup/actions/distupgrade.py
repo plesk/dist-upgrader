@@ -167,7 +167,10 @@ class CheckAptReposBackups(action.CheckAction):
         sources_list_d_path: str = "/etc/apt/sources.list.d/",
     ) -> None:
         self._name = "Check repo.list leftovers from previous conversion"
-        self.description = "These repo.list files are found with backups, please check/restore them, and delete the backups: {}"
+        self.description = """These repo.list backups are found:
+\t{}
+Please use `--revert` flag to restore and remove those backups.
+"""
         self.sources_list_path = sources_list_path
         self.sources_list_d_path = sources_list_d_path
 
