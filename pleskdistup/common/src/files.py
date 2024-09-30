@@ -69,24 +69,30 @@ def backup_exists(filename: str, ext: str = DEFAULT_BACKUP_EXTENSION) -> bool:
     return os.path.exists(filename + ext)
 
 
-def restore_file_from_backup(filename: str, remove_if_no_backup: bool = False,
-        ext: str = DEFAULT_BACKUP_EXTENSION) -> None:
+def restore_file_from_backup(
+    filename: str,
+    remove_if_no_backup: bool = False,
+    ext: str = DEFAULT_BACKUP_EXTENSION,
+) -> None:
     if os.path.exists(filename + ext):
         shutil.move(filename + ext, filename)
     elif remove_if_no_backup and os.path.exists(filename):
         os.remove(filename)
 
 
-def remove_backup(filename: str,
-        raise_exception: bool = True,
-        logf : typing.Optional[typing.Callable] = None,
-        ext: str = DEFAULT_BACKUP_EXTENSION) -> None:
+def remove_backup(
+    filename: str,
+    raise_exception: bool = True,
+    logf: typing.Optional[typing.Callable[[str], typing.Any]] = None,
+    ext: str = DEFAULT_BACKUP_EXTENSION,
+) -> None:
+    backup_name = filename + ext
     try:
-        if os.path.exists(filename + ext):
-            os.remove(filename + ext)
+        if os.path.exists(backup_name):
+            os.remove(backup_name)
     except Exception as ex:
         if logf is not None:
-            logf(f"failed to remove backup ({filename}): {ex}")
+            logf(f"failed to remove backup ({backup_name}): {ex}")
         if raise_exception:
             raise
 

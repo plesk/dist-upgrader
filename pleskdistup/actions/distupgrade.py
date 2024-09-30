@@ -161,7 +161,8 @@ class CheckAptReposBackups(action.CheckAction):
                     ret.append(os.path.join(root, f))
         return ret
 
-    def __init__(self,
+    def __init__(
+        self,
         sources_list_path: str = "/etc/apt/sources.list",
         sources_list_d_path: str = "/etc/apt/sources.list.d/",
     ) -> None:
