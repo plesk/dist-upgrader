@@ -13,6 +13,7 @@ PathType = typing.Union[os.PathLike, str]
 
 DEFAULT_BACKUP_EXTENSION = ".conversion.bak"
 
+
 def replace_string(filename: str, original_substring: str, new_substring: str) -> None:
     with open(filename, "r") as original, open(filename + ".next", "w") as dst:
         for line in original.readlines():

@@ -180,10 +180,12 @@ class CheckAptReposBackups(action.CheckAction):
         self._name = val
 
     def _do_check(self) -> bool:
-        log.debug(f"Checking leftover repo.list files")
-        archived_files = [f for f in
+        log.debug("Checking leftover repo.list files")
+        archived_files = [
+            f for f in
             CheckAptReposBackups.get_all_repo_list_files(self.sources_list_path, self.sources_list_d_path)
-                if files.backup_exists(f)]
+            if files.backup_exists(f)
+        ]
         if archived_files:
             self.description = self.description.format(",".join(archived_files))
             return False
@@ -235,8 +237,10 @@ class ReplaceAptReposRegexp(action.ActiveAction):
             f.writelines(new_lines)
 
     def _get_all_repo_list_files(self) -> typing.List[str]:
-        return CheckAptReposBackups.get_all_repo_list_files(self.sources_list_path,
-                    self.sources_list_d_path)
+        return CheckAptReposBackups.get_all_repo_list_files(
+            self.sources_list_path,
+            self.sources_list_d_path,
+        )
 
     def _rm_backups(self) -> None:
         for f in self._get_all_repo_list_files():
