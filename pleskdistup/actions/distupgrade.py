@@ -2,11 +2,17 @@
 import os
 import re
 import subprocess
+import sys
 import typing
 import urllib.request
 import xml.etree.ElementTree as ElementTree
 
 from pleskdistup.common import action, dist, dpkg, files, log, packages, plesk, util
+
+if sys.version_info >= (3, 7):
+    from re import Pattern
+else:
+    from typing import Pattern
 
 
 class InstallUbuntuUpdateManager(action.ActiveAction):
@@ -225,7 +231,7 @@ class ReplaceAptReposRegexp(action.ActiveAction):
     def name(self, val: str) -> None:
         self._name = val
 
-    def _apply_replace_to_file(self, fpath: str, ptrn: re.Pattern, to_regexp: str) -> None:
+    def _apply_replace_to_file(self, fpath: str, ptrn: Pattern, to_regexp: str) -> None:
         changed = False
         new_lines = []
         with open(fpath) as f:
