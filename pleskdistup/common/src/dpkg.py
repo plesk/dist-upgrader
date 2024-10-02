@@ -5,8 +5,11 @@ import os
 import re
 import subprocess
 import typing
+import time
 
-from . import files, util
+from . import files, log, util
+
+DPKG_TEMPFAIL_RETRY: typing.List[int] = [30, 60, 90, 120]
 
 APT_CHOOSE_OLD_FILES_OPTIONS = [
     "-o", "Dpkg::Options::=--force-confdef",
@@ -122,9 +125,59 @@ def safely_install_packages(
     install_packages(pkgs, repository, force_package_config)
 
 
+def _exec_retry_when_locked(
+    apt_get_cmd: typing.List[str],
+    tmpfail_retry_intervals: typing.Optional[typing.List[int]] = None,
+    collect_stdout: bool = False,
+) -> str:
+    cant_get_lock = False
+    stdout = []
+
+    if tmpfail_retry_intervals is None:
+        tmpfail_retry_intervals = DPKG_TEMPFAIL_RETRY
+
+    def process_stdout(line: str) -> None:
+        if collect_stdout:
+            nonlocal stdout
+            stdout.append(line)
+        log.info("stdout: {}".format(line.rstrip('\n')), to_stream=False)
+
+    def process_stderr(line: str) -> None:
+        log.info("stderr: {}".format(line.rstrip('\n')))
+        nonlocal cant_get_lock
+        if cant_get_lock:
+            return
+        if "E: Could not get lock" in line:
+            cant_get_lock = True
+
+    i = 0
+    while True:
+        cant_get_lock = False
+        stdout.clear()
+        log.info(f"Executing: {' '.join(apt_get_cmd)}")
+        exit_code = util.exec_get_output_streamed(
+            apt_get_cmd, process_stdout, process_stderr,
+            env={
+                "PATH": os.environ["PATH"],
+                "DEBIAN_FRONTEND": "noninteractive",
+                "LC_ALL": "C",
+                "LANG": "C",
+            },
+        )
+        if exit_code == 0:
+            break
+        if i >= len(tmpfail_retry_intervals) or not cant_get_lock:
+            raise subprocess.CalledProcessError(returncode=exit_code, cmd=apt_get_cmd)
+        log.info(f"{apt_get_cmd[0]} failed because lock is already held, will retry in {tmpfail_retry_intervals[i]} seconds..")
+        time.sleep(tmpfail_retry_intervals[i])
+        i += 1
+    return "".join(stdout)
+
+
 def remove_packages(
     pkgs: typing.List[str],
     simulate: bool = False,
+    tmpfail_retry_intervals: typing.Optional[typing.List[int]] = None,
 ) -> typing.Optional[typing.Dict[str, typing.List[PackageEntry]]]:
     if len(pkgs) == 0:
         return None
@@ -133,7 +186,7 @@ def remove_packages(
     if simulate:
         cmd.append("--simulate")
     cmd += pkgs
-    cmd_out = util.logged_check_call(cmd)
+    cmd_out = _exec_retry_when_locked(cmd, tmpfail_retry_intervals, collect_stdout=True)
     if simulate:
         return _parse_apt_get_simulation(cmd_out)
     return None
@@ -142,6 +195,7 @@ def remove_packages(
 def safely_remove_packages(
     pkgs: typing.List[str],
     protected_pkgs: typing.Optional[typing.Iterable[str]] = None,
+    tmpfail_retry_intervals: typing.Optional[typing.List[int]] = None,
 ) -> None:
     sim_res = remove_packages(pkgs, simulate=True)
     if sim_res is not None and protected_pkgs is not None:
@@ -149,28 +203,32 @@ def safely_remove_packages(
         violations = _find_protection_violations(sim_res, protected_set)
         if violations:
             raise PackageProtectionError(protected_packages=violations)
-    remove_packages(pkgs)
+    remove_packages(pkgs, False, tmpfail_retry_intervals)
 
 
 def find_related_repofiles(repository_file: str) -> typing.List[str]:
     return files.find_files_case_insensitive("/etc/apt/sources.list.d", repository_file)
 
 
-def update_package_list() -> None:
-    util.logged_check_call(["/usr/bin/apt-get", "update", "-y"])
+def update_package_list(tmpfail_retry_intervals: typing.Optional[typing.List[int]] = None) -> None:
+    cmd = ["/usr/bin/apt-get", "update", "-y"]
+    _exec_retry_when_locked(cmd, tmpfail_retry_intervals)
 
 
-def upgrade_packages(pkgs: typing.Optional[typing.List[str]] = None) -> None:
+def upgrade_packages(
+    pkgs: typing.Optional[typing.List[str]] = None,
+    tmpfail_retry_intervals: typing.Optional[typing.List[int]] = None,
+) -> None:
     if pkgs is None:
         pkgs = []
 
     cmd = ["/usr/bin/apt-get", "upgrade", "-y"] + APT_CHOOSE_OLD_FILES_OPTIONS + pkgs
-    util.logged_check_call(cmd, env={"PATH": os.environ["PATH"], "DEBIAN_FRONTEND": "noninteractive"})
+    _exec_retry_when_locked(cmd, tmpfail_retry_intervals)
 
 
-def autoremove_outdated_packages() -> None:
-    util.logged_check_call(["/usr/bin/apt-get", "autoremove", "-y"],
-                           env={"PATH": os.environ["PATH"], "DEBIAN_FRONTEND": "noninteractive"})
+def autoremove_outdated_packages(tmpfail_retry_intervals: typing.Optional[typing.List[int]] = None) -> None:
+    cmd = ["/usr/bin/apt-get", "autoremove", "-y"]
+    _exec_retry_when_locked(cmd, tmpfail_retry_intervals)
 
 
 def depconfig_parameter_set(parameter: str, value: str) -> None:
@@ -184,13 +242,14 @@ def depconfig_parameter_get(parameter: str) -> str:
     return process.stdout.split(" ")[1].strip()
 
 
-def restore_installation() -> None:
-    util.logged_check_call(["/usr/bin/apt-get", "-f", "install", "-y"])
+def restore_installation(tmpfail_retry_intervals: typing.Optional[typing.List[int]] = None) -> None:
+    cmd = ["/usr/bin/apt-get", "-f", "install", "-y"]
+    _exec_retry_when_locked(cmd, tmpfail_retry_intervals)
 
 
-def do_distupgrade() -> None:
-    util.logged_check_call(["apt-get", "dist-upgrade", "-y"] + APT_CHOOSE_OLD_FILES_OPTIONS,
-                           env={"PATH": os.environ["PATH"], "DEBIAN_FRONTEND": "noninteractive"})
+def do_distupgrade(tmpfail_retry_intervals: typing.Optional[typing.List[int]] = None) -> None:
+    cmd = ["apt-get", "dist-upgrade", "-y"] + APT_CHOOSE_OLD_FILES_OPTIONS
+    _exec_retry_when_locked(cmd, tmpfail_retry_intervals)
 
 
 def get_installed_packages_list(regex: str) -> typing.List[typing.Tuple[str, str]]:
