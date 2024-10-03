@@ -318,18 +318,21 @@ def try_lock(lock_file: PathType) -> typing.Generator[bool, None, None]:
                 log.warn(f"Failed to remove lockfile {lock_file!r}: {ex}")
 
 
-def exit_signal_handler(signum, frame):
-    # exit will trigger blocks finalization, so lockfile will be removed
-    log.info(f"Received signal {signum}, going to exit...")
-    print(f"The dist-upgrade process was stopped by signal {signum}. Please use the `--revert` option before trying again.")
+def create_exit_signal_handler(utility_name: str) -> typing.Callable[[int, typing.Any], None]:
+    def exit_signal_handler(signum, frame):
+        # exit will trigger blocks finalization, so lockfile will be removed
+        log.info(f"Received signal {signum}, going to exit...")
+        print(f"The dist-upgrade process was stopped by signal {signum}. Please use the `{utility_name} --revert` option before trying again.")
 
-    motd.add_finish_ssh_login_message("""
-The dist-upgrade process was stopped by signal.
-Please use the `--revert` option before trying again.
-""")
-    motd.publish_finish_ssh_login_message()
+        motd.add_finish_ssh_login_message(f"""
+    The dist-upgrade process was stopped by signal.
+    Please use the `{utility_name} --revert` option before trying again.
+    """)
+        motd.publish_finish_ssh_login_message()
 
-    sys.exit(1)
+        sys.exit(1)
+
+    return exit_signal_handler
 
 
 DESC_MESSAGE = """Use this utility to dist-upgrade your server with Plesk.
@@ -422,6 +425,7 @@ def main():
         options.help = False
 
     # signals handler initialization
+    exit_signal_handler = create_exit_signal_handler(util_name)
     for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP, signal.SIGABRT):
         signal.signal(signum, exit_signal_handler)
 
