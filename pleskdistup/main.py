@@ -335,6 +335,11 @@ def create_exit_signal_handler(utility_name: str) -> typing.Callable[[int, typin
     return exit_signal_handler
 
 
+def assign_killing_signals(handler: typing.Callable[[int, typing.Any], None]) -> None:
+    for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP, signal.SIGABRT):
+        signal.signal(signum, handler)
+
+
 DESC_MESSAGE = """Use this utility to dist-upgrade your server with Plesk.
 
 The utility writes a log to the file specified by --log-file. If there are any issues, you can find more information in the log file.
@@ -425,9 +430,7 @@ def main():
         options.help = False
 
     # signals handler initialization
-    exit_signal_handler = create_exit_signal_handler(util_name)
-    for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP, signal.SIGABRT):
-        signal.signal(signum, exit_signal_handler)
+    assign_killing_signals(create_exit_signal_handler(util_name))
 
     # Configure locale to avoid problems on systems where LANG or LC_CTYPE changed,
     # while files on the system still has utf-8 encoding
@@ -614,6 +617,10 @@ def main():
                 os.unlink(options.resume_path)
                 log.debug(f"Removed the resume file {options.resume_path!r}")
             os.unlink(options.completion_flag_path)
+
+    # After lock there's no need to manage signals in such a detailed manner
+    # Simply log the reason for not rebooting
+    assign_killing_signals(lambda signum, frame: log.info(f"Received signal {signum}, going to exit..."))
 
     if not options.no_reboot and convert_result.reboot_requested:
         log.info("Going to reboot the system")
