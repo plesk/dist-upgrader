@@ -620,7 +620,7 @@ def main():
 
     # After lock there's no need to manage signals in such a detailed manner
     # Simply log the reason for not rebooting
-    assign_killing_signals(lambda signum, frame: log.info(f"Received signal {signum}, going to exit..."))
+    assign_killing_signals(lambda signum, frame: log.info(f"Received signal {signum} on reboot..."))
 
     if not options.no_reboot and convert_result.reboot_requested:
         log.info("Going to reboot the system")
