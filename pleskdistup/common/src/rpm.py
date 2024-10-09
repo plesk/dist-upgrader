@@ -147,7 +147,12 @@ def is_package_installed(pkg: str) -> bool:
     return res.returncode == 0
 
 
-def install_packages(pkgs: typing.List[str], repository: typing.Optional[str] = None, force_package_config: bool = False) -> None:
+def install_packages(
+    pkgs: typing.List[str],
+    repository: typing.Optional[str] = None,
+    force_package_config: bool = False,
+    simulate: bool = False,
+) -> None:
     # force_package_config is not supported yet
     if len(pkgs) == 0:
         return
@@ -155,6 +160,8 @@ def install_packages(pkgs: typing.List[str], repository: typing.Optional[str] = 
     command = ["/usr/bin/yum", "install"]
     if repository is not None:
         command += ["--repo", repository]
+    if simulate:
+        command += ["--setopt", "tsflags=test"]
     command += ["-y"] + pkgs
 
     util.logged_check_call(command)
