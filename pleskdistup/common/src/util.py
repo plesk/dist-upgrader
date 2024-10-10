@@ -6,34 +6,74 @@ import typing
 from . import log
 
 
-# Returns standard output
-def logged_check_call(cmd: typing.Union[typing.Sequence[str], str], **kwargs) -> str:
+def log_outputs_check_call(
+    cmd: typing.Union[typing.Sequence[str], str],
+    collect_return_stdout: bool = False,
+    **kwargs,
+) -> str:
+    '''
+    Runs cmd and raises on nonzero exit code. Returns stdout when collect_return_stdout
+    '''
     log.info(f"Running: {cmd!r}. Output:")
-
-    # I beleive we should be able pass argument to the subprocess function
-    # from the caller. So we have to inject stdout/stderr/universal_newlines
-    kwargs["stdout"] = subprocess.PIPE
-    kwargs["stderr"] = subprocess.STDOUT
-    kwargs["universal_newlines"] = True
-
     stdout = []
-    process = subprocess.Popen(cmd, **kwargs)
-    while None is process.poll():
-        if not process.stdout:
-            log.err(f"Can't get process output from {cmd!r}")
-            raise RuntimeError(f"Can't get process output from {cmd!r}")
-        line = process.stdout.readline()
-        if line:
-            stdout.append(line)
-            if line.strip():
-                log.info(line.strip(), to_stream=False)
 
-    if process.returncode != 0:
-        log.err(f"Command {cmd!r} failed with return code {process.returncode}")
-        raise subprocess.CalledProcessError(returncode=process.returncode, cmd=cmd, output="\n".join(stdout))
+    def proc_stdout(line: str) -> None:
+        log.info("stdout: {}".format(line.rstrip('\n')), to_stream=False)
+        if collect_return_stdout:
+            stdout.append(line)
+
+    def proc_stderr(line: str) -> None:
+        log.info("stderr: {}".format(line.rstrip('\n')))
+
+    exit_code = exec_get_output_streamed(cmd, proc_stdout, proc_stderr, **kwargs)
+    if exit_code != 0:
+        log.err(f"Command {cmd!r} failed with return code {exit_code}")
+        raise subprocess.CalledProcessError(returncode=exit_code, cmd=cmd)
 
     log.info(f"Command {cmd!r} finished successfully")
-    return "\n".join(stdout)
+    return "".join(stdout)
+
+
+# Returns standard output
+def logged_check_call(cmd: typing.Union[typing.Sequence[str], str], **kwargs) -> str:
+    return log_outputs_check_call(cmd, collect_return_stdout=True, **kwargs)
+
+
+def exec_get_output_streamed(
+    cmd: typing.Union[typing.Sequence[str], str],
+    process_stdout_line: typing.Optional[typing.Callable[[str], None]],
+    process_stderr_line: typing.Optional[typing.Callable[[str], None]],
+    **kwargs,
+) -> int:
+    '''
+    Allows to get stdout/stderr by streaming line by line, by calling callbacks
+    and returns process exit code
+    '''
+    kwargs["stdout"] = (subprocess.DEVNULL if process_stdout_line is None
+                        else subprocess.PIPE)
+    kwargs["stderr"] = (subprocess.DEVNULL if process_stderr_line is None
+                        else subprocess.PIPE)
+    kwargs["universal_newlines"] = True
+
+    process = subprocess.Popen(cmd, **kwargs)
+    if process_stdout_line is None and process_stderr_line is None:
+        process.communicate()
+        return process.returncode
+
+    while process.poll() is None:
+        if process_stdout_line is not None:
+            if not process.stdout:
+                raise RuntimeError(f"Cannot get process stdout of command {cmd!r}")
+            line = process.stdout.readline()
+            if line:
+                process_stdout_line(line)
+        if process_stderr_line is not None:
+            if not process.stderr:
+                raise RuntimeError(f"Cannot get process stderr of command {cmd!r}")
+            line = process.stderr.readline()
+            if line:
+                process_stderr_line(line)
+    return process.returncode
 
 
 def merge_dicts_of_lists(
