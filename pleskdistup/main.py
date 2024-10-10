@@ -318,17 +318,22 @@ def try_lock(lock_file: PathType) -> typing.Generator[bool, None, None]:
                 log.warn(f"Failed to remove lockfile {lock_file!r}: {ex}")
 
 
+GOING_TO_REBOOT = False
+
+
 def create_exit_signal_handler(utility_name: str) -> typing.Callable[[int, typing.Any], None]:
     def exit_signal_handler(signum, frame):
+        global GOING_TO_REBOOT
         # exit will trigger blocks finalization, so lockfile will be removed
         log.info(f"Received signal {signum}, going to exit...")
-        print(f"The dist-upgrade process was stopped by signal {signum}. Please use the `{utility_name} --revert` option before trying again.")
+        if not GOING_TO_REBOOT:
+            print(f"The dist-upgrade process was stopped by signal {signum}. Please use the `{utility_name} --revert` option before trying again.")
 
-        motd.add_finish_ssh_login_message(f"""
-    The dist-upgrade process was stopped by signal.
-    Please use the `{utility_name} --revert` option before trying again.
-    """)
-        motd.publish_finish_ssh_login_message()
+            motd.add_finish_ssh_login_message(f"""
+        The dist-upgrade process was stopped by signal.
+        Please use the `{utility_name} --revert` option before trying again.
+        """)
+            motd.publish_finish_ssh_login_message()
 
         sys.exit(1)
 
@@ -431,6 +436,9 @@ def main():
 
     # signals handler initialization
     assign_killing_signals(create_exit_signal_handler(util_name))
+
+    global GOING_TO_REBOOT
+    GOING_TO_REBOOT = False
 
     # Configure locale to avoid problems on systems where LANG or LC_CTYPE changed,
     # while files on the system still has utf-8 encoding
@@ -618,9 +626,8 @@ def main():
                 log.debug(f"Removed the resume file {options.resume_path!r}")
             os.unlink(options.completion_flag_path)
 
-    # After lock there's no need to manage signals in such a detailed manner
-    # Simply log the reason for not rebooting
-    assign_killing_signals(lambda signum, frame: log.info(f"Received signal {signum} on reboot..."))
+    # Set it to avoid changing motd on reboot
+    GOING_TO_REBOOT = True
 
     if not options.no_reboot and convert_result.reboot_requested:
         log.info("Going to reboot the system")
