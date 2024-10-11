@@ -1,6 +1,7 @@
 # Copyright 2023-2024. WebPros International GmbH. All rights reserved.
 
 import subprocess
+from select import select
 import typing
 
 from . import log
@@ -64,15 +65,17 @@ def exec_get_output_streamed(
         if process_stdout_line is not None:
             if not process.stdout:
                 raise RuntimeError(f"Cannot get process stdout of command {cmd!r}")
-            line = process.stdout.readline()
-            if line:
-                process_stdout_line(line)
+            if select([process.stdout], [], [], 0.0)[0]:
+                line = process.stdout.readline()
+                if line:
+                    process_stdout_line(line)
         if process_stderr_line is not None:
             if not process.stderr:
                 raise RuntimeError(f"Cannot get process stderr of command {cmd!r}")
-            line = process.stderr.readline()
-            if line:
-                process_stderr_line(line)
+            if select([process.stderr], [], [], 0.0)[0]:
+                line = process.stderr.readline()
+                if line:
+                    process_stderr_line(line)
     return process.returncode
 
 
