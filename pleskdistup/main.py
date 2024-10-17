@@ -318,22 +318,25 @@ def try_lock(lock_file: PathType) -> typing.Generator[bool, None, None]:
                 log.warn(f"Failed to remove lockfile {lock_file!r}: {ex}")
 
 
-GOING_TO_REBOOT = False
+def create_exit_signal_handler(utility_name: str, keep_motd: bool) -> typing.Callable[[int, typing.Any], None]:
+    log.info(f"Create signals handler with keep MOTD: {keep_motd!r}")
+    if keep_motd:
+        def keep_motd_exit_signal_handler(signum, frame):
+            log.info(f"Received signal {signum}, going to keep motd and exit...")
+            sys.exit(1)
+        return keep_motd_exit_signal_handler
 
-
-def create_exit_signal_handler(utility_name: str) -> typing.Callable[[int, typing.Any], None]:
     def exit_signal_handler(signum, frame):
-        global GOING_TO_REBOOT
         # exit will trigger blocks finalization, so lockfile will be removed
         log.info(f"Received signal {signum}, going to exit...")
-        if not GOING_TO_REBOOT:
-            print(f"The dist-upgrade process was stopped by signal {signum}. Please use the `{utility_name} --revert` option before trying again.")
 
-            motd.add_finish_ssh_login_message(f"""
-        The dist-upgrade process was stopped by signal.
-        Please use the `{utility_name} --revert` option before trying again.
-        """)
-            motd.publish_finish_ssh_login_message()
+        print(f"The dist-upgrade process was stopped by signal {signum}. Please use the `{utility_name} --revert` option before trying again.")
+
+        motd.add_finish_ssh_login_message(f"""
+The dist-upgrade process was stopped by signal.
+Please use the `{utility_name} --revert` option before trying again.
+""")
+        motd.publish_finish_ssh_login_message()
 
         sys.exit(1)
 
@@ -433,12 +436,6 @@ def main():
         parser.print_help()
     else:
         options.help = False
-
-    # signals handler initialization
-    assign_killing_signals(create_exit_signal_handler(util_name))
-
-    global GOING_TO_REBOOT
-    GOING_TO_REBOOT = False
 
     # Configure locale to avoid problems on systems where LANG or LC_CTYPE changed,
     # while files on the system still has utf-8 encoding
@@ -609,6 +606,10 @@ def main():
         )
         return 1
 
+    # We don't need to set the signal handlers before, because it suggests to do --revert, however before starting the
+    # `do_convert` function we actually did not do anything useful yet, so there is nothing to revert.
+    assign_killing_signals(create_exit_signal_handler(util_name, keep_motd=True if options.resume else False))
+
     lock_file = options.state_dir + f"/{util_name}.lock"
     with try_lock(lock_file) as lock_acquired:
         if not lock_acquired:
@@ -626,8 +627,8 @@ def main():
                 log.debug(f"Removed the resume file {options.resume_path!r}")
             os.unlink(options.completion_flag_path)
 
-    # Set it to avoid changing motd on reboot
-    GOING_TO_REBOOT = True
+    # Reset the signal handlers because we will likely receive signals on reboot and it is fine
+    assign_killing_signals(create_exit_signal_handler(util_name, keep_motd=True))
 
     if not options.no_reboot and convert_result.reboot_requested:
         log.info("Going to reboot the system")
