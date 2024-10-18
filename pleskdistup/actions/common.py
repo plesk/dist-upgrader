@@ -59,13 +59,7 @@ class AddFinishSshLoginMessage(action.ActiveAction):
         return action.ActionResult()
 
 
-class AddInProgressSshLoginMessage(action.ActiveAction):
-    in_progress_message: str
-
-    def __init__(self, new_os: str) -> None:
-        self.name = "add in progress SSH login message"
-        path_to_util = os.path.abspath(sys.argv[0])
-        self.in_progress_message = f"""
+IN_PROGRESS_MESSAGE_FORMAT = """
 ===============================================================================
 Message from the Plesk dist-upgrader tool:
 The server is being converted to {new_os}. Please wait. During the conversion the
@@ -74,6 +68,15 @@ To see the current conversion status, run the '{path_to_util} --status' command.
 To monitor the conversion progress in real time, run the '{path_to_util} --monitor' command.
 ===============================================================================
 """
+
+
+class AddInProgressSshLoginMessage(action.ActiveAction):
+    in_progress_message: str
+
+    def __init__(self, new_os: str) -> None:
+        self.name = "add in progress SSH login message"
+        path_to_util = os.path.abspath(sys.argv[0])
+        self.in_progress_message = IN_PROGRESS_MESSAGE_FORMAT.format(new_os=new_os, path_to_util=path_to_util)
 
     def _prepare_action(self) -> action.ActionResult:
         log.debug("Adding 'in progress' login message...")
@@ -86,6 +89,27 @@ To monitor the conversion progress in real time, run the '{path_to_util} --monit
 
     def _revert_action(self) -> action.ActionResult:
         motd.restore_ssh_login_message()
+        return action.ActionResult()
+
+
+class RestoreInProgressSshLoginMessage(action.ActiveAction):
+    in_progress_message: str
+
+    def __init__(self, new_os: str) -> None:
+        self.name = "restore in progress SSH login message"
+        path_to_util = os.path.abspath(sys.argv[0])
+        self.in_progress_message = IN_PROGRESS_MESSAGE_FORMAT.format(new_os=new_os, path_to_util=path_to_util)
+
+    def _prepare_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        log.debug("Restore 'in progress' login message...")
+        motd.restore_ssh_login_message()
+        motd.add_inprogress_ssh_login_message(self.in_progress_message)
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
         return action.ActionResult()
 
 
