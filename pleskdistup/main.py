@@ -72,9 +72,15 @@ def show_status(status_file_path: PathType) -> None:
         print("Conversion process is not running.")
         return
 
-    print("Conversion process in progress:")
     status = files.get_last_lines(status_file_path, 1)
-    print(status[0])
+    # This means progress bar exceeded and we should write last 5 lines of the status file
+    if status[0].startswith("****"):
+        status = files.get_last_lines(status_file_path, 5)
+    else:
+        print("Conversion process in progress:")
+
+    for line in status:
+        print(line, end='')
 
 
 def monitor_status(status_file_path: PathType) -> None:
@@ -83,12 +89,25 @@ def monitor_status(status_file_path: PathType) -> None:
         return
 
     with open(status_file_path, "r") as status:
-        status.readlines()
+        old_lines = status.readlines()
+        if old_lines[-1].startswith("****"):
+            for lines in old_lines[-5:]:
+                print(lines, end='')
+            return
+
         while os.path.exists(status_file_path):
             line = status.readline().rstrip()
+            # If progress bar exceeds it will switch to the red color. In this case we could stop the monitoring process.
+            if line.startswith("\033[91m["):
+                print(line)
+                break
+
             sys.stdout.write("\r" + line)
             sys.stdout.flush()
             time.sleep(1)
+
+        for line in status.readlines():
+            print(line, end='')
 
 
 def show_fail_motd(logfile_path: PathType, util_name: str) -> None:
