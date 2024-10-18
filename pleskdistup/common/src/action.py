@@ -515,7 +515,7 @@ class FlowProgressbar():
         start_time = int(time.time())
         passed_time = 0
 
-        while passed_time < self.total_time and not self.flow.is_finished():
+        while passed_time <= self.total_time and not self.flow.is_finished():
             percent = int((passed_time) / self.total_time * 100)
 
             description = self.get_action_description()
@@ -544,6 +544,6 @@ class FlowProgressbar():
             time.sleep(1)
             passed_time = int(time.time()) - start_time
 
-        if passed_time > self.total_time:
+        if passed_time >= self.total_time:
             self.write("\r\033[91m[" + "X" * 25 + self.get_action_description() + "X" * 25 + "] exceed\033[0m")
             self.write(self.time_exceeded_message)
