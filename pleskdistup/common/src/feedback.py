@@ -150,3 +150,12 @@ def collect_plesk_version(out_file_path: str = "plesk_version.txt") -> typing.Li
             version_file.write(lines + "\n")
 
     return [out_file_path]
+
+
+def collect_kernel_modules(out_file_path: str = "kernel_modules.txt") -> typing.List[str]:
+    _collect_command_output(
+        ["/usr/sbin/lsmod"],
+        out_file_path,
+        "Getting kernel modules (called as {args}) failed: {ex}\n",
+    )
+    return [out_file_path]
