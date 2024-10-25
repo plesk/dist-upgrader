@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import subprocess
+import typing
 
 from pleskdistup.common import action, files, log, motd, util
 
@@ -90,4 +91,70 @@ class RestoreDovecotConfiguration(action.ActiveAction):
 
     def _revert_action(self) -> action.ActionResult:
         files.remove_backup(self.dovecot_config_path)
+        return action.ActionResult()
+
+
+class RestoreRoundcubeConfiguration(action.ActiveAction):
+    roundcube_config_path: str
+    roundcube_file_for_customizations: str
+    save_path: str
+    default_lines: typing.List[str]
+
+    def __init__(self, temp_directory: str):
+        self.name = "restore roundcube configuration"
+        self.roundcube_config_path = "/usr/share/psa-roundcube/config/config.inc.php"
+        self.roundcube_file_for_customizations = "/usr/share/psa-roundcube/config/config.local.php"
+        self.save_path = os.path.join(temp_directory, os.path.basename(self.roundcube_config_path) + files.DEFAULT_BACKUP_EXTENSION)
+        self.default_lines = [
+            "$config = array();",
+            "$config['db_dsnw'] = 'mysql://roundcube:"
+        ]
+
+    def _is_required(self) -> bool:
+        return os.path.exists(self.roundcube_config_path)
+
+    def _get_customizations(self, source_file_path: str) -> typing.List[str]:
+        customizations = []
+        with open(source_file_path, "r") as target:
+            for line in target:
+                if line.startswith("$config") and not any(line.startswith(skip) for skip in self.default_lines):
+                    customizations.append(line)
+
+        return customizations
+
+    def _move_customizations(self, source_file_path: str, target_file_path: str) -> int:
+        customizations = self._get_customizations(source_file_path)
+
+        if len(customizations) == 0:
+            return 0
+
+        with open(target_file_path, "w") as target_file:
+            for line in customizations:
+                target_file.write(line)
+
+        return len(customizations)
+
+    def _prepare_action(self) -> action.ActionResult:
+        if os.path.exists(self.roundcube_config_path):
+            shutil.copy(self.roundcube_config_path, self.save_path)
+
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        if not os.path.exists(self.roundcube_file_for_customizations) and os.path.exists(self.save_path):
+            if self._move_customizations(self.save_path, self.roundcube_file_for_customizations) > 0:
+                os.unlink(self.save_path)
+                motd.add_finish_ssh_login_message(f"The roundcube configuration customizations have been relocated to the file {self.roundcube_file_for_customizations!r}. This file should be included in the {self.roundcube_config_path!r}. If this inclusion is missing, please update Plesk to the latest version.\n")
+
+            return action.ActionResult()
+
+        if os.path.exists(self.save_path) and len(self._get_customizations(self.save_path)) > 0:
+            motd.add_finish_ssh_login_message(f"Your roundcube configuration, located at {self.roundcube_config_path!r}, has been moved to {self.save_path!r}. Please transfer any necessary customizations into {self.roundcube_file_for_customizations!r}\n")
+
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        if os.path.exists(self.save_path):
+            os.unlink(self.save_path)
+
         return action.ActionResult()
