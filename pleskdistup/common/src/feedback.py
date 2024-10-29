@@ -5,7 +5,7 @@ import subprocess
 import typing
 import zipfile
 
-from . import dist, plesk
+from . import dist, log, plesk
 
 
 class Feedback():
@@ -153,8 +153,19 @@ def collect_plesk_version(out_file_path: str = "plesk_version.txt") -> typing.Li
 
 
 def collect_kernel_modules(out_file_path: str = "kernel_modules.txt") -> typing.List[str]:
+    possible_lsmod_paths: typing.List[str] = ["/usr/sbin/lsmod", "/sbin/lsmod"]
+    lsmod_utility: typing.Optional[str] = None
+    for lsmod_path in possible_lsmod_paths:
+        if os.path.exists(lsmod_path):
+            lsmod_utility = lsmod_path
+            break
+
+    if lsmod_utility is None:
+        log.warn("lsmod utility not found, skipping kernel modules collection")
+        return []
+
     _collect_command_output(
-        ["/usr/sbin/lsmod"],
+        [lsmod_utility],
         out_file_path,
         "Getting kernel modules (called as {args}) failed: {ex}\n",
     )
