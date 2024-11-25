@@ -7,7 +7,7 @@ import subprocess
 import typing
 from abc import abstractmethod
 
-from pleskdistup.common import action, log, packages, php, plesk, version
+from pleskdistup.common import action, log, mounts, packages, php, plesk, version
 
 
 # This action should be considered as deprecated
@@ -676,4 +676,26 @@ class AssertSshPermitRootLoginConfigured(action.CheckAction):
                 if line.strip().startswith("PermitRootLogin yes") or line.strip().startswith("PermitRootLogin prohibit-password"):
                     return True
 
+        return False
+
+
+class AssertFstabOrderingIsFine(action.CheckAction):
+    FSTAB_PATH: str = "/etc/fstab"
+
+    def __init__(self):
+        self.name = "checking if /etc/fstab is ordered properly"
+        self.description = """The /etc/fstab file entries is not ordered properly.
+\t- {}"""
+
+    def _do_check(self) -> bool:
+        if not os.path.exists(self.FSTAB_PATH):
+            # Might be a problem, but it is not something we checking in scope of this check
+            return True
+
+        misorderings = mounts.get_fstab_configuration_misorderings(self.FSTAB_PATH)
+
+        if len(misorderings) == 0:
+            return True
+
+        self.description = self.description.format("\n\t- ".join([f"Mount point {mount_point} should be placed after {parent_dir}" for parent_dir, mount_point in misorderings]))
         return False

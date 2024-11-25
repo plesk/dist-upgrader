@@ -8,6 +8,7 @@ from . import log
 from . import mariadb
 from . import leapp_configs
 from . import motd
+from . import mounts
 from . import packages
 from . import php
 from . import plesk
