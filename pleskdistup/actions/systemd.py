@@ -224,7 +224,8 @@ class StartPleskBasicServices(action.ActiveAction):
     def _enable_services(self) -> action.ActionResult:
         # MariaDB could be started before, so we should stop it first
         # TODO. Or we could check it is started and just remove it from list
-        util.logged_check_call(["/usr/bin/systemctl", "stop", "mariadb.service"])
+        if systemd.is_service_exists("mariadb.service"):
+            util.logged_check_call(["/usr/bin/systemctl", "stop", "mariadb.service"])
 
         util.logged_check_call(["/usr/bin/systemctl", "enable"] + self.plesk_basic_services)
         util.logged_check_call(["/usr/bin/systemctl", "start"] + self.plesk_basic_services)
