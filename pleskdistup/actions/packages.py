@@ -82,3 +82,13 @@ class InstallPackages(action.ActiveAction):
 
     def estimate_revert_time(self) -> int:
         return self.estimate_prepare_time()
+
+
+class AssertEPELRpmRepositoryPresent(action.CheckAction):
+    def __init__(self):
+        self.name = "checking if EPEL RPM repository file is present"
+        self.description = """The EPEL RPM repository is not present at expected /etc/yum.repo.d/epel.repo.
+The EPEL repository is required by Plesk and conversion process
+Please install the EPEL repository by running the following command:
+\tyum install epel-release
+"""
