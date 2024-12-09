@@ -45,6 +45,9 @@ def extract_repodata(
     mirrorlist: typing.Optional[str] = None
     additional: typing.List[str] = []
 
+    if not os.path.exists(repofile):
+        raise FileNotFoundError(f"The repository file {repofile!r} does not exist")
+
     with open(repofile, "r") as repo:
         for line in repo.readlines():
             if line.startswith("["):
