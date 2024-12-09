@@ -32,7 +32,7 @@ def get_fstab_configuration_misorderings(configpath: str) -> typing.List[typing.
 
     misorderings: typing.List[typing.Tuple[str, str]] = []
     for mount_point in mount_points_order.keys():
-        if mount_point == "/":
+        if mount_point == "/" or not mount_point.startswith("/"):
             continue
 
         parent_dir: str = mount_point
