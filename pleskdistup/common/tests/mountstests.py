@@ -81,3 +81,12 @@ class FstabMisorderingTests(unittest.TestCase):
             f.write("devpts /dev/pts devpts gid=5,mode=620 0 0\n")
             f.write("tmpfs /dev/shm tmpfs defaults 0 0\n")
         self.assertEqual(mounts.get_fstab_configuration_misorderings(self.test_file_path), [("/home", "/home/test")])
+
+    def test_mount_point_is_swap(self):
+        with open(self.test_file_path, "w") as f:
+            f.write("# comment\n")
+            f.write("/dev/sda2 /var ext4 defaults 0 1\n")
+            f.write("/dev/sda5 swap swap defaults 0 1\n")
+            f.write("/dev/sda4 /home ext4 defaults 0 1\n")
+
+        self.assertEqual(mounts.get_fstab_configuration_misorderings(self.test_file_path), [])
