@@ -88,8 +88,9 @@ def get_installed_mariadb_version() -> MariaDBVersion:
     if not utility:
         raise RuntimeError("Unable to find mariadb or mysql utility")
     out = subprocess.check_output([utility, "--version"], universal_newlines=True)
-    log.debug("Detected mariadb version is: {version}".format(version=out.split("Distrib ")[1].split(",")[0].split("-")[0]))
-    return MariaDBVersion(out)
+    result = MariaDBVersion(out)
+    log.debug(f"Detected mariadb version is: {result}")
+    return result
 
 
 def get_mariadb_config_file_path() -> str:
