@@ -3,6 +3,7 @@ import subprocess
 import typing
 
 from . import dist, log
+import re
 
 
 def is_version_larger(left: str, right: str) -> bool:
@@ -56,6 +57,16 @@ class MariaDBVersion():
         self.minor = int(minor_part)
         self.patch = int(patch_part)
 
+    def _extract_from_mariadb_util(self, util_output: str):
+        # String example: "mariadb from 11.6.2-MariaDB, client 15.2 for Linux (x86_64) using  EditLine wrapper"
+        match = re.search(r"mariadb from (\d+)\.(\d+)\.(\d+)-MariaDB", util_output)
+        if not match:
+            raise ValueError(f"Cannot extract mariadb version from '{util_output}'")
+        major_part, minor_part, patch_part = match.groups()
+        self.major = int(major_part)
+        self.minor = int(minor_part)
+        self.patch = int(patch_part)
+
     def __init__(self, to_extract: str):
         """Initialize a version object."""
         self.major = 0
@@ -66,8 +77,10 @@ class MariaDBVersion():
             self._extract_from_version_str(to_extract)
         elif "Distrib" in to_extract:
             self._extract_from_mysql_util(to_extract)
+        elif to_extract.startswith("mariadb"):
+            self._extract_from_mariadb_util(to_extract)
         else:
-            raise ValueError(f"Cannot extract php version from '{to_extract}'")
+            raise ValueError(f"Cannot extract mariadb version from '{to_extract}'")
 
     def __str__(self):
         """Return a string representation of a PHPVersion object."""
