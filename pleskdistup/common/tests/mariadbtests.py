@@ -17,6 +17,12 @@ class MariaDBVersionsTests(unittest.TestCase):
         self.assertEqual(php.minor, 6)
         self.assertEqual(php.patch, 12)
 
+    def test_parse_utility_output_no_distrib(self):
+        php = mariadb.MariaDBVersion("mariadb from 11.6.2-MariaDB, client 15.2 for Linux (x86_64) using  EditLine wrapper")
+        self.assertEqual(php.major, 11)
+        self.assertEqual(php.minor, 6)
+        self.assertEqual(php.patch, 2)
+
     def test_parse_wrong_string(self):
         with self.assertRaises(ValueError):
             mariadb.MariaDBVersion("nothing")

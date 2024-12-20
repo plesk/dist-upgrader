@@ -289,9 +289,11 @@ def do_convert(
         if locale.getpreferredencoding(False).lower() != "utf-8":
             printerr(messages.ENCODING_INCONSISTENCY_ERROR_MESSAGE)
 
-        handle_error(str(e), logfile_path, util_name, options.status_flag_path, options.phase, upgrader)
+        full_error_message = f"Conversion failed due to encoding problem: {e}\nTrace: {traceback.format_exc()}"
+        handle_error(full_error_message, logfile_path, util_name, options.status_flag_path, options.phase, upgrader)
         return pleskdistup.convert.ConvertResult(success=False, reboot_requested=False)
     except Exception as e:
+        full_error_message = f"Conversion failed: {e}\nTrace: {traceback.format_exc()}"
         handle_error(str(e), logfile_path, util_name, options.status_flag_path, options.phase, upgrader)
         return pleskdistup.convert.ConvertResult(success=False, reboot_requested=False)
 
