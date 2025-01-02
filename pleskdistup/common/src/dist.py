@@ -1,4 +1,4 @@
-# Copyright 2023-2024. WebPros International GmbH. All rights reserved.
+# Copyright 2023-2025. WebPros International GmbH. All rights reserved.
 import sys
 from abc import ABC, abstractmethod
 from functools import lru_cache
