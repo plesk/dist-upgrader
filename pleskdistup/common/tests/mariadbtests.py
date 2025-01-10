@@ -6,16 +6,22 @@ import src.mariadb as mariadb
 
 class MariaDBVersionsTests(unittest.TestCase):
     def test_parse_simple(self):
-        php = mariadb.MariaDBVersion("10.6.12")
-        self.assertEqual(php.major, 10)
-        self.assertEqual(php.minor, 6)
-        self.assertEqual(php.patch, 12)
+        mariadb_ver = mariadb.MariaDBVersion("10.6.12")
+        self.assertEqual(mariadb_ver.major, 10)
+        self.assertEqual(mariadb_ver.minor, 6)
+        self.assertEqual(mariadb_ver.patch, 12)
 
     def test_parse_utility_output(self):
-        php = mariadb.MariaDBVersion("mysql  Ver 15.1 Distrib 10.6.12-MariaDB, for debian-linux-gnu (x86_64) using  EditLine wrapper")
-        self.assertEqual(php.major, 10)
-        self.assertEqual(php.minor, 6)
-        self.assertEqual(php.patch, 12)
+        mariadb_ver = mariadb.MariaDBVersion("mysql  Ver 15.1 Distrib 10.6.12-MariaDB, for debian-linux-gnu (x86_64) using  EditLine wrapper")
+        self.assertEqual(mariadb_ver.major, 10)
+        self.assertEqual(mariadb_ver.minor, 6)
+        self.assertEqual(mariadb_ver.patch, 12)
+
+    def test_parse_utility_output_no_distrib(self):
+        mariadb_ver = mariadb.MariaDBVersion("mariadb from 11.6.2-MariaDB, client 15.2 for Linux (x86_64) using  EditLine wrapper")
+        self.assertEqual(mariadb_ver.major, 11)
+        self.assertEqual(mariadb_ver.minor, 6)
+        self.assertEqual(mariadb_ver.patch, 2)
 
     def test_parse_wrong_string(self):
         with self.assertRaises(ValueError):
