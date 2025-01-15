@@ -540,3 +540,21 @@ class RepairPleskInstallation(action.ActiveAction):
 
     def estimate_post_time(self) -> int:
         return 3 * 60
+
+
+class InstallPython3(action.ActiveAction):
+    def __init__(self):
+        self.name = "install python3"
+
+    def _prepare_action(self) -> action.ActionResult:
+        packages.install_packages(["python3"])
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def estimate_prepare_time(self) -> int:
+        return 30
