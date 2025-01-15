@@ -16,6 +16,7 @@ from . import postgres
 from . import feedback
 from . import files
 from . import rpm
+from . import strings
 from . import systemd
 from . import util
 from . import version
