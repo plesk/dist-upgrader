@@ -289,6 +289,80 @@ ReplaceAptReposRegexpDebian = ReplaceAptReposRegexp
 ReplaceAptReposRegexpUbuntu = ReplaceAptReposRegexp
 
 
+class AdoptAptRepositories(action.ActiveAction):
+    sources_list_path: str
+    sources_list_d_path: str
+    actions: typing.List[typing.Callable[[str], str]]
+    _name: str
+
+    def __init__(
+        self,
+        actions: typing.List[typing.Callable[[str], str]],
+        sources_list_path: str = "/etc/apt/sources.list",
+        sources_list_d_path: str = "/etc/apt/sources.list.d/",
+        name: str = "adopt APT repositories",
+    ):
+        """
+        Initialize the AdoptAptRepositories action.
+
+        :param actions: A list of functions that take a string (line from the sources list file) and return a modified string.
+            It's recommended to use functions from the common -> strings.py module to create there callbacks.
+        :param sources_list_path: Path to the main sources list file.
+        :param sources_list_d_path: Path to the directory containing additional sources list files.
+        :param name: Name of the action. Will be visible in the logs and progress bar.
+        """
+        self.sources_list_path = sources_list_path
+        self.sources_list_d_path = sources_list_d_path
+        self.actions = actions
+
+        self._name = name
+
+    @property
+    def name(self):
+        return self._name.format(self=self)
+
+    def _process_file(self, fpath: str) -> None:
+        files.backup_file(fpath)
+
+        with open(fpath) as f, open(fpath + ".new", "w") as nf:
+            for line in f:
+                for line_changer in self.actions:
+                    line = line_changer(line)
+                nf.write(line)
+
+        os.rename(fpath + ".new", fpath)
+
+    def _prepare_action(self) -> action.ActionResult:
+        self._process_file(self.sources_list_path)
+        for root, _, filenames in os.walk(self.sources_list_d_path):
+            for f in filenames:
+                if f.endswith(".list"):
+                    self._process_file(os.path.join(root, f))
+
+        packages.update_package_list()
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        for f in CheckAptReposBackups.get_all_repo_list_files(self.sources_list_path, self.sources_list_d_path):
+            files.restore_file_from_backup(f)
+
+        packages.update_package_list()
+        return action.ActionResult()
+
+    def estimate_prepare_time(self) -> int:
+        return 20
+
+    def estimate_revert_time(self) -> int:
+        return 20
+
+
+AdoptAptRepositoriesDebian = AdoptAptRepositories
+AdoptAptRepositoriesUbuntu = AdoptAptRepositories
+
+
 class SetupAptRepositories(action.ActiveAction):
     from_codename: str
     to_codename: str
