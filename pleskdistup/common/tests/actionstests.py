@@ -83,7 +83,11 @@ def check_saved_state(phase, stage, saved_action_state, should_be_called):
         flow.validate_actions()
         flow.pass_actions()
 
-    simple_action_target_mock.assert_called_once()
+    if phase == "revert":
+        simple_action_target_mock.assert_not_called()
+    else:
+        simple_action_target_mock.assert_called_once()
+
     if should_be_called:
         saved_action_target_mock.assert_called_once()
     else:
@@ -252,6 +256,24 @@ class TestFinishActionsFlow(TestCase):
         self.assertTrue(os.path.exists("actions.json"))
 
 
+class AlwaysRevertAction(action.ActiveAction):
+    def __init__(self):
+        self.name = "Always revert"
+        self.description = "Always revert description"
+
+    def _prepare_action(self) -> action.ActionResult:
+        return action.ActionResult(action.ActionState.FAILED)
+
+    def _post_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def _is_revert_after_fail_required(self):
+        return True
+
+
 class RevertActionsFlowForTests(action.RevertActionsFlow):
     def __init__(self, stages):
         super().__init__(stages, ".", flow_tracker=None)
@@ -270,6 +292,12 @@ class TestRevertActionsFlow(TestCase):
     def test_one_simple_action(self):
         simple_action = SimpleAction()
         simple_action._revert_action = mock.Mock(return_value=action.ActionResult())
+
+        # Before revert we should perform our actions to make sure they saved in the actions.json file
+        with PrepareActionsFlowForTests({"test_one_simple_action": [simple_action]}) as flow:
+            flow.validate_actions()
+            flow.pass_actions()
+
         with RevertActionsFlowForTests({"test_one_simple_action": [simple_action]}) as flow:
             flow.validate_actions()
             flow.pass_actions()
@@ -282,6 +310,11 @@ class TestRevertActionsFlow(TestCase):
             simple_action = SimpleAction()
             simple_action._revert_action = mock.Mock(return_value=action.ActionResult())
             actions.append(simple_action)
+
+        # Before revert we should perform our actions to make sure they saved in the actions.json file
+        with PrepareActionsFlowForTests({"test_several_simple_actions": actions}) as flow:
+            flow.validate_actions()
+            flow.pass_actions()
 
         with RevertActionsFlowForTests({"test_several_simple_actions": actions}) as flow:
             flow.validate_actions()
@@ -296,6 +329,11 @@ class TestRevertActionsFlow(TestCase):
         simple_action_step_2 = SimpleAction()
         simple_action_step_2._revert_action = mock.Mock(return_value=action.ActionResult())
 
+        # Before revert we should perform our actions to make sure they saved in the actions.json file
+        with PrepareActionsFlowForTests({"test_several_steps 1": [simple_action_step_1], "test_several_steps 2": [simple_action_step_2]}) as flow:
+            flow.validate_actions()
+            flow.pass_actions()
+
         with RevertActionsFlowForTests({"test_several_steps 1": [simple_action_step_1], "test_several_steps 2": [simple_action_step_2]}) as flow:
             flow.validate_actions()
             flow.pass_actions()
@@ -309,12 +347,42 @@ class TestRevertActionsFlow(TestCase):
         skip_action = SkipAction()
         skip_action._revert_action = mock.Mock(return_value=action.ActionResult())
 
+        # Before revert we should perform our actions to make sure they saved in the actions.json file
+        with PrepareActionsFlowForTests({"test_skip_action": [simple_action, skip_action]}) as flow:
+            flow.validate_actions()
+            flow.pass_actions()
+
         with RevertActionsFlowForTests({"test_skip_action": [simple_action, skip_action]}) as flow:
             flow.validate_actions()
             flow.pass_actions()
 
         simple_action._revert_action.assert_called_once()
         skip_action._revert_action.assert_not_called()
+
+    def test_skip_action_not_performed_before(self):
+        simple_action = SimpleAction()
+        simple_action._revert_action = mock.Mock(return_value=action.ActionResult())
+
+        with RevertActionsFlowForTests({"test_skip_action_not_performed_before": [simple_action]}) as flow:
+            flow.validate_actions()
+            flow.pass_actions()
+
+        simple_action._revert_action.assert_not_called()
+
+    def test_revert_failed_action_if_always_revert_required(self):
+        always_revert_action = AlwaysRevertAction()
+        always_revert_action._revert_action = mock.Mock(return_value=action.ActionResult())
+
+        # Before revert we should perform our actions to make sure they saved in the actions.json file
+        with PrepareActionsFlowForTests({"test_revert_failed_action_if_always_revert_required": [always_revert_action]}) as flow:
+            flow.validate_actions()
+            flow.pass_actions()
+
+        with RevertActionsFlowForTests({"test_revert_failed_action_if_always_revert_required": [always_revert_action]}) as flow:
+            flow.validate_actions()
+            flow.pass_actions()
+
+        always_revert_action._revert_action.assert_called_once()
 
     def test_revert_pass_based_on_success_saved_state(self):
         check_saved_state("revert", "test_revert_pass_based_on_success_saved_state", "success", True)

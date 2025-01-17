@@ -95,6 +95,13 @@ class ActiveAction(Action):
         # All actions are required by default - just to simplify things
         return True
 
+    def is_revert_after_fail_required(self) -> bool:
+        return self._is_revert_after_fail_required()
+
+    def _is_revert_after_fail_required(self) -> bool:
+        # By default, we don't revert actions on fail
+        return False
+
     @abstractmethod
     def _prepare_action(self) -> ActionResult:
         pass
@@ -431,6 +438,19 @@ class FinishActionsFlow(ReverseActionFlow):
 
 
 class RevertActionsFlow(ReverseActionFlow):
+    def _is_action_required(self, stage: str, action: ActiveAction) -> bool:
+        for stored_action in self.actions_data["actions"]:
+            if (stored_action["stage"] == stage and stored_action["name"] == action.name):
+                # Failed actions should be reverted, because we can't expect part of changes was not applied already
+                if stored_action["state"] == ActionState.SKIPPED:
+                    return False
+                elif stored_action["state"] == ActionState.SUCCESS:
+                    return True
+                elif stored_action["state"] == ActionState.FAILED:
+                    return action.is_revert_after_fail_required()
+        # We should not revert actions that were not performed
+        return False
+
     def _do_invoke_action(self, action: ActiveAction) -> ActionResult:
         return action.invoke_revert()
 
