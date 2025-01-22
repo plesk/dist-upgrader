@@ -321,6 +321,12 @@ class AdoptAptRepositories(action.ActiveAction):
     def name(self):
         return self._name.format(self=self)
 
+    def _is_revert_after_fail_required(self) -> bool:
+        # We might encounter a failure during the 'apt update' process.
+        # If this occurs, it's necessary to undo any modifications made to the sources.list files.
+        # Not doing so could stop us from performing 'apt update' in future rollback operations. And we stuck.
+        return True
+
     def _process_file(self, fpath: str) -> None:
         files.backup_file(fpath)
 
