@@ -2,6 +2,7 @@
 import unittest
 import os
 import json
+import shutil
 import typing
 
 import src.leapp_configs as leapp_configs
@@ -1093,3 +1094,507 @@ class RemovePackageActionTests(unittest.TestCase):
         with open(self.JSON_FILE_PATH) as f:
             json_data = json.load(f)
             self.assertEqual({}, json_data)
+
+
+class CreateLeappVendorRepositoryAdoptionTests(unittest.TestCase):
+    TEST_DIRECTORY = "leapp_vendor_test_dir"
+
+    def setUp(self):
+        if not os.path.exists(self.TEST_DIRECTORY):
+            os.mkdir(self.TEST_DIRECTORY)
+
+    def tearDown(self):
+        if os.path.exists(self.TEST_DIRECTORY):
+            shutil.rmtree(self.TEST_DIRECTORY)
+        for file in os.listdir():
+            if file.endswith(".repo"):
+                os.remove(file)
+
+    def _compare_file_but_skip_empty(self, file1: str, expected_string: str):
+        with open(file1, "r") as f:
+            actual = [line for line in f.read().splitlines() if line.strip() != ""]
+            expected = [line for line in expected_string.splitlines() if line.strip() != ""]
+
+            self.assertEqual(actual, expected)
+
+    def _compare_mapping_json(self, file1: str, expected_json: dict):
+        with open(file1) as f:
+            actual_json = json.load(f)
+            self.assertEqual(actual_json["mapping"][0]["entries"], expected_json["mapping"][0]["entries"])
+
+            for actual_json_entry in actual_json["repositories"]:
+                found: bool = False
+                for expected_json_entry in expected_json["repositories"]:
+                    if actual_json_entry["pesid"] == expected_json_entry["pesid"] and actual_json_entry["entries"][0]["major_version"] == expected_json_entry["entries"][0]["major_version"]:
+                        self.assertEqual(actual_json_entry["entries"], expected_json_entry["entries"])
+                        found = True
+                        continue
+                self.assertTrue(found, f"Entry {actual_json_entry['pesid']} not found in expected entries")
+
+    def test_simple_repos(self):
+        simple_repos = """[repo1]
+name=repo1
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+#no comment removed
+
+[repo2]
+name=repo2
+baseurl=http://repo2/rpm-CentOS-7
+enabled=1
+gpgcheck=0
+
+[repo3]
+name=repo3
+baseurl=http://repo3/centos7
+enabled=1
+gpgcheck=0
+"""
+        expected_leapp_repos = """[alma-repo1]
+name=Alma repo1
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+#no comment removed
+[alma-repo2]
+name=Alma repo2
+baseurl=http://repo2/rpm-RedHat-el8
+enabled=1
+gpgcheck=0
+[alma-repo3]
+name=Alma repo3
+baseurl=http://repo3/centos8
+enabled=1
+gpgcheck=0
+"""
+
+        expected_mapping_json = {
+            "mapping": [
+                {
+                    "entries": [
+                        {
+                            "source": "repo1",
+                            "target": [
+                                "alma-repo1"
+                            ]
+                        },
+                        {
+                            "source": "repo2",
+                            "target": [
+                                "alma-repo2"
+                            ]
+                        },
+                        {
+                            "source": "repo3",
+                            "target": [
+                                "alma-repo3"
+                            ]
+                        }
+                    ],
+                },
+            ],
+            "repositories": [
+                {
+                    "pesid": "repo1",
+                    "entries": [
+                        {
+                            "major_version": "7",
+                            "repoid": "repo1",
+                            "arch": "x86_64",
+                            "channel": "ga",
+                            "repo_type": "rpm"
+                        }
+                    ]
+                },
+                {
+                    "pesid": "repo2",
+                    "entries": [
+                        {
+                            "major_version": "7",
+                            "repoid": "repo2",
+                            "arch": "x86_64",
+                            "channel": "ga",
+                            "repo_type": "rpm"
+                        }
+                    ]
+                },
+                {
+                    "pesid": "repo3",
+                    "entries": [
+                        {
+                            "major_version": "7",
+                            "repoid": "repo3",
+                            "arch": "x86_64",
+                            "channel": "ga",
+                            "repo_type": "rpm"
+                        }
+                    ]
+                },
+                {
+                    "pesid": "alma-repo1",
+                    "entries": [
+                        {
+                            "major_version": "8",
+                            "repoid": "alma-repo1",
+                            "arch": "x86_64",
+                            "channel": "ga",
+                            "repo_type": "rpm"
+                        }
+                    ]
+                },
+                {
+                    "pesid": "alma-repo2",
+                    "entries": [
+                        {
+                            "major_version": "8",
+                            "repoid": "alma-repo2",
+                            "arch": "x86_64",
+                            "channel": "ga",
+                            "repo_type": "rpm"
+                        }
+                    ]
+                },
+                {
+                    "pesid": "alma-repo3",
+                    "entries": [
+                        {
+                            "major_version": "8",
+                            "repoid": "alma-repo3",
+                            "arch": "x86_64",
+                            "channel": "ga",
+                            "repo_type": "rpm"
+                        }
+                    ]
+                }
+            ],
+        }
+
+        with open("simple.repo", "w") as f:
+            f.write(simple_repos)
+
+        leapp_configs.create_leapp_vendor_repository_adoption("simple.repo", self.TEST_DIRECTORY)
+
+        self._compare_file_but_skip_empty(os.path.join(self.TEST_DIRECTORY, "simple.repo"), expected_leapp_repos)
+        self._compare_mapping_json(os.path.join(self.TEST_DIRECTORY, "simple_map.json"), expected_mapping_json)
+
+    def test_repos_rewrite(self):
+        rewrite_repos = """[repo1]
+name=repo1
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+"""
+        expected_leapp_repos = """[alma-repo1]
+name=Alma repo1
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+"""
+
+        expected_mapping_json = {
+            "mapping": [
+                {
+                    "entries": [
+                        {
+                            "source": "repo1",
+                            "target": [
+                                "alma-repo1"
+                            ]
+                        },
+                    ],
+                },
+            ],
+            "repositories": [
+                {
+                    "pesid": "repo1",
+                    "entries": [
+                        {
+                            "major_version": "7",
+                            "repoid": "repo1",
+                            "arch": "x86_64",
+                            "channel": "ga",
+                            "repo_type": "rpm"
+                        }
+                    ]
+                },
+                {
+                    "pesid": "alma-repo1",
+                    "entries": [
+                        {
+                            "major_version": "8",
+                            "repoid": "alma-repo1",
+                            "arch": "x86_64",
+                            "channel": "ga",
+                            "repo_type": "rpm"
+                        }
+                    ]
+                },
+            ],
+        }
+
+        with open("rewrite.repo", "w") as f:
+            f.write(rewrite_repos)
+
+        target_repo_file = os.path.join(self.TEST_DIRECTORY, "rewrite.repo")
+        target_mapping_json = os.path.join(self.TEST_DIRECTORY, "rewrite_map.json")
+
+        with open(target_repo_file, "w") as f:
+            f.write("remove me")
+        with open(target_mapping_json, "w") as f:
+            f.write("remove me")
+
+        leapp_configs.create_leapp_vendor_repository_adoption("rewrite.repo", self.TEST_DIRECTORY)
+
+        self._compare_file_but_skip_empty(target_repo_file, expected_leapp_repos)
+        self._compare_mapping_json(target_mapping_json, expected_mapping_json)
+
+    def test_no_repo_file(self):
+        target_repo_file = os.path.join(self.TEST_DIRECTORY, "nofile.repo")
+        target_mapping_json = os.path.join(self.TEST_DIRECTORY, "nofile_map.json")
+
+        with open(target_repo_file, "w") as f:
+            f.write("keep me")
+        with open(target_mapping_json, "w") as f:
+            f.write("keep me")
+
+        leapp_configs.create_leapp_vendor_repository_adoption("no_file.repo", self.TEST_DIRECTORY)
+
+        with open(target_repo_file) as f:
+            self.assertEqual(f.read(), "keep me")
+        with open(target_mapping_json) as f:
+            self.assertEqual(f.read(), "keep me")
+
+    def skip_not_ok_repositories(self):
+        not_ok_repos = """[noname]
+baseurl=http://noname
+enabled=1
+gpgcheck=0
+
+[fine]
+name=finerepo
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+
+[nolinks]
+name=nolinks
+enabled=1
+gpgcheck=0
+"""
+
+        expected_leapp_repos = """[alma-fine]
+name=Alma finerepo
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+"""
+
+        expected_mapping_json = {
+            "mapping": [
+                {
+                    "entries": [
+                        {
+                            "source": "finerepo",
+                            "target": [
+                                "alma-finerepo"
+                            ]
+                        },
+                    ],
+                },
+            ],
+            "repositories": [
+                {
+                    "pesid": "finerepo",
+                    "entries": [
+                        {
+                            "major_version": "7",
+                            "repoid": "finerepo",
+                            "arch": "x86_64",
+                            "channel": "ga",
+                            "repo_type": "rpm"
+                        }
+                    ]
+                },
+                {
+                    "pesid": "alma-finerepo",
+                    "entries": [
+                        {
+                            "major_version": "8",
+                            "repoid": "alma-finerepo",
+                            "arch": "x86_64",
+                            "channel": "ga",
+                            "repo_type": "rpm"
+                        }
+                    ]
+                },
+            ],
+        }
+
+        with open("not_ok.repo", "w") as f:
+            f.write(not_ok_repos)
+
+        leapp_configs.create_leapp_vendor_repository_adoption("not_ok.repo", self.TEST_DIRECTORY)
+
+        self._compare_file_but_skip_empty(os.path.join(self.TEST_DIRECTORY, "not_ok.repo"), expected_leapp_repos)
+        self._compare_mapping_json(os.path.join(self.TEST_DIRECTORY, "not_ok_map.json"), expected_mapping_json)
+
+    def test_no_vendor_directory(self):
+        with open("no_dir.repo", "w") as f:
+            f.write("no dir")
+
+        with self.assertRaises(FileNotFoundError):
+            leapp_configs.create_leapp_vendor_repository_adoption("no_dir.repo", "no_dir")
+
+    def test_no_repositories_in_file(self):
+        with open("empty.repo", "w") as f:
+            f.write("")
+
+        target_repo_file = os.path.join(self.TEST_DIRECTORY, "empty.repo")
+        target_mapping_json = os.path.join(self.TEST_DIRECTORY, "empty_map.json")
+        with open(target_repo_file, "w") as f:
+            f.write("keep me")
+        with open(target_mapping_json, "w") as f:
+            f.write("keep me")
+
+        leapp_configs.create_leapp_vendor_repository_adoption("empty.repo", self.TEST_DIRECTORY)
+
+        with open(target_repo_file) as f:
+            self.assertEqual(f.read(), "keep me")
+        with open(target_mapping_json) as f:
+            self.assertEqual(f.read(), "keep me")
+
+    def test_ignore_repository(self):
+        ignore_repos = """[repo1]
+name=repo1
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+#no comment removed
+
+[repo2]
+name=repo2
+baseurl=http://repo2/rpm-CentOS-7
+enabled=1
+gpgcheck=0
+"""
+
+        expected_leapp_repos = """[alma-repo1]
+name=Alma repo1
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+#no comment removed
+"""
+
+        expected_mapping_json = {
+            "mapping": [
+                {
+                    "entries": [
+                        {
+                            "source": "repo1",
+                            "target": [
+                                "alma-repo1"
+                            ]
+                        },
+                    ],
+                },
+            ],
+            "repositories": [
+                {
+                    "pesid": "repo1",
+                    "entries": [
+                        {
+                            "major_version": "7",
+                            "repoid": "repo1",
+                            "arch": "x86_64",
+                            "channel": "ga",
+                            "repo_type": "rpm"
+                        }
+                    ]
+                },
+                {
+                    "pesid": "alma-repo1",
+                    "entries": [
+                        {
+                            "major_version": "8",
+                            "repoid": "alma-repo1",
+                            "arch": "x86_64",
+                            "channel": "ga",
+                            "repo_type": "rpm"
+                        }
+                    ]
+                },
+            ],
+        }
+
+        with open("ignore.repo", "w") as f:
+            f.write(ignore_repos)
+
+        leapp_configs.create_leapp_vendor_repository_adoption("ignore.repo", self.TEST_DIRECTORY, ignore=["repo2"])
+
+        self._compare_file_but_skip_empty(os.path.join(self.TEST_DIRECTORY, "ignore.repo"), expected_leapp_repos)
+        self._compare_mapping_json(os.path.join(self.TEST_DIRECTORY, "ignore_map.json"), expected_mapping_json)
+
+    def test_keep_repoid(self):
+        keep_id_repos = """[repo1]
+name=repo1
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+"""
+        expected_leapp_repos = """[repo1]
+name=Alma repo1
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+"""
+
+        expected_mapping_json = {
+            "mapping": [
+                {
+                    "entries": [
+                        {
+                            "source": "repo1",
+                            "target": [
+                                "repo1"
+                            ]
+                        },
+                    ],
+                },
+            ],
+            "repositories": [
+                {
+                    "pesid": "repo1",
+                    "entries": [
+                        {
+                            "major_version": "7",
+                            "repoid": "repo1",
+                            "arch": "x86_64",
+                            "channel": "ga",
+                            "repo_type": "rpm"
+                        }
+                    ]
+                },
+                {
+                    "pesid": "repo1",
+                    "entries": [
+                        {
+                            "major_version": "8",
+                            "repoid": "repo1",
+                            "arch": "x86_64",
+                            "channel": "ga",
+                            "repo_type": "rpm"
+                        }
+                    ]
+                },
+            ],
+        }
+
+        with open("keepid.repo", "w") as f:
+            f.write(keep_id_repos)
+
+        leapp_configs.create_leapp_vendor_repository_adoption("keepid.repo", self.TEST_DIRECTORY, keep_id=True)
+
+        self._compare_file_but_skip_empty(os.path.join(self.TEST_DIRECTORY, "keepid.repo"), expected_leapp_repos)
+        self._compare_mapping_json(os.path.join(self.TEST_DIRECTORY, "keepid_map.json"), expected_mapping_json)
