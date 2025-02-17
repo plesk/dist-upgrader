@@ -5,6 +5,7 @@ import shutil
 import typing
 
 from enum import IntEnum
+from datetime import datetime, timezone
 
 from . import files, log, rpm
 
@@ -13,6 +14,7 @@ PATH_TO_CONFIGFILES = "/etc/leapp/files"
 LEAPP_REPOS_FILE_PATH = os.path.join(PATH_TO_CONFIGFILES, "leapp_upgrade_repositories.repo")
 LEAPP_MAP_FILE_PATH = os.path.join(PATH_TO_CONFIGFILES, "repomap.csv")
 LEAPP_PKGS_CONF_PATH = os.path.join(PATH_TO_CONFIGFILES, "pes-events.json")
+LEAPP_VENDORS_DIR_PATH = os.path.join(PATH_TO_CONFIGFILES, "vendors.d")
 
 REPO_HEAD_WITH_URL = """
 [{id}]
@@ -31,6 +33,15 @@ REPO_HEAD_WITH_MIRRORLIST = """
 name={name}
 mirrorlist={url}
 """
+
+
+class RepositoryDescription(typing.NamedTuple):
+    id: str
+    name: typing.Optional[str]
+    url: typing.Optional[str]
+    metalink: typing.Optional[str]
+    mirrorlist: typing.Optional[str]
+    additional_lines: typing.List[str]
 
 
 def _do_replacement(
@@ -176,6 +187,47 @@ def is_repo_ok(
     return True
 
 
+def _write_repository_adoption(
+        repository: RepositoryDescription,
+        dst: typing.TextIO,
+        keep_id: bool = False
+) -> typing.Optional[RepositoryDescription]:
+    id = _do_id_replacement(repository.id) if not keep_id else repository.id
+    name = _do_name_replacement(repository.name)
+
+    if id is None or name is None:
+        log.warn(f"Skip repository '{repository.id}' since it has no next id or next name")
+        return None
+
+    if repository.url is not None:
+        url = _do_url_replacement(repository.url)
+        repo_format = REPO_HEAD_WITH_URL
+    elif repository.metalink is not None:
+        url = _do_url_replacement(repository.metalink)
+        repo_format = REPO_HEAD_WITH_METALINK
+    else:
+        url = _do_url_replacement(repository.mirrorlist)
+        repo_format = REPO_HEAD_WITH_MIRRORLIST
+    if url is None:
+        log.warn(f"Skip repository '{repository.id}' since it has no baseurl, metalink and mirrorlist")
+        return None
+
+    content = repo_format.format(id=id, name=name, url=url)
+    for add_line in repository.additional_lines:
+        next_line = _do_common_replacement(add_line)
+        if next_line is not None:
+            content += next_line
+
+    dst.write(content)
+
+    if repository.url is not None:
+        return RepositoryDescription(id, name, url, None, None, repository.additional_lines)
+    elif repository.metalink is not None:
+        return RepositoryDescription(id, name, None, url, None, repository.additional_lines)
+    else:
+        return RepositoryDescription(id, name, None, None, url, repository.additional_lines)
+
+
 def adopt_repositories(repofile: str, ignore: typing.Optional[typing.List[str]] = None, keep_id: bool = False) -> None:
     if ignore is None:
         ignore = []
@@ -188,7 +240,7 @@ def adopt_repositories(repofile: str, ignore: typing.Optional[typing.List[str]] 
 
     with open(repofile + ".next", "a") as dst:
         for id, name, url, metalink, mirrorlist, additional_lines in rpm.extract_repodata(repofile):
-            if not is_repo_ok(id, name, url, metalink, mirrorlist):
+            if id is None or not is_repo_ok(id, name, url, metalink, mirrorlist):
                 continue
 
             if id in ignore:
@@ -197,25 +249,10 @@ def adopt_repositories(repofile: str, ignore: typing.Optional[typing.List[str]] 
 
             log.debug("Adopt repository with id '{id}' is extracted.".format(id=id))
 
-            if not keep_id:
-                id = _do_id_replacement(id)
-
-            name = _do_name_replacement(name)
-            if url is not None:
-                url = _do_url_replacement(url)
-                repo_format = REPO_HEAD_WITH_URL
-            elif metalink is not None:
-                url = _do_url_replacement(metalink)
-                repo_format = REPO_HEAD_WITH_METALINK
-            else:
-                url = _do_url_replacement(mirrorlist)
-                repo_format = REPO_HEAD_WITH_MIRRORLIST
-
-            dst.write(repo_format.format(id=id, name=name, url=url))
-
-            for line in (_do_common_replacement(add_line) for add_line in additional_lines):
-                if line is not None:
-                    dst.write(line)
+            _write_repository_adoption(
+                RepositoryDescription(id, name, url, metalink, mirrorlist, additional_lines),
+                dst, keep_id
+            )
 
     shutil.move(repofile + ".next", repofile)
 
@@ -248,44 +285,29 @@ def add_repositories_mapping(repofiles: typing.List[str], ignore: typing.Optiona
 
                 log.debug("Repository entry with id '{id}' is extracted.".format(id=id))
 
-                new_id = _do_id_replacement(id)
-                name = _do_name_replacement(name)
-                if new_id is None or name is None:
-                    log.warn(f"Skip repository '{id}' since it has no next id or name")
+                after_repository = _write_repository_adoption(
+                    RepositoryDescription(id, name, url, metalink, mirrorlist, additional_lines),
+                    leapp_repos_file, False
+                )
+                if after_repository is None:
                     continue
-
-                if url is not None:
-                    url = _do_url_replacement(url)
-                    repo_format = REPO_HEAD_WITH_URL
-                elif metalink is not None:
-                    url = _do_url_replacement(metalink)
-                    repo_format = REPO_HEAD_WITH_METALINK
-                else:
-                    url = _do_url_replacement(mirrorlist)
-                    repo_format = REPO_HEAD_WITH_MIRRORLIST
-                if url is None:
-                    log.warn(f"Skip repository '{id}' since it has no baseurl, metalink and mirrorlist")
-                    continue
-
-                leapp_repos_file.write(repo_format.format(id=new_id, name=name, url=url))
-
-                for line in (_do_common_replacement(add_line) for add_line in additional_lines):
-                    if line is not None:
-                        leapp_repos_file.write(line)
 
                 # Special case for plesk repository. We need to add dist repository to install some of plesk packages
                 # We support metalink for plesk repository, regardless of the fact we don't use them now
-                if id.startswith("PLESK_18_0") and "extras" in id and url is not None:
-                    leapp_repos_file.write(repo_format.format(id=new_id.replace("-extras", ""),
-                                                              name=name.replace("extras", ""),
-                                                              url=url.replace("extras", "dist")))
-                    leapp_repos_file.write("enabled=1\ngpgcheck=1\n")
-
-                    map_file.write("{oldrepo},{newrepo},{newrepo},all,all,x86_64,rpm,ga,ga\n".format(oldrepo=id, newrepo=new_id.replace("-extras", "")))
+                if id.startswith("PLESK_18_0") and "extras" in id and name is not None and url is not None:
+                    dist_repository_description = RepositoryDescription(
+                        id.replace("-extras", ""),
+                        name.replace("extras", ""),
+                        url.replace("extras", "dist"),
+                        None, None, ["enabled=1\n", "gpgcheck=1\n"]
+                    )
+                    after_dist_repository = _write_repository_adoption(dist_repository_description, leapp_repos_file, False)
+                    if after_dist_repository is not None:
+                        map_file.write("{oldrepo},{newrepo},{newrepo},all,all,x86_64,rpm,ga,ga\n".format(oldrepo=id, newrepo=after_dist_repository.id))
 
                 leapp_repos_file.write("\n")
 
-                map_file.write("{oldrepo},{newrepo},{newrepo},all,all,x86_64,rpm,ga,ga\n".format(oldrepo=id, newrepo=new_id))
+                map_file.write("{oldrepo},{newrepo},{newrepo},all,all,x86_64,rpm,ga,ga\n".format(oldrepo=id, newrepo=after_repository.id))
 
         map_file.write("\n")
 
@@ -406,3 +428,133 @@ def remove_package_action(package: str, repository: str, leapp_pkgs_conf_path: s
 
     log.debug(f"Write json into '{leapp_pkgs_conf_path}'")
     files.rewrite_json_file(leapp_pkgs_conf_path, pkg_mapping)
+
+
+def _add_repository_mapping_entry(dst: dict, id: typing.Optional[str], new_id: typing.Optional[str]) -> None:
+    """
+    Add a repository mapping entry to the given JSON object. The JSON object format specified by leapp.
+    Format was originally taken from /etc/leapp/files/vendor.d/mariadb_map.json. Leapp version - 0.18.0-2
+    On modern leapp versions format might be different.
+
+    Args:
+        dst (dict): The JSON object to which the mapping entry will be added.
+        id (str): The original repository ID.
+        new_id (str): The new repository ID to map to.
+    """
+    if id is None or new_id is None:
+        raise ValueError(f"Repository {id!r} has no new_id mapping {new_id!r}")
+
+    dst["mapping"][0]["entries"].append({
+        "source": id,
+        "target": [new_id],
+    })
+
+    orig_repo_description = {
+        "pesid": id,
+        "entries": [
+            {
+                "major_version": "7",
+                "repoid": id,
+                "arch": "x86_64",
+                "channel": "ga",
+                "repo_type": "rpm"
+            }
+        ]
+    }
+
+    after_repo_description = {
+        "pesid": new_id,
+        "entries": [
+            {
+                "major_version": "8",
+                "repoid": new_id,
+                "arch": "x86_64",
+                "channel": "ga",
+                "repo_type": "rpm"
+            }
+        ]
+    }
+
+    dst["repositories"].append(orig_repo_description)
+    dst["repositories"].append(after_repo_description)
+
+
+def create_leapp_vendor_repository_adoption(
+        repofile: str,
+        leapp_vendors_dir: str = LEAPP_VENDORS_DIR_PATH,
+        ignore: typing.Optional[typing.List[str]] = None,
+        keep_id: bool = False
+) -> None:
+    """
+    Create a repository mapping configuration for leapp in /etc/leapp/files/vendors.d directory.
+
+    Args:
+        repofile (str): The path to the repository file to adapt.
+        leapp_vendors_dir (str): The path to the leapp vendors directory. Used mostly for testing purposes.
+        ignore (typing.Optional[typing.List[str]]): A list of repository IDs to ignore.
+        keep_id (bool): If True, the original repository ID will be preserved in the mapping.
+    """
+    # Since leapp 0.18.0, we can store repository adoptions separately
+    # in the vendors.d sub-directory of /etc/leapp/files.
+    # Additionally, some repositories are already preconfigured by almalinux developers.
+    # Unfortunately, they might not meet our needs, so we need to rewrite them occasionally.
+    # Storing repositories in separate configuration files also seems logical,
+    # so it is preferable to use this method for modern leapp.
+    if ignore is None:
+        ignore = []
+
+    if not os.path.exists(repofile):
+        log.warn("The repository adapter has tried to open an unexistent file: {filename}".format(filename=repofile))
+        return
+
+    if not os.path.exists(leapp_vendors_dir):
+        # The new version of leapp may eliminate the vendor directory as there is no stable version yet.
+        # This behavior might change, so raising an exception will help identify changes during development.
+        raise FileNotFoundError(f"Leapp vendors directory {leapp_vendors_dir!r} does not exist")
+
+    mapping_json = {
+        "datetime": datetime.now(timezone.utc).strftime("%Y%m%d%H%MZ"),
+        "version_format": "1.2.1",
+        "mapping": [
+            {
+                "source_major_version": "7",
+                "target_major_version": "8",
+                "entries": [],
+            },
+        ],
+        "repositories": [],
+        "provided_data_streams": [
+            "1.1",
+            "2.0",
+            "3.0",
+            "3.1"
+        ]
+    }
+
+    repofile_name: str = os.path.basename(repofile)
+    json_file_name: str = repofile_name.split(".")[0] + "_map.json"
+    target_repo_file: str = os.path.join(leapp_vendors_dir, repofile_name)
+    log.debug(f"Adopt repofile into vendor directory with dst: {repofile!r} and {json_file_name!r}")
+
+    with open(target_repo_file + ".next", "w") as dst:
+        for id, name, url, metalink, mirrorlist, additional_lines in rpm.extract_repodata(repofile):
+            if id is None:
+                log.warn(f"Skip repository from '{repofile}' since it has no id")
+                continue
+
+            if id in ignore:
+                log.debug("Skip repository '{id}' adaptation since it is in ignore list.".format(id=id))
+                continue
+
+            if not is_repo_ok(id, name, url, metalink, mirrorlist):
+                continue
+
+            _write_repository_adoption(RepositoryDescription(id, name, url, metalink, mirrorlist, additional_lines), dst, keep_id)
+            _add_repository_mapping_entry(mapping_json, id, _do_id_replacement(id) if not keep_id else id)
+
+    if os.path.getsize(target_repo_file + ".next") == 0:
+        os.remove(target_repo_file + ".next")
+        return
+
+    shutil.move(target_repo_file + ".next", target_repo_file)
+    files.rewrite_json_file(os.path.join(leapp_vendors_dir, json_file_name), mapping_json)
