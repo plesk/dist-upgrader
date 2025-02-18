@@ -216,7 +216,7 @@ class PleskDatabaseIsDown(Exception):
 def is_plesk_database_ready() -> bool:
     if mariadb.is_mariadb_installed():
         return systemd.is_service_active("mariadb")
-    return systemd.is_service_active("mysql")
+    return systemd.is_service_active("mysql") or systemd.is_service_active("mysqld")
 
 
 def get_from_plesk_database(query: str) -> typing.Optional[typing.List[str]]:
