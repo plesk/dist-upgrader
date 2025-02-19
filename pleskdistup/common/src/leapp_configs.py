@@ -430,17 +430,20 @@ def remove_package_action(package: str, repository: str, leapp_pkgs_conf_path: s
     files.rewrite_json_file(leapp_pkgs_conf_path, pkg_mapping)
 
 
-def _add_repository_mapping_entry(dst: dict, id: str, new_id: str) -> None:
+def _add_repository_mapping_entry(dst: dict, id: typing.Optional[str], new_id: typing.Optional[str]) -> None:
     """
     Add a repository mapping entry to the given JSON object. The JSON object format specified by leapp.
     Format was originally taken from /etc/leapp/files/vendor.d/mariadb_map.json. Leapp version - 0.18.0-2
     On modern leapp versions format might be different.
 
     Args:
-        dst (json): The JSON object to which the mapping entry will be added.
+        dst (dict): The JSON object to which the mapping entry will be added.
         id (str): The original repository ID.
         new_id (str): The new repository ID to map to.
     """
+    if id is None or new_id is None:
+        raise ValueError(f"Repository {id!r} has no new_id mapping {new_id!r}")
+
     dst["mapping"][0]["entries"].append({
         "source": id,
         "target": [new_id],
