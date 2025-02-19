@@ -37,7 +37,7 @@ mirrorlist={url}
 
 class RepositoryDescription(typing.NamedTuple):
     id: str
-    name: str
+    name: typing.Optional[str]
     url: typing.Optional[str]
     metalink: typing.Optional[str]
     mirrorlist: typing.Optional[str]
@@ -214,7 +214,9 @@ def _write_repository_adoption(
 
     content = repo_format.format(id=id, name=name, url=url)
     for add_line in repository.additional_lines:
-        content += _do_common_replacement(add_line)
+        next_line = _do_common_replacement(add_line)
+        if next_line is not None:
+            content += next_line
 
     dst.write(content)
 
@@ -238,7 +240,7 @@ def adopt_repositories(repofile: str, ignore: typing.Optional[typing.List[str]] 
 
     with open(repofile + ".next", "a") as dst:
         for id, name, url, metalink, mirrorlist, additional_lines in rpm.extract_repodata(repofile):
-            if not is_repo_ok(id, name, url, metalink, mirrorlist):
+            if id is None or not is_repo_ok(id, name, url, metalink, mirrorlist):
                 continue
 
             if id in ignore:
@@ -292,7 +294,7 @@ def add_repositories_mapping(repofiles: typing.List[str], ignore: typing.Optiona
 
                 # Special case for plesk repository. We need to add dist repository to install some of plesk packages
                 # We support metalink for plesk repository, regardless of the fact we don't use them now
-                if id.startswith("PLESK_18_0") and "extras" in id and url is not None:
+                if id.startswith("PLESK_18_0") and "extras" in id and name is not None and url is not None:
                     dist_repository_description = RepositoryDescription(
                         id.replace("-extras", ""),
                         name.replace("extras", ""),
@@ -428,7 +430,7 @@ def remove_package_action(package: str, repository: str, leapp_pkgs_conf_path: s
     files.rewrite_json_file(leapp_pkgs_conf_path, pkg_mapping)
 
 
-def _add_repository_mapping_entry(dst: json, id: str, new_id: str) -> None:
+def _add_repository_mapping_entry(dst: dict, id: str, new_id: str) -> None:
     """
     Add a repository mapping entry to the given JSON object. The JSON object format specified by leapp.
     Format was originally taken from /etc/leapp/files/vendor.d/mariadb_map.json. Leapp version - 0.18.0-2
