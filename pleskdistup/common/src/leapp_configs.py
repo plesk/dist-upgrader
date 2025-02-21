@@ -16,22 +16,9 @@ LEAPP_MAP_FILE_PATH = os.path.join(PATH_TO_CONFIGFILES, "repomap.csv")
 LEAPP_PKGS_CONF_PATH = os.path.join(PATH_TO_CONFIGFILES, "pes-events.json")
 LEAPP_VENDORS_DIR_PATH = os.path.join(PATH_TO_CONFIGFILES, "vendors.d")
 
-REPO_HEAD_WITH_URL = """
+REPO_HEAD = """
 [{id}]
 name={name}
-baseurl={url}
-"""
-
-REPO_HEAD_WITH_METALINK = """
-[{id}]
-name={name}
-metalink={url}
-"""
-
-REPO_HEAD_WITH_MIRRORLIST = """
-[{id}]
-name={name}
-mirrorlist={url}
 """
 
 
@@ -196,36 +183,38 @@ def _write_repository_adoption(
     name = _do_name_replacement(repository.name)
 
     if id is None or name is None:
-        log.warn(f"Skip repository '{repository.id}' since it has no next id or next name")
+        log.warn(f"Skip repository '{repository.id}' (id: {id}, name: {name}) since it has no next id or next name")
         return None
 
-    if repository.url is not None:
-        url = _do_url_replacement(repository.url)
-        repo_format = REPO_HEAD_WITH_URL
-    elif repository.metalink is not None:
-        url = _do_url_replacement(repository.metalink)
-        repo_format = REPO_HEAD_WITH_METALINK
-    else:
-        url = _do_url_replacement(repository.mirrorlist)
-        repo_format = REPO_HEAD_WITH_MIRRORLIST
-    if url is None:
+    if repository.url is None and repository.metalink is None and repository.mirrorlist is None:
         log.warn(f"Skip repository '{repository.id}' since it has no baseurl, metalink and mirrorlist")
         return None
 
-    content = repo_format.format(id=id, name=name, url=url)
-    for add_line in repository.additional_lines:
-        next_line = _do_common_replacement(add_line)
-        if next_line is not None:
-            content += next_line
+    content = REPO_HEAD.format(id=id, name=name)
+
+    result_repo = RepositoryDescription(
+        id,
+        name,
+        _do_url_replacement(repository.url) if repository.url else None,
+        _do_url_replacement(repository.metalink) if repository.metalink else None,
+        _do_url_replacement(repository.mirrorlist) if repository.mirrorlist else None,
+        [sline for sline in (_do_common_replacement(line) for line in repository.additional_lines) if sline is not None]
+    )
+
+    if result_repo.url is not None:
+        content += f"baseurl={result_repo.url}\n"
+    if result_repo.metalink is not None:
+        content += f"metalink={result_repo.metalink}\n"
+    if result_repo.mirrorlist is not None:
+        content += f"mirrorlist={result_repo.mirrorlist}\n"
+
+    for add_line in result_repo.additional_lines:
+        if add_line is not None:
+            content += add_line
 
     dst.write(content)
 
-    if repository.url is not None:
-        return RepositoryDescription(id, name, url, None, None, repository.additional_lines)
-    elif repository.metalink is not None:
-        return RepositoryDescription(id, name, None, url, None, repository.additional_lines)
-    else:
-        return RepositoryDescription(id, name, None, None, url, repository.additional_lines)
+    return result_repo
 
 
 def adopt_repositories(repofile: str, ignore: typing.Optional[typing.List[str]] = None, keep_id: bool = False) -> None:
