@@ -499,6 +499,32 @@ gpgcheck=0
 
         self._perform_test({"prefixed.repo": prefixed_repo}, expected_leapp_repos, expected_leapp_mapping)
 
+    def test_all_links(self):
+        simple_repos = """[repo1]
+name=repo1
+baseurl=http://repo1/rpm-CentOS-7
+metalink=http://metalink1/rpm-CentOS-7
+mirrorlist=http://mirrorlist1/rpm-CentOS-7
+enabled=1
+gpgcheck=0
+#no comment removed
+"""
+
+        expected_leapp_repos = """[alma-repo1]
+name=Alma repo1
+baseurl=http://repo1/rpm-RedHat-el8
+metalink=http://metalink1/rpm-RedHat-el8
+mirrorlist=http://mirrorlist1/rpm-RedHat-el8
+enabled=1
+gpgcheck=0
+#no comment removed
+"""
+        expected_leapp_mapping = """repo1,alma-repo1,alma-repo1,all,all,x86_64,rpm,ga,ga
+"""
+
+        self._perform_test({"simple_repos.repo": simple_repos},
+                           expected_leapp_repos, expected_leapp_mapping)
+
 
 class SetPackageRepositoryTests(unittest.TestCase):
     INITIAL_JSON = {

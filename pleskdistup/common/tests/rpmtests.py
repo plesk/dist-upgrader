@@ -297,6 +297,26 @@ gpgcheck=0
         with open(self.REPO_FILE_NAME) as file:
             self.assertEqual(file.read(), expected_content)
 
+    def test_write_repodata_with_all_links(self):
+        expected_content = """[repo1]
+name=repo1
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+
+[repo2]
+name=repo2
+baseurl=http://repo2
+metalink=http://repo2
+mirrorlist=http://repo2
+enabled=1
+gpgcheck=0
+"""
+
+        rpm.write_repodata(self.REPO_FILE_NAME, "repo2", "repo2", "http://repo2", "http://repo2", "http://repo2", ["enabled=1\n", "gpgcheck=0\n"])
+        with open(self.REPO_FILE_NAME) as file:
+            self.assertEqual(file.read(), expected_content)
+
 
 class HandleRpmnewFilesTests(unittest.TestCase):
     test_dir: str = "rpm_test_dir"

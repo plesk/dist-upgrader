@@ -10,19 +10,8 @@ from urllib.parse import urlparse
 
 from . import files, util, log
 
-REPO_HEAD_WITH_URL = """[{id}]
+REPO_HEAD = """[{id}]
 name={name}
-baseurl={url}
-"""
-
-REPO_HEAD_WITH_METALINK = """[{id}]
-name={name}
-metalink={url}
-"""
-
-REPO_HEAD_WITH_MIRRORLIST = """[{id}]
-name={name}
-mirrorlist={url}
 """
 
 
@@ -96,18 +85,21 @@ def write_repodata(
     mirrorlist: typing.Optional[str],
     additional: typing.List[str]
 ) -> None:
-    repo_format = REPO_HEAD_WITH_URL
-    if url is None and metalink is not None:
-        url = metalink
-        repo_format = REPO_HEAD_WITH_METALINK
-    if url is None and mirrorlist is not None:
-        url = mirrorlist
-        repo_format = REPO_HEAD_WITH_MIRRORLIST
+
+    content = REPO_HEAD.format(id=id, name=name)
+
+    if url is not None:
+        content += f"baseurl={url}\n"
+    if metalink is not None:
+        content += f"metalink={metalink}\n"
+    if mirrorlist is not None:
+        content += f"mirrorlist={mirrorlist}\n"
+
+    for add_line in additional:
+        content += add_line
 
     with open(repofile, "a") as dst:
-        dst.write(repo_format.format(id=id, name=name, url=url))
-        for line in additional:
-            dst.write(line)
+        dst.write(content)
 
 
 def remove_repositories(
