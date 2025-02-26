@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import typing
+import urllib.request
 from abc import abstractmethod
 
 from pleskdistup.common import action, log, packages, php, plesk, version
@@ -677,3 +678,32 @@ class AssertSshPermitRootLoginConfigured(action.CheckAction):
                     return True
 
         return False
+
+
+class AssertScriptVersionUpToDate(action.CheckAction):
+    def __init__(self, githubURL: str, tool: str, version: version.DistupgradeToolVersion):
+        self.name = f"checking if {tool} is up-to-date"
+        self.description = """The '{}' new version is available. Current version is '{}', available version is '{}'.
+\tPlease use the new version, or use --allow-old-script-version to proceed with the conversion.
+"""
+
+        self.githubURL = githubURL
+        self.tool = tool
+        self.version = version
+
+    def _do_check(self):
+        releases_url = f"{self.githubURL}/releases/latest"
+
+        try:
+            with urllib.request.urlopen(releases_url) as response:
+                latest_version_url = response.geturl()
+                latest_version = latest_version_url.split('/')[-1]
+                latest_version = version.DistupgradeToolVersion(latest_version)
+                if latest_version > self.version:
+                    self.description = self.description.format(self.tool, self.version, latest_version)
+                    return False
+        except Exception as e:
+            log.warn(f"Failed to check the latest version of {self.tool}: {e}")
+            return True
+
+        return True

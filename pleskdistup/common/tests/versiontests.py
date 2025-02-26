@@ -313,3 +313,58 @@ class PleskVersionTests(unittest.TestCase):
         plesk_version1 = version.PleskVersion("18.0.55.1")
         plesk_version2 = version.PleskVersion("18.0.55.2")
         self.assertLess(plesk_version1, plesk_version2)
+
+
+class DistupgradeToolVersionTests(unittest.TestCase):
+
+    def test_distupgrade_tool_parse_simple(self):
+        tool_version = version.DistupgradeToolVersion("0.1.0")
+        self.assertEqual(tool_version.major, 0)
+        self.assertEqual(tool_version.minor, 1)
+        self.assertEqual(tool_version.patch, 0)
+
+    def test_distupgrade_tool_parse_with_v_prefix(self):
+        tool_version = version.DistupgradeToolVersion("v1.3.4")
+        self.assertEqual(tool_version.major, 1)
+        self.assertEqual(tool_version.minor, 3)
+        self.assertEqual(tool_version.patch, 4)
+
+    def test_distupgrade_tool_parse_without_patch(self):
+        with self.assertRaises(ValueError):
+            _ = version.DistupgradeToolVersion("0.1")
+
+    def test_distupgrade_tool_parse_not_enough_parts(self):
+        with self.assertRaises(ValueError):
+            _ = version.DistupgradeToolVersion("0")
+
+    def test_distupgrade_tool_parse_too_many_parts(self):
+        with self.assertRaises(ValueError):
+            _ = version.DistupgradeToolVersion("0.1.2.3")
+
+    def test_distupgrade_tool_parse_negative_number(self):
+        with self.assertRaises(ValueError):
+            _ = version.DistupgradeToolVersion("0.-1.0")
+
+    def test_distupgrade_tool_parse_wrong_string(self):
+        with self.assertRaises(ValueError):
+            _ = version.DistupgradeToolVersion("nothing")
+
+    def test_compare_equal(self):
+        tool_version1 = version.DistupgradeToolVersion("0.1.0")
+        tool_version2 = version.DistupgradeToolVersion("0.1.0")
+        self.assertEqual(tool_version1, tool_version2)
+
+    def test_compare_less_minor(self):
+        tool_version1 = version.DistupgradeToolVersion("0.1.0")
+        tool_version2 = version.DistupgradeToolVersion("0.2.0")
+        self.assertLess(tool_version1, tool_version2)
+
+    def test_compare_less_major(self):
+        tool_version1 = version.DistupgradeToolVersion("0.1.0")
+        tool_version2 = version.DistupgradeToolVersion("1.1.0")
+        self.assertLess(tool_version1, tool_version2)
+
+    def test_compare_less_major_greater_minor(self):
+        tool_version1 = version.DistupgradeToolVersion("0.1.0")
+        tool_version2 = version.DistupgradeToolVersion("1.0.0")
+        self.assertLess(tool_version1, tool_version2)
