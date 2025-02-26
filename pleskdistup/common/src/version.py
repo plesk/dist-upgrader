@@ -230,3 +230,61 @@ class PleskVersion:
 
     def __ge__(self, other) -> bool:
         return not self.__lt__(other)
+
+
+class DistupgradeToolVersion:
+    """
+    Distupgrade tool version representation class.
+
+    version is represented as a string in format "major.minor.patch".
+    Examples:
+    - "1.0.0"
+    - "1.5.16"
+
+    Versions could be compared with each other, represented as a string.
+    Available fields are: major, minor, patch.
+    """
+
+    major: int
+    minor: int
+    patch: int
+
+    def _extract_from_version(self, version: str) -> None:
+        if version.startswith("v"):
+            version = version[1:]
+
+        split_version = version.split(".")
+        if len(split_version) != 3:
+            raise ValueError("Incorrect version length")
+
+        # Version string example is "1.0.0" or "1.5.16"
+        self.major, self.minor, self.patch = map(int, split_version)
+
+        if self.major < 0 or self.minor < 0 or self.patch < 0:
+            raise ValueError("Negative number in version")
+
+    def __init__(self, version: str):
+        """Initialize a DistupgradeToolVersion object."""
+        self.major = 0
+        self.minor = 0
+        self.patch = 0
+
+        self._extract_from_version(version)
+
+    def _to_tuple(self) -> typing.Tuple[int, int, int]:
+        return (self.major, self.minor, self.patch)
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(major={self.major!r}, minor={self.minor!r}, patch={self.patch!r})"
+
+    def __str__(self) -> str:
+        return f"{self.major}.{self.minor}.{self.patch}"
+
+    def __lt__(self, other) -> bool:
+        return self._to_tuple() < other._to_tuple()
+
+    def __eq__(self, other) -> bool:
+        return self._to_tuple() == other._to_tuple()
+
+    def __ge__(self, other) -> bool:
+        return not self.__lt__(other)
