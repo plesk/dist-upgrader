@@ -144,6 +144,7 @@ def _do_url_replacement(url: typing.Optional[str]) -> typing.Optional[str]:
         lambda to_change: to_change.replace("$releasever", "8"),
         lambda to_change: to_change.replace("autoinstall.plesk.com/PMM_0.1.10", "autoinstall.plesk.com/PMM_0.1.11"),
         lambda to_change: to_change.replace("autoinstall.plesk.com/PMM0", "autoinstall.plesk.com/PMM_0.1.11"),
+        lambda to_change: to_change.replace("mirror.pp.plesk.tech/cloudlinux/8/os/", "mirror.pp.plesk.tech/cloudlinux/8/cloudlinux-x86_64-server-8/"),
     ])
 
 
