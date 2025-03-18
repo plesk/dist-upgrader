@@ -411,6 +411,10 @@ def main():
         help=argparse.SUPPRESS
     )
     operation_group.add_argument(
+        "-c", "--precheck", action="store_true",
+        help="check if the system is ready for the distupgrade/conversion process."
+    )
+    operation_group.add_argument(
         "-f", "--prepare-feedback", action="store_true",
         help="prepare feedback archive that should be sent to the developers for further failure investigation."
     )
@@ -616,6 +620,12 @@ def main():
 
     if options.prepare_feedback:
         prepare_feedback(upgrader, options, logfile_path, util_name, upgrader.issues_url)
+        return 0
+
+    if options.precheck:
+        if not required_conditions_satisfied(upgrader, options, options.phase):
+            return 1
+        print("All checks passed successfully. Your system is ready for the dist-upgrade process.")
         return 0
 
     if not os.path.exists(options.state_dir):
