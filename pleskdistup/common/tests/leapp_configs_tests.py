@@ -6,6 +6,7 @@ import shutil
 import typing
 
 import src.leapp_configs as leapp_configs
+import src.rpm as rpm
 
 
 class AddMappingTests(unittest.TestCase):
@@ -1624,3 +1625,23 @@ gpgcheck=0
 
         self._compare_file_but_skip_empty(os.path.join(self.TEST_DIRECTORY, "keepid.repo"), expected_leapp_repos)
         self._compare_mapping_json(os.path.join(self.TEST_DIRECTORY, "keepid_map.json"), expected_mapping_json)
+
+
+class IsRepoOkTests(unittest.TestCase):
+    def test_simple_repo(self):
+        self.assertEqual(leapp_configs.is_repo_ok(rpm.Repository("id", "name", "http://repo1", "http://metalink", "http://mirrorlist", ["enabled=1\n", "gpgcheck=0\n"])), True)
+
+    def test_no_name(self):
+        self.assertEqual(leapp_configs.is_repo_ok(rpm.Repository("id", None, "http://repo1", "http://metalink", "http://mirrorlist", ["enabled=1\n", "gpgcheck=0\n"])), False)
+
+    def test_only_baseurl(self):
+        self.assertEqual(leapp_configs.is_repo_ok(rpm.Repository("id", "name", "http://repo1", None, None, ["enabled=1\n", "gpgcheck=0\n"])), True)
+
+    def test_only_metalink(self):
+        self.assertEqual(leapp_configs.is_repo_ok(rpm.Repository("id", "name", None, "http://metalink", None, ["enabled=1\n", "gpgcheck=0\n"])), True)
+
+    def test_only_mirrorlist(self):
+        self.assertEqual(leapp_configs.is_repo_ok(rpm.Repository("id", "name", None, None, "http://mirrorlist", ["enabled=1\n", "gpgcheck=0\n"])), True)
+
+    def test_no_urls(self):
+        self.assertEqual(leapp_configs.is_repo_ok(rpm.Repository("id", "name", None, None, None, ["enabled=1\n", "gpgcheck=0\n"])), False)
