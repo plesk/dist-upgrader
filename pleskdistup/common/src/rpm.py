@@ -1,4 +1,5 @@
 # Copyright 2023-2025. WebPros International GmbH. All rights reserved.
+from collections import defaultdict
 import ipaddress
 import itertools
 import os
@@ -50,57 +51,78 @@ class Repository:
 
         return content
 
+    @classmethod
+    def from_lines(cls, lines: typing.List[str]) -> 'Repository':
+        known_fields = ("name", "baseurl", "metalink", "mirrorlist")
+        id = None
+        additional = []
+
+        if not lines[0].startswith("["):
+            raise ValueError("Repository ID is missing in the provided lines")
+
+        id = lines[0].rstrip()[1:-1]
+
+        parsed_lines = defaultdict(None)
+        current_key = None
+
+        for line in lines[1:]:
+            # just skip commentaries and add them somewhere at the end
+            if line.strip().startswith("#"):
+                additional.append(line)
+                continue
+
+            if "=" in line:
+                key, value = line.split("=", 1)
+                key = key.strip().rstrip()
+                value = value.strip().rstrip()
+                if key in known_fields:
+                    parsed_lines[key] = [value]
+                    current_key = key
+                else:
+                    additional.append(line)
+                    current_key = None
+            elif current_key is not None:
+                parsed_lines[current_key].append(line.rstrip())
+            else:
+                additional.append(line)
+
+        for key, value in parsed_lines.items():
+            parsed_lines[key] = "\n".join(value)
+
+        return cls(id, parsed_lines.get("name"), parsed_lines.get("baseurl"), parsed_lines.get("metalink"), parsed_lines.get("mirrorlist"), additional)
+
 
 def extract_repodata(
     repofile: str
 ) -> typing.Iterable[Repository]:
-    id: typing.Optional[str] = None
-    name: typing.Optional[str] = None
-    url: typing.Optional[str] = None
-    metalink: typing.Optional[str] = None
-    mirrorlist: typing.Optional[str] = None
-    additional: typing.List[str] = []
 
     if not os.path.exists(repofile):
         raise FileNotFoundError(f"The repository file {repofile!r} does not exist")
 
+    repository_lines: typing.List[str] = []
+
     with open(repofile, "r") as repo:
         for line in repo.readlines():
             if line.startswith("["):
-                if id is not None:
-                    yield Repository(id, name, url, metalink, mirrorlist, additional)
+                if len(repository_lines):
+                    log.debug("Previous repository ended. Create object from lines")
+                    yield Repository.from_lines(repository_lines)
 
-                id = None
-                name = None
-                url = None
-                metalink = None
-                mirrorlist = None
-                additional = []
+                log.debug("Start repository: {line}".format(line=line.rstrip()))
+                repository_lines = [line]
+                continue
 
             log.debug("Repository file line: {line}".format(line=line.rstrip()))
-            if line.startswith("["):
-                id = line[1:-2]
+            if len(repository_lines) == 0:
+                log.debug("Skip line outside of repository")
                 continue
 
-            if "=" not in line:
-                additional.append(line)
-                continue
+            repository_lines.append(line)
 
-            field, val = line.split("=", 1)
-            field = field.strip().rstrip()
-            val = val.strip().rstrip()
-            if field == "name":
-                name = val
-            elif field == "baseurl":
-                url = val
-            elif field == "metalink":
-                metalink = val
-            elif field == "mirrorlist":
-                mirrorlist = val
-            else:
-                additional.append(line)
+    if len(repository_lines) == 0:
+        return
 
-    yield Repository(id, name, url, metalink, mirrorlist, additional)
+    yield Repository.from_lines(repository_lines)
 
 
 def write_repodata(
@@ -274,3 +296,8 @@ def repository_source_is_ip(
         except ValueError:
             continue
     return False
+
+
+# def get_repository_gpg_keys(
+#         repository: Repository
+# ) -> bool:

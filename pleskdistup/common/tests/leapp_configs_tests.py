@@ -87,6 +87,30 @@ repo3,alma-repo3,alma-repo3,all,all,x86_64,rpm,ga,ga
         self._perform_test({"simple_repos.repo": simple_repos},
                            expected_leapp_repos, expected_leapp_mapping)
 
+    def test_started_with_commentaries(self):
+        simple_repos = """## Some commentaries before repository
+
+[repo1]
+name=repo1
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+#no comment removed
+"""
+
+        expected_leapp_repos = """[alma-repo1]
+name=Alma repo1
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+#no comment removed
+"""
+        expected_leapp_mapping = """repo1,alma-repo1,alma-repo1,all,all,x86_64,rpm,ga,ga
+"""
+
+        self._perform_test({"start_with_commentaries.repo": simple_repos},
+                           expected_leapp_repos, expected_leapp_mapping)
+
     def test_kolab_related_mapping(self):
         kolab_repos = """[kolab-repo]
 name=Kolab repo

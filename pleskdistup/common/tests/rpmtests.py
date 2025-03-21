@@ -449,3 +449,175 @@ class repositorySourceIsIp(unittest.TestCase):
 
     def test_non_url_string(self):
         self.assertFalse(rpm.repository_source_is_ip(rpm.Repository("id", "name", "Just a random string", None, None)))
+
+
+class RepositoryTests(unittest.TestCase):
+    def test_from_lines(self):
+        lines = [
+            "[repo1]\n",
+            "name=repo1\n",
+            "baseurl=http://repo1\n",
+            "enabled=1\n",
+            "gpgcheck=0\n",
+            "metalink=http://metalink\n",
+            "mirrorlist=http://mirrorlist\n",
+        ]
+
+        repo = rpm.Repository.from_lines(lines)
+
+        self.assertEqual(repo.id, "repo1")
+        self.assertEqual(repo.name, "repo1")
+        self.assertEqual(repo.url, "http://repo1")
+        self.assertEqual(repo.metalink, "http://metalink")
+        self.assertEqual(repo.mirrorlist, "http://mirrorlist")
+        self.assertEqual(repo.additional, ["enabled=1\n", "gpgcheck=0\n"])
+
+    def test_from_lines_no_id(self):
+        lines = [
+            "name=repo1\n",
+            "baseurl=http://repo1\n",
+            "enabled=1\n",
+            "gpgcheck=0\n",
+            "metalink=http://metalink\n",
+            "mirrorlist=http://mirrorlist\n",
+        ]
+
+        with self.assertRaises(ValueError):
+            rpm.Repository.from_lines(lines)
+
+    def test_from_lines_no_name(self):
+        lines = [
+            "[repo1]\n",
+            "baseurl=http://repo1\n",
+            "enabled=1\n",
+            "gpgcheck=0\n",
+            "metalink=http://metalink\n",
+            "mirrorlist=http://mirrorlist\n",
+        ]
+
+        repo = rpm.Repository.from_lines(lines)
+
+        self.assertEqual(repo.id, "repo1")
+        self.assertEqual(repo.name, None)
+        self.assertEqual(repo.url, "http://repo1")
+        self.assertEqual(repo.metalink, "http://metalink")
+        self.assertEqual(repo.mirrorlist, "http://mirrorlist")
+        self.assertEqual(repo.additional, ["enabled=1\n", "gpgcheck=0\n"])
+
+    def test_from_lines_no_baseurl(self):
+        lines = [
+            "[repo1]\n",
+            "name=repo1\n",
+            "enabled=1\n",
+            "gpgcheck=0\n",
+            "metalink=http://metalink\n",
+            "mirrorlist=http://mirrorlist\n",
+        ]
+
+        repo = rpm.Repository.from_lines(lines)
+
+        self.assertEqual(repo.id, "repo1")
+        self.assertEqual(repo.name, "repo1")
+        self.assertEqual(repo.url, None)
+        self.assertEqual(repo.metalink, "http://metalink")
+        self.assertEqual(repo.mirrorlist, "http://mirrorlist")
+        self.assertEqual(repo.additional, ["enabled=1\n", "gpgcheck=0\n"])
+
+    def test_from_lines_no_metalink(self):
+        lines = [
+            "[repo1]\n",
+            "name=repo1\n",
+            "baseurl=http://repo1\n",
+            "enabled=1\n",
+            "gpgcheck=0\n",
+            "mirrorlist=http://mirrorlist\n",
+        ]
+
+        repo = rpm.Repository.from_lines(lines)
+
+        self.assertEqual(repo.id, "repo1")
+        self.assertEqual(repo.name, "repo1")
+        self.assertEqual(repo.url, "http://repo1")
+        self.assertEqual(repo.metalink, None)
+        self.assertEqual(repo.mirrorlist, "http://mirrorlist")
+        self.assertEqual(repo.additional, ["enabled=1\n", "gpgcheck=0\n"])
+
+    def test_from_lines_no_mirrorlist(self):
+        lines = [
+            "[repo1]\n",
+            "name=repo1\n",
+            "baseurl=http://repo1\n",
+            "enabled=1\n",
+            "gpgcheck=0\n",
+            "metalink=http://metalink\n",
+        ]
+
+        repo = rpm.Repository.from_lines(lines)
+
+        self.assertEqual(repo.id, "repo1")
+        self.assertEqual(repo.name, "repo1")
+        self.assertEqual(repo.url, "http://repo1")
+        self.assertEqual(repo.metalink, "http://metalink")
+        self.assertEqual(repo.mirrorlist, None)
+        self.assertEqual(repo.additional, ["enabled=1\n", "gpgcheck=0\n"])
+
+    def test_from_lines_no_additional(self):
+        lines = [
+            "[repo1]\n",
+            "name=repo1\n",
+            "baseurl=http://repo1\n",
+            "metalink=http://metalink\n",
+            "mirrorlist=http://mirrorlist\n",
+        ]
+
+        repo = rpm.Repository.from_lines(lines)
+
+        self.assertEqual(repo.id, "repo1")
+        self.assertEqual(repo.name, "repo1")
+        self.assertEqual(repo.url, "http://repo1")
+        self.assertEqual(repo.metalink, "http://metalink")
+        self.assertEqual(repo.mirrorlist, "http://mirrorlist")
+        self.assertEqual(repo.additional, [])
+
+    def test_multiline_additional(self):
+        lines = [
+            "[repo1]\n",
+            "name=repo1\n",
+            "baseurl=http://repo1\n",
+            "enabled=1\n",
+            "gpgcheck=0\n",
+            "gpgkey=http://key1.com/key.gpg\n",
+            "       http://key2.com/key.gpg\n",
+            "       http://key3.com/key.gpg\n",
+        ]
+
+        repo = rpm.Repository.from_lines(lines)
+
+        self.assertEqual(repo.id, "repo1")
+        self.assertEqual(repo.name, "repo1")
+        self.assertEqual(repo.url, "http://repo1")
+        self.assertEqual(repo.metalink, None)
+        self.assertEqual(repo.mirrorlist, None)
+        self.assertEqual(repo.additional, ["enabled=1\n", "gpgcheck=0\n", "gpgkey=http://key1.com/key.gpg\n", "       http://key2.com/key.gpg\n", "       http://key3.com/key.gpg\n"])
+
+    def test_with_commentary(self):
+        lines = [
+            "[repo1]\n",
+            "name=repo1\n",
+            "#basecomment\n",
+            "baseurl=http://repo1\n",
+            "enabled=1\n",
+            "gpgcheck=0\n",
+            "#comment\n",
+            "metalink=http://metalink\n",
+            "mirrorlist=http://mirrorlist\n",
+        ]
+
+        repo = rpm.Repository.from_lines(lines)
+
+        self.assertEqual(repo.id, "repo1")
+        self.assertEqual(repo.name, "repo1")
+        self.assertEqual(repo.url, "http://repo1")
+        self.assertEqual(repo.metalink, "http://metalink")
+        self.assertEqual(repo.mirrorlist, "http://mirrorlist")
+        self.assertEqual(repo.additional, ["#basecomment\n", "enabled=1\n", "gpgcheck=0\n", "#comment\n"])
