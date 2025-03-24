@@ -10,5 +10,6 @@ from .mariadb import *
 from .mounts import *
 from .packages import *
 from .plesk import *
+from .rpm import *
 from .spamassassin import *
 from .systemd import *
