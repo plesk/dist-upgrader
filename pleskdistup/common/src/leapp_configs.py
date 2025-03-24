@@ -134,6 +134,12 @@ def _do_url_replacement(url: typing.Optional[str]) -> typing.Optional[str]:
     ])
 
 
+def _do_gpgkey_replacement(gpgkey: typing.Optional[str]) -> typing.Optional[str]:
+    return _do_replacement(gpgkey, [
+        lambda to_change: to_change.replace("EPEL-7", "EPEL-8"),
+    ])
+
+
 def _do_common_replacement(line: typing.Optional[str]) -> typing.Optional[str]:
     return _do_replacement(line, [
         lambda to_change: to_change.replace("EPEL-7", "EPEL-8"),
@@ -173,13 +179,18 @@ def _write_repository_adoption(
         log.warn(f"Skip repository '{repository.id}' since it has no baseurl, metalink and mirrorlist")
         return None
 
+    gpgkey_replacement = [_do_gpgkey_replacement(gpgkey) for gpgkey in repository.gpgkeys] if repository.gpgkeys else []
+
     result_repo = rpm.Repository(
         id,
-        name,
-        _do_url_replacement(repository.url) if repository.url else None,
-        _do_url_replacement(repository.metalink) if repository.metalink else None,
-        _do_url_replacement(repository.mirrorlist) if repository.mirrorlist else None,
-        [sline for sline in (_do_common_replacement(line) for line in repository.additional) if sline is not None]
+        name=name,
+        url=_do_url_replacement(repository.url) if repository.url else None,
+        metalink=_do_url_replacement(repository.metalink) if repository.metalink else None,
+        mirrorlist=_do_url_replacement(repository.mirrorlist) if repository.mirrorlist else None,
+        enabled=repository.enabled,
+        gpgcheck=repository.gpgcheck,
+        gpgkeys=[gpgkey for gpgkey in gpgkey_replacement if gpgkey is not None] if gpgkey_replacement else None,
+        additional=[sline for sline in (_do_common_replacement(line) for line in repository.additional) if sline is not None]
     )
 
     dst.write(repr(result_repo))
@@ -250,9 +261,12 @@ def add_repositories_mapping(repofiles: typing.List[str], ignore: typing.Optiona
                 if repo.id.startswith("PLESK_18_0") and "extras" in repo.id and repo.name is not None and repo.url is not None:
                     dist_repository_description = rpm.Repository(
                         repo.id.replace("-extras", ""),
-                        repo.name.replace("extras", ""),
-                        repo.url.replace("extras", "dist"),
-                        None, None, ["enabled=1\n", "gpgcheck=1\n"]
+                        name=repo.name.replace("extras", ""),
+                        url=repo.url.replace("extras", "dist"),
+                        metalink=None,
+                        mirrorlist=None,
+                        enabled="1\n",
+                        gpgcheck="1\n",
                     )
                     after_dist_repository = _write_repository_adoption(dist_repository_description, leapp_repos_file, False)
                     if after_dist_repository is not None:
