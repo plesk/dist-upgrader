@@ -324,6 +324,14 @@ def repository_source_is_ip(
     return False
 
 
-# def get_repository_gpg_keys(
-#         repository: Repository
-# ) -> bool:
+def collect_all_gpgkeys_from_repofiles(
+        path: str,
+        regexps_strings: typing.Union[typing.List, str],
+) -> typing.List[str]:
+    gpg_keys = []
+    for repofile in files.find_files_case_insensitive(path, regexps_strings):
+        for repo in extract_repodata(repofile):
+            if repo.gpgkeys is not None:
+                gpg_keys += [key.strip().rstrip() for key in repo.gpgkeys]
+
+    return gpg_keys

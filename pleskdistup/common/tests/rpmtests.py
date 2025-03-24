@@ -691,3 +691,103 @@ class RepositoryTests(unittest.TestCase):
         self.assertEqual(repo.metalink, "http://metalink")
         self.assertEqual(repo.mirrorlist, "http://mirrorlist")
         self.assertEqual(repo.additional, ["#basecomment\n", "#comment\n"])
+
+
+class CollectAllGpgKeysFromRepofilesTests(unittest.TestCase):
+    def setUp(self):
+        if not os.path.exists("test_dir"):
+            os.mkdir("test_dir")
+
+    def tearDown(self):
+        if os.path.exists("test_dir"):
+            shutil.rmtree("test_dir")
+
+    def test_no_repofiles(self):
+        self.assertEqual(rpm.collect_all_gpgkeys_from_repofiles("test_dir", ["not_existing.repo"]), [])
+
+    def test_invalid_file_format(self):
+        with open("test_dir/invalid.repo", "w") as f:
+            f.write("This is not a valid repo file")
+        self.assertEqual(rpm.collect_all_gpgkeys_from_repofiles("test_dir", ["*.repo"]), [])
+
+    def test_no_gpgkeys(self):
+        with open("test_dir/repo1.repo", "w") as f:
+            f.write("[repo1]\n"
+                    "name=repo1\n"
+                    "baseurl=http://repo1\n"
+                    "enabled=1\n"
+                    "gpgcheck=0\n")
+
+        self.assertEqual(rpm.collect_all_gpgkeys_from_repofiles("test_dir", ["repo1.repo"]), [])
+
+    def test_single_gpgkey(self):
+        with open("test_dir/repo1.repo", "w") as f:
+            f.write("[repo1]\n"
+                    "name=repo1\n"
+                    "baseurl=http://repo1\n"
+                    "enabled=1\n"
+                    "gpgcheck=0\n"
+                    "gpgkey=http://key1.com/key.gpg\n")
+
+        self.assertEqual(rpm.collect_all_gpgkeys_from_repofiles("test_dir", ["repo1.repo"]), ["http://key1.com/key.gpg"])
+
+    def test_multiple_gpgkeys(self):
+        with open("test_dir/repo1.repo", "w") as f:
+            f.write("[repo1]\n"
+                    "name=repo1\n"
+                    "baseurl=http://repo1\n"
+                    "enabled=1\n"
+                    "gpgcheck=0\n"
+                    "gpgkey=http://key1.com/key.gpg\n"
+                    "       http://key2.com/key.gpg\n"
+                    "       http://key3.com/key.gpg\n")
+
+        self.assertEqual(rpm.collect_all_gpgkeys_from_repofiles("test_dir", ["repo1.repo"]), ["http://key1.com/key.gpg", "http://key2.com/key.gpg", "http://key3.com/key.gpg"])
+
+    def test_multiple_repofiles(self):
+        with open("test_dir/repo1.repo", "w") as f:
+            f.write("[repo1]\n"
+                    "name=repo1\n"
+                    "baseurl=http://repo1\n"
+                    "enabled=1\n"
+                    "gpgcheck=0\n"
+                    "gpgkey=http://key1.com/key.gpg\n")
+
+        with open("test_dir/repo2.repo", "w") as f:
+            f.write("[repo2]\n"
+                    "name=repo2\n"
+                    "baseurl=http://repo2\n"
+                    "enabled=1\n"
+                    "gpgcheck=0\n"
+                    "gpgkey=http://key2.com/key.gpg\n")
+
+        self.assertEqual(sorted(rpm.collect_all_gpgkeys_from_repofiles("test_dir", ["repo1.repo", "repo2.repo"])), ["http://key1.com/key.gpg", "http://key2.com/key.gpg"])
+
+    def test_several_repo_in_file(self):
+        with open("test_dir/repo1.repo", "w") as f:
+            f.write("[repo1]\n"
+                    "name=repo1\n"
+                    "baseurl=http://repo1\n"
+                    "enabled=1\n"
+                    "gpgcheck=0\n"
+                    "gpgkey=http://key1.com/key.gpg\n"
+                    "[repo2]\n"
+                    "name=repo2\n"
+                    "baseurl=http://repo2\n"
+                    "enabled=1\n"
+                    "gpgcheck=0\n"
+                    "gpgkey=http://key2.com/key.gpg\n")
+
+        self.assertEqual(rpm.collect_all_gpgkeys_from_repofiles("test_dir", ["repo1.repo"]), ["http://key1.com/key.gpg", "http://key2.com/key.gpg"])
+
+    def test_duplicate_gpg_keys(self):
+        with open("test_dir/repo1.repo", "w") as f:
+            f.write("[repo1]\n"
+                    "name=repo1\n"
+                    "gpgkey=http://key1.com/key.gpg\n")
+        with open("test_dir/repo2.repo", "w") as f:
+            f.write("[repo2]\n"
+                    "name=repo2\n"
+                    "gpgkey=http://key1.com/key.gpg\n")
+        self.assertEqual(rpm.collect_all_gpgkeys_from_repofiles("test_dir", ["*.repo"]),
+                         ["http://key1.com/key.gpg", "http://key1.com/key.gpg"])
