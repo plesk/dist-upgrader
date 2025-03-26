@@ -1,4 +1,5 @@
 # Copyright 2023-2025. WebPros International GmbH. All rights reserved.
+from collections import defaultdict
 import ipaddress
 import itertools
 import os
@@ -15,91 +16,147 @@ name={name}
 """
 
 
+class Repository:
+    def __init__(
+            self,
+            id: str,
+            name: typing.Optional[str] = None,
+            url: typing.Optional[str] = None,
+            metalink: typing.Optional[str] = None,
+            mirrorlist: typing.Optional[str] = None,
+            enabled: typing.Optional[str] = None,
+            gpgcheck: typing.Optional[str] = None,
+            gpgkeys: typing.Optional[typing.List[str]] = None,
+            additional: typing.Optional[typing.List[str]] = None
+    ):
+        self.id = id
+        self.name = name
+        self.url = url
+        self.metalink = metalink
+        self.mirrorlist = mirrorlist
+        self.enabled = enabled
+        self.gpgcheck = gpgcheck
+        self.gpgkeys = gpgkeys
+        self.additional = [] if additional is None else additional
+
+    def __str__(self) -> str:
+        return f"Repository(id={self.id}, name={self.name}, url={self.url}, metalink={self.metalink}, mirrorlist={self.mirrorlist}, enabled={self.enabled}, gpgcheck={self.gpgcheck}, gpgkeys={self.gpgkeys} additional={self.additional})"
+
+    def __repr__(self) -> str:
+        content = REPO_HEAD.format(id=self.id, name=self.name)
+
+        if self.url is not None:
+            content += f"baseurl={self.url}\n"
+        if self.metalink is not None:
+            content += f"metalink={self.metalink}\n"
+        if self.mirrorlist is not None:
+            content += f"mirrorlist={self.mirrorlist}\n"
+
+        if self.enabled is not None:
+            content += f"enabled={self.enabled}\n"
+
+        if self.gpgcheck is not None:
+            content += f"gpgcheck={self.gpgcheck}\n"
+
+        if self.gpgkeys is not None:
+            content += "gpgkey=" + "\n".join(self.gpgkeys) + "\n"
+
+        for add_line in self.additional:
+            content += add_line
+
+        return content
+
+    @classmethod
+    def from_lines(cls, lines: typing.List[str]) -> 'Repository':
+        known_fields: typing.List[str] = ["name", "baseurl", "metalink", "mirrorlist", "enabled", "gpgcheck", "gpgkey"]
+        additional: typing.List[str] = []
+
+        if not lines[0].startswith("["):
+            raise ValueError("Repository ID is missing in the provided lines")
+
+        id: str = lines[0].rstrip()[1:-1]
+
+        parsed_lines: typing.Dict[str, str] = defaultdict(None)
+        current_key: typing.Optional[str] = None
+
+        for line in lines[1:]:
+            # just skip commentaries and add them somewhere at the end
+            if line.strip().startswith("#"):
+                additional.append(line)
+                continue
+
+            if "=" in line:
+                key, value = line.split("=", 1)
+                key = key.strip().rstrip()
+                value = value.strip().rstrip()
+                if key in known_fields:
+                    parsed_lines[key] = value
+                    current_key = key
+                else:
+                    # We do not intend to remove or add '\n' for additional lines
+                    # and likely we prefer to simply copy them, not change.
+                    # Hence, I am not using strip for this task.
+                    additional.append(line)
+                    current_key = None
+            elif current_key is not None:
+                parsed_lines[current_key] += "\n" + line.rstrip()
+            else:
+                additional.append(line)
+
+        return cls(
+            id,
+            name=parsed_lines.get("name"),
+            url=parsed_lines.get("baseurl"),
+            metalink=parsed_lines.get("metalink"),
+            mirrorlist=parsed_lines.get("mirrorlist"),
+            enabled=parsed_lines.get("enabled"),
+            gpgcheck=parsed_lines.get("gpgcheck"),
+            # Configuration variable is "gpgkey", function parameter is "gpgkeys".
+            # It's not a typo. We can have several GPG keys, so it's array.
+            gpgkeys=parsed_lines.get("gpgkey", "").split("\n") if "gpgkey" in parsed_lines else None,
+            additional=additional,
+        )
+
+
 def extract_repodata(
     repofile: str
-) -> typing.Iterable[
-    typing.Tuple[
-        typing.Optional[str],
-        typing.Optional[str],
-        typing.Optional[str],
-        typing.Optional[str],
-        typing.Optional[str],
-        typing.List[str]
-    ]
-]:
-    id: typing.Optional[str] = None
-    name: typing.Optional[str] = None
-    url: typing.Optional[str] = None
-    metalink: typing.Optional[str] = None
-    mirrorlist: typing.Optional[str] = None
-    additional: typing.List[str] = []
+) -> typing.Iterable[Repository]:
 
     if not os.path.exists(repofile):
         raise FileNotFoundError(f"The repository file {repofile!r} does not exist")
 
+    repository_lines: typing.List[str] = []
+
     with open(repofile, "r") as repo:
         for line in repo.readlines():
             if line.startswith("["):
-                if id is not None:
-                    yield (id, name, url, metalink, mirrorlist, additional)
+                if len(repository_lines):
+                    log.debug("Previous repository ended. Create object from lines")
+                    yield Repository.from_lines(repository_lines)
 
-                id = None
-                name = None
-                url = None
-                metalink = None
-                mirrorlist = None
-                additional = []
+                log.debug("Start repository: {line}".format(line=line.rstrip()))
+                repository_lines = [line]
+                continue
 
             log.debug("Repository file line: {line}".format(line=line.rstrip()))
-            if line.startswith("["):
-                id = line[1:-2]
+            if len(repository_lines) == 0:
+                log.debug("Skip line outside of repository")
                 continue
 
-            if "=" not in line:
-                additional.append(line)
-                continue
+            repository_lines.append(line)
 
-            field, val = line.split("=", 1)
-            field = field.strip().rstrip()
-            val = val.strip().rstrip()
-            if field == "name":
-                name = val
-            elif field == "baseurl":
-                url = val
-            elif field == "metalink":
-                metalink = val
-            elif field == "mirrorlist":
-                mirrorlist = val
-            else:
-                additional.append(line)
+    if len(repository_lines) == 0:
+        return
 
-    yield (id, name, url, metalink, mirrorlist, additional)
+    yield Repository.from_lines(repository_lines)
 
 
 def write_repodata(
     repofile: str,
-    id: typing.Optional[str],
-    name: typing.Optional[str],
-    url: typing.Optional[str],
-    metalink: typing.Optional[str],
-    mirrorlist: typing.Optional[str],
-    additional: typing.List[str]
+    repodata: Repository
 ) -> None:
-
-    content = REPO_HEAD.format(id=id, name=name)
-
-    if url is not None:
-        content += f"baseurl={url}\n"
-    if metalink is not None:
-        content += f"metalink={metalink}\n"
-    if mirrorlist is not None:
-        content += f"mirrorlist={mirrorlist}\n"
-
-    for add_line in additional:
-        content += add_line
-
     with open(repofile, "a") as dst:
-        dst.write(content)
+        dst.write(repr(repodata))
 
 
 def remove_repositories(
@@ -107,25 +164,21 @@ def remove_repositories(
     conditions: typing.Iterable[
         typing.Callable[
             [
-                typing.Optional[str],
-                typing.Optional[str],
-                typing.Optional[str],
-                typing.Optional[str],
-                typing.Optional[str]
+                Repository
             ],
             bool
         ]
     ]
 ) -> None:
-    for id, name, url, metalink, mirrorlist, additional_lines in extract_repodata(repofile):
+    for repodata in extract_repodata(repofile):
         remove = False
         for condition in conditions:
-            if condition(id, name, url, metalink, mirrorlist):
+            if condition(repodata):
                 remove = True
                 break
 
         if not remove:
-            write_repodata(repofile + ".next", id, name, url, metalink, mirrorlist, additional_lines)
+            write_repodata(repofile + ".next", repodata)
 
     if os.path.exists(repofile + ".next"):
         shutil.move(repofile + ".next", repofile)
@@ -233,13 +286,9 @@ def autoremove_outdated_packages() -> None:
 
 
 def repository_has_none_link(
-    id: typing.Optional[str],
-    name: typing.Optional[str],
-    url: typing.Optional[str],
-    metalink: typing.Optional[str],
-    mirrorlist: typing.Optional[str]
+    repository: Repository
 ) -> bool:
-    for link in (url, metalink, mirrorlist):
+    for link in (repository.url, repository.metalink, repository.mirrorlist):
         if link is not None and link.lower() == "none":
             return True
 
@@ -247,9 +296,7 @@ def repository_has_none_link(
 
 
 def repository_source_is_ip(
-    baseurl: typing.Optional[str],
-    metalink: typing.Optional[str],
-    mirrorlist: typing.Optional[str]
+    repository: Repository
 ) -> bool:
     """
     Checks if any of the provided repository source URLs (baseurl, metalink, mirrorlist) is an IP address.
@@ -262,7 +309,7 @@ def repository_source_is_ip(
     Returns:
     - bool: True if any of the URLs is an IP address, False otherwise.
     """
-    for link in (baseurl, metalink, mirrorlist):
+    for link in (repository.url, repository.metalink, repository.mirrorlist):
         if link is None:
             continue
 
@@ -275,3 +322,16 @@ def repository_source_is_ip(
         except ValueError:
             continue
     return False
+
+
+def collect_all_gpgkeys_from_repofiles(
+        path: str,
+        regexps_strings: typing.Union[typing.List, str],
+) -> typing.List[str]:
+    gpg_keys = []
+    for repofile in files.find_files_case_insensitive(path, regexps_strings):
+        for repo in extract_repodata(repofile):
+            if repo.gpgkeys is not None:
+                gpg_keys += [key.strip().rstrip() for key in repo.gpgkeys]
+
+    return gpg_keys

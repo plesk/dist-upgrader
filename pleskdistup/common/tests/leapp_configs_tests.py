@@ -6,6 +6,7 @@ import shutil
 import typing
 
 import src.leapp_configs as leapp_configs
+import src.rpm as rpm
 
 
 class AddMappingTests(unittest.TestCase):
@@ -86,6 +87,30 @@ repo3,alma-repo3,alma-repo3,all,all,x86_64,rpm,ga,ga
         self._perform_test({"simple_repos.repo": simple_repos},
                            expected_leapp_repos, expected_leapp_mapping)
 
+    def test_started_with_commentaries(self):
+        simple_repos = """## Some commentaries before repository
+
+[repo1]
+name=repo1
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+#no comment removed
+"""
+
+        expected_leapp_repos = """[alma-repo1]
+name=Alma repo1
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+#no comment removed
+"""
+        expected_leapp_mapping = """repo1,alma-repo1,alma-repo1,all,all,x86_64,rpm,ga,ga
+"""
+
+        self._perform_test({"start_with_commentaries.repo": simple_repos},
+                           expected_leapp_repos, expected_leapp_mapping)
+
     def test_kolab_related_mapping(self):
         kolab_repos = """[kolab-repo]
 name=Kolab repo
@@ -100,9 +125,9 @@ gpgcheck=1
 name=Alma Kolab repo
 baseurl=https://mirror.apheleia-it.ch/repos/Kolab:/16/CentOS_8_Plesk_17/src
 enabled=0
+gpgcheck=1
 priority=60
 skip_if_unavailable=1
-gpgcheck=1
 """
 
         expected_kolab_leapp_mapping = """kolab-repo,alma-kolab-repo,alma-kolab-repo,all,all,x86_64,rpm,ga,ga
@@ -228,15 +253,15 @@ gpgcheck=1
         expected_mariadb_repos = """[alma-mariadb]
 name=Alma MariaDB
 baseurl=http://yum.mariadb.org/10.11/rhel8-amd64
-module_hotfixes=1
-gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
 gpgcheck=1
+gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
+module_hotfixes=1
 [alma-mariadb rhel]
 name=Alma Other MariaDB
 baseurl=http://yum.mariadb.org/10.11.8/rhel8-amd64
-module_hotfixes=1
-gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
 gpgcheck=1
+gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
+module_hotfixes=1
 """
 
         expected_mariadb_mapping = """mariadb,alma-mariadb,alma-mariadb,all,all,x86_64,rpm,ga,ga
@@ -448,32 +473,59 @@ gpgcheck=1
         expected_mariadb_repos = """[alma-epel]
 name=Alma Extra Packages for Enterprise Linux 8 - $basearch
 baseurl=http://iad.mirror.rackspace.com/epel/8/Everything/x86_64/
-#metalink=https://mirrors.fedoraproject.org/metalink?repo=epel-7&arch=$basearch&infra=$infra&content=$contentdir
-failovermethod=priority
 enabled=1
 gpgcheck=1
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-8
+#metalink=https://mirrors.fedoraproject.org/metalink?repo=epel-7&arch=$basearch&infra=$infra&content=$contentdir
+failovermethod=priority
 [alma-epel-debuginfo]
 name=Alma Extra Packages for Enterprise Linux 8 - $basearch - Debug
 baseurl=http://iad.mirror.rackspace.com/epel/8/Everything/x86_64/debug/
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-8
 #metalink=https://mirrors.fedoraproject.org/metalink?repo=epel-debug-7&arch=$basearch&infra=$infra&content=$contentdir
 failovermethod=priority
-enabled=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-8
-gpgcheck=1
 [alma-epel-source]
 name=Alma Extra Packages for Enterprise Linux 8 - $basearch - Source
 baseurl=http://iad.mirror.rackspace.com/epel/8/Everything/SRPMS/
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-8
 #metalink=https://mirrors.fedoraproject.org/metalink?repo=epel-source-7&arch=$basearch&infra=$infra&content=$contentdir
 failovermethod=priority
-enabled=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-8
-gpgcheck=1
 """
 
         expected_mariadb_mapping = """epel,alma-epel,alma-epel,all,all,x86_64,rpm,ga,ga
 epel-debuginfo,alma-epel-debuginfo,alma-epel-debuginfo,all,all,x86_64,rpm,ga,ga
 epel-source,alma-epel-source,alma-epel-source,all,all,x86_64,rpm,ga,ga
+"""
+
+        self._perform_test({"mariadb.repo": mariadb_like_repos},
+                           expected_mariadb_repos, expected_mariadb_mapping)
+
+    def test_substitude_multiple_gpgkey(self):
+        mariadb_like_repos = """[epel]
+name=Extra Packages for Enterprise Linux 7 - $basearch
+baseurl=http://iad.mirror.rackspace.com/epel/7Server/x86_64/
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki1/rpm-gpg/RPM-GPG-KEY-EPEL-7
+       file:///etc/pki2/rpm-gpg/RPM-GPG-KEY-EPEL-7
+       file:///etc/pki3/rpm-gpg/RPM-GPG-KEY-EPEL-7
+"""
+
+        expected_mariadb_repos = """[alma-epel]
+name=Alma Extra Packages for Enterprise Linux 8 - $basearch
+baseurl=http://iad.mirror.rackspace.com/epel/8/Everything/x86_64/
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki1/rpm-gpg/RPM-GPG-KEY-EPEL-8
+       file:///etc/pki2/rpm-gpg/RPM-GPG-KEY-EPEL-8
+       file:///etc/pki3/rpm-gpg/RPM-GPG-KEY-EPEL-8
+"""
+
+        expected_mariadb_mapping = """epel,alma-epel,alma-epel,all,all,x86_64,rpm,ga,ga
 """
 
         self._perform_test({"mariadb.repo": mariadb_like_repos},
@@ -1624,3 +1676,23 @@ gpgcheck=0
 
         self._compare_file_but_skip_empty(os.path.join(self.TEST_DIRECTORY, "keepid.repo"), expected_leapp_repos)
         self._compare_mapping_json(os.path.join(self.TEST_DIRECTORY, "keepid_map.json"), expected_mapping_json)
+
+
+class IsRepoOkTests(unittest.TestCase):
+    def test_simple_repo(self):
+        self.assertEqual(leapp_configs.is_repo_ok(rpm.Repository("id", name="name", url="http://repo1", metalink="http://metalink", mirrorlist="http://mirrorlist", enabled="1\n", gpgcheck="0\n")), True)
+
+    def test_no_name(self):
+        self.assertEqual(leapp_configs.is_repo_ok(rpm.Repository("id", name=None, url="http://repo1", metalink="http://metalink", mirrorlist="http://mirrorlist", enabled="1\n", gpgcheck="0\n")), False)
+
+    def test_only_baseurl(self):
+        self.assertEqual(leapp_configs.is_repo_ok(rpm.Repository("id", name="name", url="http://repo1", metalink=None, mirrorlist=None, enabled="1\n", gpgcheck="0\n")), True)
+
+    def test_only_metalink(self):
+        self.assertEqual(leapp_configs.is_repo_ok(rpm.Repository("id", name="name", url=None, metalink="http://metalink", mirrorlist=None, enabled="1\n", gpgcheck="0\n")), True)
+
+    def test_only_mirrorlist(self):
+        self.assertEqual(leapp_configs.is_repo_ok(rpm.Repository("id", name="name", url=None, metalink=None, mirrorlist="http://mirrorlist", enabled="1\n", gpgcheck="0\n")), True)
+
+    def test_no_urls(self):
+        self.assertEqual(leapp_configs.is_repo_ok(rpm.Repository("id", name="name", url=None, metalink=None, mirrorlist=None, enabled="1\n", gpgcheck="0\n")), False)
