@@ -239,18 +239,14 @@ def add_repositories_mapping(repofiles: typing.List[str], ignore: typing.Optiona
                 continue
 
             for repo in rpm.extract_repodata(file):
-                if not is_repo_ok(repo):
-                    continue
-
-                if repo.id is None:
-                    log.warn(f"Skip repository entry without id from {file}")
-                    continue
-
                 if repo.id in ignore:
                     log.debug(f"Skip repository {repo.id!r} since it is in ignore list.")
                     continue
 
                 log.debug(f"Repository entry with id '{repo.id!r}' is extracted.")
+                if not is_repo_ok(repo):
+                    log.debug(f"Skip the repository '{repo.id!r}'")
+                    continue
 
                 after_repository = _write_repository_adoption(repo, leapp_repos_file, False)
                 if after_repository is None:
@@ -505,15 +501,13 @@ def create_leapp_vendor_repository_adoption(
 
     with open(target_repo_file + ".next", "w") as dst:
         for repo in rpm.extract_repodata(repofile):
-            if repo.id is None:
-                log.warn(f"Skip repository from '{repofile}' since it has no id")
-                continue
-
             if repo.id in ignore:
                 log.debug(f"Skip repository {repo.id!r} adaptation since it is in ignore list.")
                 continue
 
+            log.debug(f"Repository entry with id '{repo.id!r}' is extracted.")
             if not is_repo_ok(repo):
+                log.debug(f"Skip the repository '{repo.id!r}'")
                 continue
 
             new_repo = _write_repository_adoption(repo, dst, keep_id)
