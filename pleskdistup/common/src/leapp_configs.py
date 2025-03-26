@@ -167,17 +167,15 @@ def _write_repository_adoption(
         repository: rpm.Repository,
         dst: typing.TextIO,
         keep_id: bool = False
-) -> typing.Optional[rpm.Repository]:
+) -> rpm.Repository:
     id = _do_id_replacement(repository.id) if not keep_id else repository.id
     name = _do_name_replacement(repository.name)
 
     if id is None or name is None:
-        log.warn(f"Skip repository '{repository.id}' (id: {id}, name: {name}) since it has no next id or next name")
-        return None
+        raise ValueError(f"Repository {repository.id!r} with name {name!r} has no next id or next name")
 
     if repository.url is None and repository.metalink is None and repository.mirrorlist is None:
-        log.warn(f"Skip repository '{repository.id}' since it has no baseurl, metalink and mirrorlist")
-        return None
+        raise ValueError(f"Repository {repository.id!r} has no next baseurl, metalink or mirrorlist")
 
     gpgkey_replacement = [_do_gpgkey_replacement(gpgkey) for gpgkey in repository.gpgkeys] if repository.gpgkeys else []
 
@@ -248,8 +246,10 @@ def add_repositories_mapping(repofiles: typing.List[str], ignore: typing.Optiona
                     log.debug(f"Skip the repository '{repo.id!r}'")
                     continue
 
-                after_repository = _write_repository_adoption(repo, leapp_repos_file, False)
-                if after_repository is None:
+                try:
+                    after_repository = _write_repository_adoption(repo, leapp_repos_file, False)
+                except ValueError as e:
+                    log.err(f"Skip repository. Error during repository adaptation: {e}")
                     continue
 
                 # Special case for plesk repository. We need to add dist repository to install some of plesk packages
