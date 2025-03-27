@@ -144,7 +144,7 @@ class PleskComponentState(enum.Enum):
     INSTALL = "install"
     UPGRADE = "upgrade"
     UP2DATE = "up2date"
-    ERROR = "ERROR"
+    ERROR = "error"
 
 
 class PleskComponent:
@@ -199,7 +199,8 @@ def list_installed_components() -> typing.Dict[str, PleskComponent]:
         if m:
             c = PleskComponent(
                 name=m["name"],
-                state=PleskComponentState(m["state"]),
+                # We could receive state "ERROR" and "error", so we need to normalize it
+                state=PleskComponentState(m["state"].lower()),
                 description=m["desc"],
             )
             log.debug(f"Discovered component {c}")
