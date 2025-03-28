@@ -208,6 +208,11 @@ def list_installed_components() -> typing.Dict[str, PleskComponent]:
     return res
 
 
+def is_component_installed(component_name: str) -> bool:
+    components = list_installed_components()
+    return component_name in components and components[component_name].is_installed
+
+
 class PleskDatabaseIsDown(Exception):
     def __init__(self, message: str = ""):
         self.message = f"Plesk database is not ready at: {message}"
