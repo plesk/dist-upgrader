@@ -519,3 +519,86 @@ def create_leapp_vendor_repository_adoption(
 
     shutil.move(target_repo_file + ".next", target_repo_file)
     files.rewrite_json_file(os.path.join(leapp_vendors_dir, json_file_name), mapping_json)
+
+
+def _extract_leapp_report_inhibitors_from_json(json_report_path: str) -> typing.List[str]:
+    inhibitors: typing.List[str] = []
+    if os.path.exists(json_report_path):
+        try:
+            with open(json_report_path) as report_file:
+                report = json.load(report_file)
+
+                if "entries" not in report:
+                    log.warn(f"JSON report file '{json_report_path}' does not contain 'entries' key.")
+                    return inhibitors
+
+                for entry in report["entries"]:
+                    if "flags" in entry and "inhibitor" in entry["flags"]:
+                        ingibitor_description = entry["title"] if "title" in entry else ""
+
+                        if "summary" in entry:
+                            if ingibitor_description:
+                                ingibitor_description += ":\n" + entry["summary"]
+                            else:
+                                ingibitor_description = entry["summary"]
+
+                        if ingibitor_description:
+                            inhibitors.append(ingibitor_description)
+
+        except (OSError, json.JSONDecodeError) as e:
+            log.err(f"Error reading or parsing the JSON report file '{json_report_path}': {e}")
+    return inhibitors
+
+
+def _extract_leapp_report_inhibitors_from_txt(txt_report_path: str) -> typing.List[str]:
+    if not os.path.exists(txt_report_path):
+        log.warn(f"Text report file does not exist: {txt_report_path}")
+        return []
+
+    inhibitors: typing.List[str] = []
+    with open(txt_report_path) as report_file:
+        current_risk_factor = []
+        is_inhibitor = False
+        for line in report_file:
+            if line.startswith("Risk Factor: high (inhibitor)"):
+                if is_inhibitor and current_risk_factor:
+                    inhibitors.append("\n".join(current_risk_factor))
+
+                current_risk_factor = []
+                is_inhibitor = True
+                current_risk_factor.append(line.strip().rstrip())
+            elif line.startswith("------") and is_inhibitor and current_risk_factor:
+                current_risk_factor.append(line.strip().rstrip())
+                inhibitors.append("\n".join(current_risk_factor))
+                current_risk_factor = []
+                is_inhibitor = False
+            elif is_inhibitor:
+                current_risk_factor.append(line.strip().rstrip())
+
+        # Just in case. Usually file ended with the separator
+        if current_risk_factor:
+            inhibitors.append("\n".join(current_risk_factor))
+    return inhibitors
+
+
+def extract_leapp_report_inhibitors(json_report_path: str = "/var/log/leapp/leapp-report.json", txt_report_path: str = "/var/log/leapp/leapp-report.txt") -> typing.List[str]:
+    """
+    Extracts the report inhibitors from the leapp report files.
+    Usually both of the files represent the same information, but in different formats.
+    JSON file has priority over the text file. So txt file will be read only if json file is not found.
+
+    Args:
+        json_report_path (str): The path to the json representation of leapp report.
+        txt_report_path (str): The path to the text representation of leapp report.
+
+    Returns:
+        typing.List[str]: A list of inhibitors extracted from the report.
+    """
+    inhibitors: typing.List[str] = _extract_leapp_report_inhibitors_from_json(json_report_path)
+    if not inhibitors:
+        inhibitors = _extract_leapp_report_inhibitors_from_txt(txt_report_path)
+
+    if not inhibitors:
+        log.err(f"Neither JSON report file '{json_report_path}' nor text report file '{txt_report_path}' could be accessed. Please check if the files exist and have the correct permissions.")
+
+    return inhibitors
