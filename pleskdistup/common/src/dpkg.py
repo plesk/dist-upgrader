@@ -138,7 +138,7 @@ def _exec_retry_when_locked(
 
     def process_stdout(line: str) -> None:
         if collect_stdout:
-            nonlocal stdout
+            nonlocal stdout  # noqa: F824
             stdout.append(line)
         log.info("stdout: {}".format(line.rstrip('\n')), to_stream=False)
 
