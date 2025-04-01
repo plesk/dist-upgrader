@@ -557,7 +557,7 @@ def _extract_leapp_report_inhibitors_from_txt(txt_report_path: str) -> typing.Li
 
     inhibitors: typing.List[str] = []
     with open(txt_report_path) as report_file:
-        current_risk_factor = []
+        current_risk_factor: typing.List[str] = []
         is_inhibitor = False
         for line in report_file:
             if line.startswith("Risk Factor: high (inhibitor)"):
