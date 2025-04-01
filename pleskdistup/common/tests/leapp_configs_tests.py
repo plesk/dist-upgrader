@@ -1696,3 +1696,170 @@ class IsRepoOkTests(unittest.TestCase):
 
     def test_no_urls(self):
         self.assertEqual(leapp_configs.is_repo_ok(rpm.Repository("id", name="name", url=None, metalink=None, mirrorlist=None, enabled="1\n", gpgcheck="0\n")), False)
+
+
+class ExtractLeappReportInhibitorsTest(unittest.TestCase):
+    def setUp(self):
+        if not os.path.exists("leapp_report_test_data"):
+            os.mkdir("leapp_report_test_data")
+
+    def tearDown(self):
+        if os.path.exists("leapp_report_test_data"):
+            shutil.rmtree("leapp_report_test_data")
+
+    def test_no_such_files(self):
+        self.assertEqual(leapp_configs.extract_leapp_report_inhibitors(json_report_path="no_such_file.json", txt_report_path="no_such_file.txt"), [])
+
+    def test_json_no_inhibitors(self):
+        json_data = {
+            "entries": [
+                {
+                    "type": "info",
+                    "title": "Test Title",
+                    "summary": "Test Description",
+                    "flags": []
+                }
+            ]
+        }
+        with open("leapp_report_test_data/leapp_report.json", "w") as f:
+            f.write(json.dumps(json_data))
+
+        self.assertEqual(leapp_configs.extract_leapp_report_inhibitors(json_report_path="leapp_report_test_data/leapp_report.json"), [])
+
+    def test_json_no_entries(self):
+        json_data = {
+            "field1": "Test",
+            "field2": "Test",
+        }
+
+        with open("leapp_report_test_data/leapp_report.json", "w") as f:
+            f.write(json.dumps(json_data))
+
+        self.assertEqual(leapp_configs.extract_leapp_report_inhibitors(json_report_path="leapp_report_test_data/leapp_report.json"), [])
+
+    def test_json_empty_entries(self):
+        json_data = {
+            "field1": "Test",
+            "field2": "Test",
+            "entries": []
+        }
+        with open("leapp_report_test_data/leapp_report.json", "w") as f:
+            f.write(json.dumps(json_data))
+
+        self.assertEqual(leapp_configs.extract_leapp_report_inhibitors(json_report_path="leapp_report_test_data/leapp_report.json"), [])
+
+    def test_json_entries_without_flags(self):
+        json_data = {
+            "entries": [
+                {
+                    "type": "info",
+                    "title": "Test Title",
+                    "summary": "Test Description",
+                }
+            ]
+        }
+        with open("leapp_report_test_data/leapp_report.json", "w") as f:
+            f.write(json.dumps(json_data))
+
+        self.assertEqual(leapp_configs.extract_leapp_report_inhibitors(json_report_path="leapp_report_test_data/leapp_report.json"), [])
+
+    def test_json_entries_without_summary(self):
+        json_data = {
+            "entries": [
+                {
+                    "type": "info",
+                    "title": "Test Title",
+                    "flags": ["inhibitor"]
+                }
+            ]
+        }
+        with open("leapp_report_test_data/leapp_report.json", "w") as f:
+            f.write(json.dumps(json_data))
+
+        self.assertEqual(leapp_configs.extract_leapp_report_inhibitors(json_report_path="leapp_report_test_data/leapp_report.json"), ["Test Title"])
+
+    def test_json_entries_without_title(self):
+        json_data = {
+            "entries": [
+                {
+                    "type": "info",
+                    "summary": "Test Description",
+                    "flags": ["inhibitor"]
+                }
+            ]
+        }
+        with open("leapp_report_test_data/leapp_report.json", "w") as f:
+            f.write(json.dumps(json_data))
+
+        self.assertEqual(leapp_configs.extract_leapp_report_inhibitors(json_report_path="leapp_report_test_data/leapp_report.json"), ["Test Description"])
+
+    def test_json_with_inhibitors(self):
+        json_data = {
+            "entries": [
+                {
+                    "type": "info",
+                    "title": "Test Title",
+                    "summary": "Test Description",
+                    "flags": ["inhibitor"]
+                }
+            ]
+        }
+        with open("leapp_report_test_data/leapp_report.json", "w") as f:
+            f.write(json.dumps(json_data))
+
+        self.assertEqual(leapp_configs.extract_leapp_report_inhibitors(json_report_path="leapp_report_test_data/leapp_report.json"), ["Test Title:\nTest Description"])
+
+    def test_json_several_inhibitors(self):
+        json_data = {
+            "entries": [
+                {
+                    "type": "info",
+                    "title": "Test Title 1",
+                    "summary": "Test Description 1",
+                    "flags": ["inhibitor"]
+                },
+                {
+                    "type": "info",
+                    "title": "Test Title No",
+                    "summary": "Test Description No",
+                    "flags": ["info"]
+                },
+                {
+                    "type": "info",
+                    "title": "Test Title 2",
+                    "summary": "Test Description 2",
+                    "flags": ["inhibitor"]
+                }
+            ]
+        }
+        with open("leapp_report_test_data/leapp_report.json", "w") as f:
+            f.write(json.dumps(json_data))
+
+        self.assertEqual(leapp_configs.extract_leapp_report_inhibitors(json_report_path="leapp_report_test_data/leapp_report.json"), ["Test Title 1:\nTest Description 1", "Test Title 2:\nTest Description 2"])
+
+    def test_txt_no_inhibitors(self):
+        with open("leapp_report_test_data/leapp_report.txt", "w") as f:
+            f.write("Test Title\nTest Description")
+
+        self.assertEqual(
+            leapp_configs.extract_leapp_report_inhibitors(json_report_path="leapp_report_test_data/no.json", txt_report_path="leapp_report_test_data/leapp_report.txt"),
+            []
+        )
+
+    def test_txt_with_inhibitors(self):
+        with open("leapp_report_test_data/leapp_report.txt", "w") as f:
+            f.write("Risk Factor: high (inhibitor)\nTest Description\n----------------------------------------\n")
+
+        self.assertEqual(
+            leapp_configs.extract_leapp_report_inhibitors(json_report_path="leapp_report_test_data/no.json", txt_report_path="leapp_report_test_data/leapp_report.txt"),
+            ["Risk Factor: high (inhibitor)\nTest Description\n----------------------------------------"]
+        )
+
+    def test_txt_several_inhibitors(self):
+        with open("leapp_report_test_data/leapp_report.txt", "w") as f:
+            f.write("Risk Factor: high (inhibitor)\nTest Description 1\n----------------------------------------\nRisk Factor: low\nTest Description No\n----------------------------------------\nRisk Factor: high (inhibitor)\nTest Description 2\n")
+
+        self.assertEqual(
+            leapp_configs.extract_leapp_report_inhibitors(json_report_path="leapp_report_test_data/no.json", txt_report_path="leapp_report_test_data/leapp_report.txt"),
+            ["Risk Factor: high (inhibitor)\nTest Description 1\n----------------------------------------", "Risk Factor: high (inhibitor)\nTest Description 2"]
+        )
