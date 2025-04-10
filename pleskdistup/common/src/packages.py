@@ -1,4 +1,5 @@
 # Copyright 2023-2025. WebPros International GmbH. All rights reserved.
+import os
 import typing
 
 from . import dist, dpkg, rpm
@@ -86,3 +87,39 @@ def get_installed_packages_list(regex: str) -> typing.List[typing.Tuple[str, str
         return rpm.get_installed_packages_list(regex)
     else:
         raise NotImplementedError(f"Unsupported distro {started_on}")
+
+
+def handle_configuration_files_conflict(configuration_file_path: str) -> typing.Optional[str]:
+    """
+    Make sure that configuration file from the new package will be used
+    and the old one will be saved in distro specific backup format.
+    :param configuration_file_path: path to the configuration file
+    :return: path to the preserved configuration file
+    """
+    started_on = dist.get_distro()
+
+    old_suffix: str = ""
+    new_suffix: str = ""
+    if started_on.rhel_based:
+        old_suffix = ".rpmsave"
+        new_suffix = ".rpmnew"
+    elif started_on.deb_based:
+        old_suffix = ".dpkg-old"
+        new_suffix = ".dpkg-dist"
+    else:
+        raise NotImplementedError(f"Unsupported distro {started_on}")
+
+    # If there are no configuration files we do not need to do anything
+    if not os.path.exists(configuration_file_path + old_suffix) and not os.path.exists(configuration_file_path + new_suffix):
+        return None
+
+    # When there is old_suffix file we actually do not need to do anything
+    # because package manager already did everything for us
+    # But when there is new_suffix file we need to handle it
+    if os.path.exists(configuration_file_path + new_suffix):
+        if started_on.deb_based:
+            dpkg.handle_dpkg_dist(configuration_file_path)
+        elif started_on.rhel_based:
+            rpm.handle_rpmnew(configuration_file_path)
+
+    return configuration_file_path + old_suffix
