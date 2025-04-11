@@ -3,6 +3,7 @@
 import itertools
 import os
 import re
+import shutil
 import subprocess
 import typing
 import time
@@ -260,3 +261,19 @@ def get_installed_packages_list(regex: str) -> typing.List[typing.Tuple[str, str
         name, version = pkg.split(" ", 1)
         result.append((name, version))
     return result
+
+
+def handle_dpkg_dist(original_path: str) -> bool:
+    if not os.path.exists(original_path + ".dpkg-dist"):
+        return False
+
+    if os.path.exists(original_path):
+        log.debug("The '{path}' file has a '.dpkg-dist' analogue file. Going to replace the file with this new file. "
+                  "The file itself will be saved as .dpkg-old".format(path=original_path))
+        shutil.move(original_path, original_path + ".dpkg-old")
+    else:
+        log.debug("The '{path}' file is missing, but has '.dpkg-dist' analogue file. Going to use it".format(path=original_path))
+
+    shutil.move(original_path + ".dpkg-dist", original_path)
+
+    return True

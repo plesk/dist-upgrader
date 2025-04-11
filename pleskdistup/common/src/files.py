@@ -61,13 +61,17 @@ def get_last_lines(filename: PathType, n: int) -> typing.List[str]:
         return f.readlines()[-n:]
 
 
+def get_backup_filename(filename: str, ext: str = DEFAULT_BACKUP_EXTENSION) -> str:
+    return filename + ext
+
+
 def backup_file(filename: str, ext: str = DEFAULT_BACKUP_EXTENSION) -> None:
     if os.path.exists(filename):
-        shutil.copy(filename, filename + ext)
+        shutil.copy(filename, get_backup_filename(filename, ext))
 
 
 def backup_exists(filename: str, ext: str = DEFAULT_BACKUP_EXTENSION) -> bool:
-    return os.path.exists(filename + ext)
+    return os.path.exists(get_backup_filename(filename, ext))
 
 
 def restore_file_from_backup(
@@ -75,8 +79,9 @@ def restore_file_from_backup(
     remove_if_no_backup: bool = False,
     ext: str = DEFAULT_BACKUP_EXTENSION,
 ) -> None:
-    if os.path.exists(filename + ext):
-        shutil.move(filename + ext, filename)
+    backup_path = get_backup_filename(filename, ext)
+    if os.path.exists(backup_path):
+        shutil.move(backup_path, filename)
     elif remove_if_no_backup and os.path.exists(filename):
         os.remove(filename)
 
@@ -87,7 +92,7 @@ def remove_backup(
     logf: typing.Optional[typing.Callable[[str], typing.Any]] = None,
     ext: str = DEFAULT_BACKUP_EXTENSION,
 ) -> None:
-    backup_name = filename + ext
+    backup_name = get_backup_filename(filename, ext)
     try:
         if os.path.exists(backup_name):
             os.remove(backup_name)

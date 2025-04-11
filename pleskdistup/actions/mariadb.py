@@ -5,7 +5,7 @@ import subprocess
 import typing
 from abc import ABC, abstractmethod
 
-from pleskdistup.common import action, dpkg, files, log, mariadb, packages, systemd
+from pleskdistup.common import action, dpkg, files, log, mariadb, motd, packages, systemd
 
 
 MARIADB_VERSION_ON_UBUNTU_20 = mariadb.MariaDBVersion("10.3.38")
@@ -236,3 +236,33 @@ class ConfigureMariadb(action.ActiveAction):
 
     def estimate_revert_time(self) -> int:
         return 15 if self._has_stage("revert") else 0
+
+
+class PreserveMariadbConfig(action.ActiveAction):
+    def __init__(self):
+        self.name: str = "preserve mariadb config files"
+        # Potentially could be turned into array, but seems like my.cnf is enough for now
+        self.mariadb_config_path: str = "/etc/my.cnf"
+        self.motd_preserved_message_fmt: str = "The old MariaDB configuration file has been preserved as {preserved_path}.\n"
+
+    def _is_required(self) -> bool:
+        return os.path.exists(self.mariadb_config_path)
+
+    def _prepare_action(self) -> action.ActionResult:
+        files.backup_file(self.mariadb_config_path)
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        path_to_preserved: typing.Optional[str] = packages.handle_configuration_files_conflict(self.mariadb_config_path)
+        if path_to_preserved is None:
+            path_to_preserved = files.get_backup_filename(self.mariadb_config_path)
+        else:
+            files.remove_backup(self.mariadb_config_path, raise_exception=False)
+
+        motd.add_finish_ssh_login_message(self.motd_preserved_message_fmt.format(preserved_path=path_to_preserved))
+
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        files.remove_backup(self.mariadb_config_path, raise_exception=False)
+        return action.ActionResult()
