@@ -1,6 +1,8 @@
 # Copyright 2023-2025. WebPros International GmbH. All rights reserved.
 import os
+import re
 import typing
+import shutil
 import subprocess
 
 from . import dist, log, util
@@ -140,3 +142,55 @@ def remove_systemd_service(service: str):
     if os.path.exists(service_config):
         disable_services([service])
         os.remove(service_config)
+
+
+def get_systemd_config(path_to_config: str, section: str, variable: str) -> typing.Optional[str]:
+    if not os.path.exists(path_to_config):
+        return None
+
+    with open(path_to_config, "r") as original:
+        in_section = False
+        for line in original.readlines():
+            sec_match = re.match(r"\s*\[\s*(?P<sec_name>\S+)\s*\]", line)
+            if sec_match:
+                in_section = sec_match["sec_name"] == section
+                continue
+            if in_section:
+                var_match = re.match(f"\\s*{variable}\\s*=\\s*(?P<value>.*)", line)
+                if var_match:
+                    return var_match["value"]
+    return None
+
+
+def inject_systemd_config(path_to_config: str, section: str, variable: str, value: str) -> None:
+    if not os.path.exists(path_to_config):
+        with open(path_to_config, "w") as dst:
+            dst.write(f"[{section}]\n{variable}={value}\n")
+        return
+
+    with open(path_to_config, "r") as original, open(path_to_config + ".next", "w") as dst:
+        section_found = in_section = False
+        variable_found = False
+        for line in original.readlines():
+            sec_match = re.match(r"\s*\[\s*(?P<sec_name>\S+)\s*\]", line)
+            if sec_match:
+                if in_section:
+                    in_section = False
+                    if not variable_found:
+                        dst.write(f"{variable}={value}\n")
+                else:
+                    in_section = sec_match["sec_name"] == section
+                    section_found = in_section is True
+
+            if in_section and re.match(f"\\s*{variable}\\s*=", line):
+                line = f"{variable}={value}\n"
+                variable_found = True
+
+            dst.write(line)
+
+        if not section_found:
+            dst.write(f"\n[{section}]\n{variable}={value}\n")
+        elif in_section and not variable_found:
+            dst.write(f"{variable}={value}\n")
+
+    shutil.move(path_to_config + ".next", path_to_config)
