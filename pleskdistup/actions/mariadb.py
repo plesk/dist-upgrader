@@ -238,6 +238,49 @@ class ConfigureMariadb(action.ActiveAction):
         return 15 if self._has_stage("revert") else 0
 
 
+class HoldMariadbAmbientCapabilities(action.ActiveAction):
+    # Action required in some specific cases, when AmbientCapabilities can cause problems with package re-installation.
+    # For example when CAP_IPC_LOCK enabled during deb-based dist-upgrade, we have troubles
+    # with mariadb service starting which causes problems with psa-phpmyadmin package.
+    path_to_override: str
+
+    def __init__(self, override_path: str = "/etc/systemd/system/mariadb.service.d/override.conf"):
+        self.name = "hold MariaDB systemd service AmbientCapabilities disabled"
+        self.path_to_override = override_path
+
+    def _is_required(self):
+        return systemd.is_service_exists("mariadb")
+
+    def _prepare_action(self):
+        if not os.path.exists(os.path.dirname(self.path_to_override)):
+            os.makedirs(os.path.dirname(self.path_to_override), exist_ok=True)
+
+        if os.path.exists(self.path_to_override) and not files.backup_exists(self.path_to_override):
+            files.backup_file(self.path_to_override)
+
+        systemd.inject_systemd_config(
+            self.path_to_override,
+            "Service",
+            "AmbientCapabilities",
+            "",
+        )
+        systemd.reload_systemd_daemon()
+
+        return action.ActionResult()
+
+    def _post_action(self):
+        files.restore_file_from_backup(self.path_to_override, remove_if_no_backup=True)
+        systemd.reload_systemd_daemon()
+        systemd.restart_services(["mariadb"])
+        return action.ActionResult()
+
+    def _revert_action(self):
+        files.restore_file_from_backup(self.path_to_override, remove_if_no_backup=True)
+        systemd.reload_systemd_daemon()
+        systemd.restart_services(["mariadb"])
+        return action.ActionResult()
+
+
 class PreserveMariadbConfig(action.ActiveAction):
     def __init__(self):
         self.name: str = "preserve mariadb config files"
