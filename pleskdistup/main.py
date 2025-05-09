@@ -171,7 +171,7 @@ def handle_error(
     # preventing an empty line if there is nothing inside the additional_message.
     additional_message = ""
     if phase is Phase.CONVERT:
-        additional_message = f"\nTo revert the server to its original state, call '{util_name} --revert'."
+        additional_message = f"\nTo revert the server to its original state, call '{util_name} --revert'.\nIf you've resolved the issue manually, you can continue the process by running '{util_name}' again.\n"
     print(messages.FAIL_MESSAGE_TAIL.format(util_name=util_name, logfile_path=logfile_path, additional_message=additional_message), end='')
 
     plesk.send_error_report(error_message)
