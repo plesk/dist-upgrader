@@ -67,6 +67,11 @@ class AddInProgressSshLoginMessage(action.ActiveAction):
         path_to_util = os.path.abspath(sys.argv[0])
         self.in_progress_message = motd.IN_PROGRESS_MESSAGE_FORMAT.format(new_os=new_os, path_to_util=path_to_util)
 
+    def _should_be_repeated_if_succeeded(self):
+        # We should repeat this action on restarting the script
+        # because the message might be substituted with failure message
+        return True
+
     def _prepare_action(self) -> action.ActionResult:
         log.debug("Adding 'in progress' login message...")
         motd.restore_ssh_login_message()
