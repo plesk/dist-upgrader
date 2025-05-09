@@ -52,6 +52,13 @@ class InprogressSshLoginMessageTests(unittest.TestCase):
         with open(self.motd_path) as motd_file:
             self.assertEqual(motd_file.read(), "old")
 
+    def test_restore_no_backup(self):
+        motd.add_inprogress_ssh_login_message("new", self.motd_path)
+        motd.restore_ssh_login_message(self.motd_path)
+
+        self.assertFalse(os.path.exists(self.motd_path))
+        self.assertFalse(files.backup_exists(self.motd_path))
+
 
 class FinishSshLoginMessageTests(unittest.TestCase):
     def setUp(self):
