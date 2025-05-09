@@ -60,9 +60,18 @@ class SavedAction(action.ActiveAction):
         return action.ActionResult()
 
 
-def check_saved_state(phase, stage, saved_action_state, should_be_called):
+class PerformAfterSuccessAction(SavedAction):
+    def __init__(self):
+        self.name = "perform prepare after success"
+        self.description = "This action should be performed on prepare even if it was succeed before"
+
+    def _should_be_repeated_if_succeeded(self) -> bool:
+        return True
+
+
+def check_saved_state(phase, stage, saved_action_state, should_be_called, saved_action_class=SavedAction):
     simple_action = SimpleAction()
-    saved_action = SavedAction()
+    saved_action = saved_action_class()
 
     if phase not in ["prepare", "finish", "revert"]:
         raise ValueError("Unknown phase")
@@ -160,6 +169,9 @@ class TestPrepareActionsFlow(TestCase):
 
     def test_preparation_pass_based_on_saved_failed_state(self):
         check_saved_state("prepare", "test_skip_based_on_saved_success_state", "failed", True)
+
+    def test_preparation_pass_succeed_based_on_should_be_repeated(self):
+        check_saved_state("prepare", "test_skip_based_on_succeed", "success", True, saved_action_class=PerformAfterSuccessAction)
 
 
 class FinishActionsFlowForTests(action.FinishActionsFlow):

@@ -59,24 +59,18 @@ class AddFinishSshLoginMessage(action.ActiveAction):
         return action.ActionResult()
 
 
-IN_PROGRESS_MESSAGE_FORMAT = """
-===============================================================================
-Message from the Plesk dist-upgrader tool:
-The server is being converted to {new_os}. Please wait. During the conversion the
-server may reboot itself a few times.
-To see the current conversion status, run the '{path_to_util} --status' command.
-To monitor the conversion progress in real time, run the '{path_to_util} --monitor' command.
-===============================================================================
-"""
-
-
 class AddInProgressSshLoginMessage(action.ActiveAction):
     in_progress_message: str
 
     def __init__(self, new_os: str) -> None:
         self.name = "add in progress SSH login message"
         path_to_util = os.path.abspath(sys.argv[0])
-        self.in_progress_message = IN_PROGRESS_MESSAGE_FORMAT.format(new_os=new_os, path_to_util=path_to_util)
+        self.in_progress_message = motd.IN_PROGRESS_MESSAGE_FORMAT.format(new_os=new_os, path_to_util=path_to_util)
+
+    def _should_be_repeated_if_succeeded(self):
+        # We should repeat this action on restarting the script
+        # because the message might be substituted with failure message
+        return True
 
     def _prepare_action(self) -> action.ActionResult:
         log.debug("Adding 'in progress' login message...")
@@ -98,7 +92,7 @@ class RestoreInProgressSshLoginMessage(action.ActiveAction):
     def __init__(self, new_os: str) -> None:
         self.name = "restore in progress SSH login message"
         path_to_util = os.path.abspath(sys.argv[0])
-        self.in_progress_message = IN_PROGRESS_MESSAGE_FORMAT.format(new_os=new_os, path_to_util=path_to_util)
+        self.in_progress_message = motd.IN_PROGRESS_MESSAGE_FORMAT.format(new_os=new_os, path_to_util=path_to_util)
 
     def _prepare_action(self) -> action.ActionResult:
         return action.ActionResult()

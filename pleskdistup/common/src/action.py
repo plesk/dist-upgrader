@@ -102,6 +102,14 @@ class ActiveAction(Action):
         # By default, we don't revert actions on fail
         return False
 
+    def should_be_repeated_if_succeeded(self) -> bool:
+        # By default, we don't repeat actions if they succeeded
+        return self._should_be_repeated_if_succeeded()
+
+    def _should_be_repeated_if_succeeded(self) -> bool:
+        # By default, we don't revert actions on fail
+        return False
+
     @abstractmethod
     def _prepare_action(self) -> ActionResult:
         pass
@@ -381,7 +389,7 @@ class PrepareActionsFlow(ActiveFlow):
                 and stored_action["name"] == action.name
             ):
                 if stored_action["state"] == ActionState.SUCCESS:
-                    return False
+                    return action.should_be_repeated_if_succeeded()
 
         return action.is_required()
 
