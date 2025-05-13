@@ -3,7 +3,7 @@
 import os
 import typing
 
-from pleskdistup.common import action, systemd, util
+from pleskdistup.common import action, log, systemd, util
 
 
 class AddUpgradeSystemdService(action.ActiveAction):
@@ -58,6 +58,12 @@ WantedBy=multi-user.target
         return args
 
     def _prepare_action(self) -> action.ActionResult:
+        if systemd.is_service_exists(self.service_name):
+            log.debug(f"Enable systemd '{self.service_name}' service")
+            systemd.enable_services([self.service_name])
+            return action.ActionResult()
+
+        log.debug(f"Create systemd '{self.service_name}' service")
         systemd.add_systemd_service(
             self.service_name,
             self._service_content.format(
@@ -73,8 +79,19 @@ WantedBy=multi-user.target
         return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
-        systemd.remove_systemd_service(self.service_name)
+        if systemd.is_service_exists(self.service_name):
+            systemd.remove_systemd_service(self.service_name)
         return action.ActionResult()
+
+    def _on_prepare_failure(self) -> action.ActionResult:
+        if systemd.is_service_exists(self.service_name):
+            log.debug(f"Disable systemd '{self.service_name}' service after conversion failure")
+            systemd.disable_services([self.service_name])
+        return action.ActionResult()
+
+    def _should_be_repeated_if_succeeded(self) -> bool:
+        # Don't forget to re-enable the service if we disabled it in the _on_prepare_failure method
+        return True
 
 
 class DisablePleskRelatedServicesDuringUpgrade(action.ActiveAction):

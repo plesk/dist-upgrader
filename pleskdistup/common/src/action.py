@@ -88,6 +88,9 @@ class ActiveAction(Action):
     def invoke_revert(self) -> ActionResult:
         return self._revert_action()
 
+    def on_prepare_failure(self) -> ActionResult:
+        return self._on_prepare_failure()
+
     def is_required(self) -> bool:
         return self._is_required()
 
@@ -121,6 +124,19 @@ class ActiveAction(Action):
     @abstractmethod
     def _revert_action(self) -> ActionResult:
         pass
+
+    def _on_prepare_failure(self) -> ActionResult:
+        """
+        Called when the preparation stage fails and is being stopped.
+
+        This method is not meant to revert all previous actions, but rather to ensure
+        that the conversion process does not continue unintentionally. It prevents any
+        further operations on the system until the dist-upgrade utility is explicitly
+        called again by the user.
+
+        Keep this method minimal. In most cases, you should not need to use it.
+        """
+        return ActionResult(state=ActionState.SKIPPED)
 
 
 class ActionsFlow(ABC):
@@ -205,6 +221,20 @@ class ActiveFlow(ActionsFlow):
                         f"Name of the action is {action.name!r}"
                     )
 
+    def _invoke_action_on_failure(self, action: ActiveAction) -> ActionResult:
+        return ActionResult(state=ActionState.SKIPPED)
+
+    def _perform_on_failure(self, failure_stage, failure_action):
+        for stage_id, actions in self.stages.items():
+            for action in actions:
+                # We don't need to proceed after failed action
+                if stage_id == failure_stage and action.name == failure_action:
+                    return
+
+                if self._is_action_succeeded(stage_id, action):
+                    self._invoke_action_on_failure(action)
+        return
+
     def pass_actions(self) -> bool:
         stages = self._get_flow()
         self._finished = False
@@ -247,6 +277,7 @@ class ActiveFlow(ActionsFlow):
                             msg += f". Additional information: {res.info}"
                         log.info(msg)
                     elif res.state is ActionState.FAILED:
+                        self._perform_on_failure(stage_id, action.name)
                         msg = f"Failed: {action}"
                         if res.info:
                             msg += f". Additional information: {res.info}"
@@ -267,11 +298,13 @@ class ActiveFlow(ActionsFlow):
                             self.reboot_requested = res.reboot_requested
                 except UnicodeDecodeError as ex:
                     self._save_action_state(stage_id, action.name, ActionState.FAILED)
+                    self._perform_on_failure(stage_id, action.name)
                     self.error = ex
                     log.err(f"Failed: {action}. The reason is encoding problem. Exception: {ex}")
                     raise ex
                 except Exception as ex:
                     self._save_action_state(stage_id, action.name, ActionState.FAILED)
+                    self._perform_on_failure(stage_id, action.name)
                     self.error = Exception(f"Failed: {action}. The reason: {ex}")
                     log.err(f"Failed: {action}. The reason: {ex}")
                     return False
@@ -293,6 +326,10 @@ class ActiveFlow(ActionsFlow):
         pass
 
     def _post_stage(self, stage: str, actions: typing.List[ActiveAction]):
+        pass
+
+    @abstractmethod
+    def _is_action_succeeded(self, stage: str, action: ActiveAction) -> bool:
         pass
 
     def _is_action_required(self, stage: str, action: ActiveAction) -> bool:
@@ -378,23 +415,30 @@ class PrepareActionsFlow(ActiveFlow):
     def _get_flow(self) -> typing.Dict[str, typing.List[ActiveAction]]:
         return self.stages
 
-    def _is_action_required(self, stage: str, action: ActiveAction) -> bool:
-        # Don't repeat already performed and succeeded actions (in case of process restart)
-        # If an action has skipped, we should recheck if it could be skipped again
-        # If an action has failed, we should perform it again to make sure conversion/distupgrade
-        # will be performed correctly
+    def _is_action_succeeded(self, stage: str, action: ActiveAction) -> bool:
         for stored_action in self.actions_data["actions"]:
             if (
                 stored_action["stage"] == stage
                 and stored_action["name"] == action.name
             ):
-                if stored_action["state"] == ActionState.SUCCESS:
-                    return action.should_be_repeated_if_succeeded()
+                return stored_action["state"] == ActionState.SUCCESS
+        return False
+
+    def _is_action_required(self, stage: str, action: ActiveAction) -> bool:
+        # Don't repeat already performed and succeeded actions (in case of process restart)
+        # If an action has skipped, we should recheck if it could be skipped again
+        # If an action has failed, we should perform it again to make sure conversion/distupgrade
+        # will be performed correctly
+        if self._is_action_succeeded(stage, action):
+            return action.should_be_repeated_if_succeeded()
 
         return action.is_required()
 
     def _do_invoke_action(self, action: ActiveAction) -> ActionResult:
         return action.invoke_prepare()
+
+    def _invoke_action_on_failure(self, action: ActiveAction) -> ActionResult:
+        return action.on_prepare_failure()
 
     def _get_action_estimate(self, stage: str, action: ActiveAction) -> int:
         if not self._is_action_required(stage, action):
@@ -419,6 +463,15 @@ class ReverseActionFlow(ActiveFlow):
             res[stage_id] = list(reversed(list(actions)))
         return res
 
+    def _is_action_succeeded(self, stage: str, action: ActiveAction) -> bool:
+        for stored_action in self.actions_data["actions"]:
+            if (
+                stored_action["stage"] == stage
+                and stored_action["name"] == action.name
+            ):
+                return stored_action["state"] == ActionState.SUCCESS
+        return False
+
     def _is_action_required(self, stage: str, action: ActiveAction) -> bool:
         # I believe the finish stage could have an action that was not performed on conversion stage
         # So we ignore the case when there is no actions in persistence store
@@ -433,6 +486,12 @@ class ReverseActionFlow(ActiveFlow):
                     return True
 
         return action.is_required()
+
+    def _invoke_action_on_failure(self, action: ActiveAction) -> ActionResult:
+        # Right now we don't have on failure actions for finish or revert stages
+        # So we just skip invoking them. However, it's good to have this method
+        # in case we need to add it in the future
+        return ActionResult(state=ActionState.SKIPPED)
 
 
 class FinishActionsFlow(ReverseActionFlow):
