@@ -40,6 +40,36 @@ class SkipAction(action.ActiveAction):
         return action.ActionResult()
 
 
+class FailureAction(action.ActiveAction):
+    def __init__(self):
+        self.name = "Failure action"
+        self.description = "Failure action description"
+
+    def _prepare_action(self) -> action.ActionResult:
+        return action.ActionResult(action.ActionState.FAILED)
+
+    def _post_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+
+class ExceptionAction(action.ActiveAction):
+    def __init__(self):
+        self.name = "Exception action"
+        self.description = "Exception action description"
+
+    def _prepare_action(self) -> action.ActionResult:
+        raise Exception("Test exception on prepare")
+
+    def _post_action(self) -> action.ActionResult:
+        raise Exception("Test exception on finish")
+
+    def _revert_action(self) -> action.ActionResult:
+        raise Exception("Test exception on revert")
+
+
 class PrepareActionsFlowForTests(action.PrepareActionsFlow):
     def __init__(self, stages):
         super().__init__(stages, ".", flow_tracker=None)
@@ -67,6 +97,15 @@ class PerformAfterSuccessAction(SavedAction):
 
     def _should_be_repeated_if_succeeded(self) -> bool:
         return True
+
+
+class PerformOnPrepareFailureAction(SavedAction):
+    def __init__(self):
+        self.name = "perform prepare on failure"
+        self.description = "This action should be performed on prepare even if it was failed before"
+
+    def _on_prepare_failure(self) -> action.ActionResult:
+        return action.ActionResult(action.ActionState.SUCCESS)
 
 
 def check_saved_state(phase, stage, saved_action_state, should_be_called, saved_action_class=SavedAction):
@@ -172,6 +211,113 @@ class TestPrepareActionsFlow(TestCase):
 
     def test_preparation_pass_succeed_based_on_should_be_repeated(self):
         check_saved_state("prepare", "test_skip_based_on_succeed", "success", True, saved_action_class=PerformAfterSuccessAction)
+
+    def test_failure_action(self):
+        failure_action = FailureAction()
+        failure_action._prepare_action = mock.Mock(return_value=action.ActionResult(action.ActionState.FAILED))
+
+        with PrepareActionsFlowForTests({"test_failure_action": [failure_action]}) as flow:
+            flow.validate_actions()
+            self.assertFalse(flow.pass_actions())
+
+        failure_action._prepare_action.assert_called_once()
+
+    def test_on_prepare_failure_action_before_failure(self):
+        failure_action = FailureAction()
+        failure_action._prepare_action = mock.Mock(return_value=action.ActionResult(action.ActionState.FAILED))
+
+        on_failure_action = PerformOnPrepareFailureAction()
+        on_failure_action._prepare_action = mock.Mock(return_value=action.ActionResult())
+        on_failure_action._on_prepare_failure = mock.Mock(return_value=True)
+
+        with PrepareActionsFlowForTests({"test_on_prepare_failure_action": [on_failure_action], "test_failure_action": [failure_action]}) as flow:
+            flow.validate_actions()
+            self.assertFalse(flow.pass_actions())
+
+        on_failure_action._prepare_action.assert_called_once()
+        on_failure_action._on_prepare_failure.assert_called_once()
+        failure_action._prepare_action.assert_called_once()
+
+    def test_on_prepare_failure_action_after_failure(self):
+        failure_action = FailureAction()
+        failure_action._prepare_action = mock.Mock(return_value=action.ActionResult(action.ActionState.FAILED))
+
+        on_failure_action = PerformOnPrepareFailureAction()
+        on_failure_action._prepare_action = mock.Mock(return_value=action.ActionResult())
+        on_failure_action._on_prepare_failure = mock.Mock(return_value=True)
+
+        with PrepareActionsFlowForTests({"test_failure_action": [failure_action], "test_on_prepare_failure_action": [on_failure_action]}) as flow:
+            flow.validate_actions()
+            self.assertFalse(flow.pass_actions())
+
+        on_failure_action._prepare_action.assert_not_called()
+        on_failure_action._on_prepare_failure.assert_not_called()
+        failure_action._prepare_action.assert_called_once()
+
+    def test_on_prepare_failure_same_stage_before_failure(self):
+        failure_action = FailureAction()
+        failure_action._prepare_action = mock.Mock(return_value=action.ActionResult(action.ActionState.FAILED))
+
+        on_failure_action = PerformOnPrepareFailureAction()
+        on_failure_action._prepare_action = mock.Mock(return_value=action.ActionResult())
+        on_failure_action._on_prepare_failure = mock.Mock(return_value=True)
+
+        with PrepareActionsFlowForTests({"test_failure": [on_failure_action, failure_action]}) as flow:
+            flow.validate_actions()
+            self.assertFalse(flow.pass_actions())
+
+        on_failure_action._prepare_action.assert_called_once()
+        on_failure_action._on_prepare_failure.assert_called_once()
+        failure_action._prepare_action.assert_called_once()
+
+    def test_exception_action(self):
+        exception_action = ExceptionAction()
+
+        with PrepareActionsFlowForTests({"test_exception_action": [exception_action]}) as flow:
+            flow.validate_actions()
+            self.assertFalse(flow.pass_actions())
+
+    def test_on_prepare_failure_action_before_exception(self):
+        exception_action = ExceptionAction()
+
+        on_failure_action = PerformOnPrepareFailureAction()
+        on_failure_action._prepare_action = mock.Mock(return_value=action.ActionResult())
+        on_failure_action._on_prepare_failure = mock.Mock(return_value=True)
+
+        with PrepareActionsFlowForTests({"test_on_prepare_failure_action": [on_failure_action], "test_exception_action": [exception_action]}) as flow:
+            flow.validate_actions()
+            self.assertFalse(flow.pass_actions())
+
+        on_failure_action._prepare_action.assert_called_once()
+        on_failure_action._on_prepare_failure.assert_called_once()
+
+    def test_on_prepare_failure_action_after_exception(self):
+        exception_action = ExceptionAction()
+
+        on_failure_action = PerformOnPrepareFailureAction()
+        on_failure_action._prepare_action = mock.Mock(return_value=action.ActionResult())
+        on_failure_action._on_prepare_failure = mock.Mock(return_value=True)
+
+        with PrepareActionsFlowForTests({"test_exception_action": [exception_action], "test_on_prepare_failure_action": [on_failure_action]}) as flow:
+            flow.validate_actions()
+            self.assertFalse(flow.pass_actions())
+
+        on_failure_action._prepare_action.assert_not_called()
+        on_failure_action._on_prepare_failure.assert_not_called()
+
+    def test_on_prepare_failure_same_stage_before_exception(self):
+        exception_action = ExceptionAction()
+
+        on_failure_action = PerformOnPrepareFailureAction()
+        on_failure_action._prepare_action = mock.Mock(return_value=action.ActionResult())
+        on_failure_action._on_prepare_failure = mock.Mock(return_value=True)
+
+        with PrepareActionsFlowForTests({"test_exception": [on_failure_action, exception_action]}) as flow:
+            flow.validate_actions()
+            self.assertFalse(flow.pass_actions())
+
+        on_failure_action._prepare_action.assert_called_once()
+        on_failure_action._on_prepare_failure.assert_called_once()
 
 
 class FinishActionsFlowForTests(action.FinishActionsFlow):
