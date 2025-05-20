@@ -40,6 +40,14 @@ class KernelVersion():
                 # There is no information about arch when we have vzX suffix
                 if suffix.startswith("vz"):
                     self.distro = suffix.split(".")[0]
+                elif "tuxcare" in suffix:
+                    self.distro, left = suffix.split(".tuxcare.")
+                    self.arch = left.split(".")[1]
+
+                    # We need to use the ELS version when comparing kernels to ensure that
+                    # ELS kernels are always treated as newer than the system-provided ones.
+                    # Therefore, the ELS version must be included directly in the build version.
+                    self.build += "." + ''.join(filter(str.isdigit, left.split(".")[0]))
                 else:
                     self.distro, self.arch = suffix.rsplit(".", 1)
                 break
