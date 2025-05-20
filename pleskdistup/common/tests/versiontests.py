@@ -46,6 +46,9 @@ class KernelVersionTests(unittest.TestCase):
     def test_linode_kernel_parse(self):
         self._check_parse("6.2.9-x86_64-linode160", "6.2.9.x86_64")
 
+    def test_tuxcare_kernel_parse(self):
+        self._check_parse("3.10.0-1160.119.1.el7.tuxcare.els14.x86_64", "3.10.0-1160.119.1.14.el7.x86_64")
+
     def test_kernel_with_underline(self):
         kernel = version.KernelVersion("kernel-3.14.43_1-2.x86_64")
         self.assertEqual(str(kernel), "3.14.43-1.2.x86_64")
@@ -131,6 +134,16 @@ class KernelVersionTests(unittest.TestCase):
         kernel1 = version.KernelVersion("3.10.0-1160.95.1.el7.x86_64")
         kernel2 = version.KernelVersion("3.10.0-1160.el7.x86_64")
         self.assertGreater(kernel1, kernel2)
+
+    def test_compare_simple_vs_tuxcare(self):
+        kernel1 = version.KernelVersion("3.10.0-1160.119.1.el7.x86_64")
+        kernel2 = version.KernelVersion("3.10.0-1160.119.1.el7.tuxcare.els14.x86_64")
+        self.assertLess(kernel1, kernel2)
+
+    def test_compare_tuxcare_vs_tuxcare(self):
+        kernel1 = version.KernelVersion("3.10.0-1160.119.1.el7.tuxcare.els6.x86_64")
+        kernel2 = version.KernelVersion("3.10.0-1160.119.1.el7.tuxcare.els14.x86_64")
+        self.assertLess(kernel1, kernel2)
 
     def test_find_last_kernel(self):
         kernels_strings = [
