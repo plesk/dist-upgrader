@@ -59,10 +59,13 @@ def update_package_list() -> None:
         raise NotImplementedError(f"Unsupported distro {started_on}")
 
 
-def upgrade_packages(pkgs: typing.Optional[typing.List[str]] = None) -> None:
+def upgrade_packages(
+    pkgs: typing.Optional[typing.List[str]] = None,
+    allow_downgrade: bool = False,
+) -> None:
     started_on = dist.get_distro()
     if started_on.deb_based:
-        return dpkg.upgrade_packages(pkgs)
+        return dpkg.upgrade_packages(pkgs, allow_downgrade=allow_downgrade)
     elif started_on.rhel_based:
         return rpm.upgrade_packages(pkgs)
     else:
