@@ -123,3 +123,30 @@ def handle_configuration_files_conflict(configuration_file_path: str) -> typing.
             rpm.handle_rpmnew(configuration_file_path)
 
     return configuration_file_path + old_suffix
+
+
+def get_repositories_urls(repofile: str) -> typing.Set[str]:
+    """
+    Get the list of repository URLs
+    :return: list of repository URLs
+    """
+    started_on = dist.get_distro()
+    if started_on.deb_based:
+        return dpkg.get_repositories_urls(repofile)
+    elif started_on.rhel_based:
+        return rpm.get_repositories_urls(repofile)
+    else:
+        raise NotImplementedError(f"Unsupported distro {started_on}")
+
+
+def get_repository_metafile_url(repository_url: str) -> str:
+    """
+    Get the repository metafile URL from the given repository URL.
+    """
+    started_on = dist.get_distro()
+    if started_on.deb_based:
+        return dpkg.get_repository_metafile_url(repository_url)
+    elif started_on.rhel_based:
+        return rpm.get_repository_metafile_url(repository_url)
+    else:
+        raise NotImplementedError(f"Unsupported distro {started_on}")

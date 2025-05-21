@@ -277,3 +277,45 @@ def handle_dpkg_dist(original_path: str) -> bool:
     shutil.move(original_path + ".dpkg-dist", original_path)
 
     return True
+
+
+def get_repositories_urls(repofile: str) -> typing.Set[str]:
+    """
+    Get the set of URLs from the repository file.
+    :param repofile: path to the repository file
+    :return: set of URLs
+    """
+    if not os.path.exists(repofile):
+        return set()
+
+    urls = set()
+    with open(repofile, "r") as f:
+        for line in f:
+            line = line.strip().rstrip()
+
+            if not line.startswith("deb ") and not line.startswith("deb-src "):
+                continue
+
+            # We ignore '[arch=...]' and '[trusted=yes]' parts for now for simplicity
+            # if there will be any issues with that, we should fix it.
+            match = re.search(r"https?://[^\s]+", line)
+            if not match:
+                continue
+
+            url = match.group(0)
+
+            dist_name = line.split(url)[1].strip().split(" ")[0]
+
+            url = url.rstrip("/") + "/dists/" + dist_name
+            urls.add(url)
+
+    return urls
+
+
+def get_repository_metafile_url(repository_url: str) -> str:
+    """
+    Get the URL of the repository metafile.
+    :param repository_url: URL of the repository
+    :return: URL of the repository metafile
+    """
+    return repository_url.rstrip("/") + "/Release"
