@@ -219,11 +219,16 @@ def update_package_list(tmpfail_retry_intervals: typing.Optional[typing.List[int
 def upgrade_packages(
     pkgs: typing.Optional[typing.List[str]] = None,
     tmpfail_retry_intervals: typing.Optional[typing.List[int]] = None,
+    allow_downgrade: bool = False,
 ) -> None:
     if pkgs is None:
         pkgs = []
 
-    cmd = ["/usr/bin/apt-get", "upgrade", "-y"] + APT_CHOOSE_OLD_FILES_OPTIONS + pkgs
+    cmd = ["/usr/bin/apt-get", "upgrade", "-y"] + APT_CHOOSE_OLD_FILES_OPTIONS
+    if allow_downgrade:
+        cmd += ["--allow-downgrades"]
+    cmd += pkgs
+
     _exec_retry_when_locked(cmd, tmpfail_retry_intervals)
 
 

@@ -544,17 +544,20 @@ class UpgradeGrub(action.ActiveAction):
 class UpgradePackages(action.ActiveAction):
     name: str
     autoremove: bool
+    allow_downgrade: bool
 
     def __init__(
         self,
         name: str = "upgrade packages",
-        autoremove: bool = True
+        autoremove: bool = True,
+        allow_downgrade: bool = False,
     ):
         self.name = name
         self.autoremove = autoremove
+        self.allow_downgrade = allow_downgrade
 
     def _prepare_action(self) -> action.ActionResult:
-        packages.upgrade_packages()
+        packages.upgrade_packages(allow_downgrade=self.allow_downgrade)
         if self.autoremove:
             packages.autoremove_outdated_packages()
         return action.ActionResult()
