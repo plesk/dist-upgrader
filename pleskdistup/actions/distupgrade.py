@@ -577,8 +577,9 @@ class UpgradePackagesFromNewRepositories(UpgradePackages):
         self,
         name: str = "upgrade packages from new repositories",
         autoremove: bool = True,
+        allow_downgrade: bool = False,
     ):
-        super().__init__(name=name, autoremove=autoremove)
+        super().__init__(name=name, autoremove=autoremove, allow_downgrade=allow_downgrade)
 
 
 class DoDistupgrade(action.ActiveAction):
