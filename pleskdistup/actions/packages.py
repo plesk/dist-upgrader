@@ -1,5 +1,7 @@
 # Copyright 2023-2025. WebPros International GmbH. All rights reserved.
 
+import os
+import subprocess
 import typing
 
 from pleskdistup.common import action, dpkg, packages
@@ -82,3 +84,37 @@ class InstallPackages(action.ActiveAction):
 
     def estimate_revert_time(self) -> int:
         return self.estimate_prepare_time()
+
+
+class AssertRepositorySubstitutionAvailable(action.CheckAction):
+    """
+    Check if the repository substitution is available.
+    """
+
+    def __init__(
+        self,
+        target_repository_file: str,
+        substitution_rule: typing.Callable[[str], str],
+        name: str = "asserting repository substitution available",
+        description_addition: str = "",
+    ):
+        self.name = name
+        self.description = "Target platform repository '{}' is not available."
+        self.target_repository_file = target_repository_file
+        self.substitution_rule = substitution_rule
+        self.description_addition = description_addition
+
+    def _do_check(self) -> bool:
+        # We don't care if there is not such repository
+        if not os.path.exists(self.target_repository_file):
+            return True
+
+        for url in packages.get_repositories_urls(self.target_repository_file):
+            metafile_url = packages.get_repository_metafile_url(url)
+            next_metafile_url = self.substitution_rule(metafile_url)
+            result = subprocess.run(["curl", "-s", "-o", "/dev/null", "-f", next_metafile_url], check=False)
+            if result.returncode != 0:
+                self.description = self.description.format(url) + "\n" + self.description_addition
+                return False
+
+        return True
