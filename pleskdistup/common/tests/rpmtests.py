@@ -791,3 +791,98 @@ class CollectAllGpgKeysFromRepofilesTests(unittest.TestCase):
                     "gpgkey=http://key1.com/key.gpg\n")
         self.assertEqual(rpm.collect_all_gpgkeys_from_repofiles("test_dir", ["*.repo"]),
                          ["http://key1.com/key.gpg", "http://key1.com/key.gpg"])
+
+
+class TestGetRPMRepositoriesUrls(unittest.TestCase):
+    def tearDown(self):
+        if os.path.exists("test.repo"):
+            os.remove("test.repo")
+
+    def test_no_config_file(self):
+        self.assertEqual(rpm.get_repositories_urls("nonexistent.repo"), set())
+
+    def test_simple_repository(self):
+        with open("test.repo", "w") as test_file:
+            test_file.write("""
+[repo1]
+name=repo1
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+
+[repo2]
+name=repo2
+baseurl=http://repo2
+enabled=1
+gpgcheck=0
+
+[repo3]
+name=repo3
+baseurl=http://repo3
+enabled=1
+gpgcheck=0
+""")
+        self.assertEqual(rpm.get_repositories_urls("test.repo"), set(["http://repo1", "http://repo2", "http://repo3"]))
+
+    def test_repository_with_comments(self):
+        with open("test.repo", "w") as test_file:
+            test_file.write("""
+[repo1]
+name=repo1
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+# This is a comment
+#[repo2]
+#name=repo2
+#baseurl=http://repo2
+#enabled=1
+#gpgcheck=0
+
+[repo3]
+name=repo3
+baseurl=http://repo3
+enabled=1
+gpgcheck=0
+""")
+        self.assertEqual(rpm.get_repositories_urls("test.repo"), set(["http://repo1", "http://repo3"]))
+
+    def test_repository_with_spaces(self):
+        with open("test.repo", "w") as test_file:
+            test_file.write("""
+[repo1]
+    name=repo1
+    baseurl=http://repo1
+    enabled=1
+    gpgcheck=0
+
+[repo2]
+name=repo2
+baseurl=http://repo2
+enabled=1
+gpgcheck=0
+
+[repo3]
+name=repo3
+baseurl=http://repo3
+enabled=1
+gpgcheck=0
+""")
+        self.assertEqual(rpm.get_repositories_urls("test.repo"), set(["http://repo1", "http://repo2", "http://repo3"]))
+
+    def test_repository_with_same_url(self):
+        with open("test.repo", "w") as test_file:
+            test_file.write("""
+[repo1]
+name=repo1
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+
+[repo2]
+name=repo2
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+""")
+        self.assertEqual(rpm.get_repositories_urls("test.repo"), set(["http://repo1"]))

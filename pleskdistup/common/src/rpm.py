@@ -335,3 +335,18 @@ def collect_all_gpgkeys_from_repofiles(
                 gpg_keys += [key.strip().rstrip() for key in repo.gpgkeys]
 
     return gpg_keys
+
+
+def get_repositories_urls(repofile: str) -> typing.Set[str]:
+    if not os.path.exists(repofile):
+        return set()
+
+    urls = set()
+    for repo in extract_repodata(repofile):
+        if repo.url is not None:
+            urls.add(repo.url)
+        if repo.metalink is not None:
+            urls.add(repo.metalink)
+        if repo.mirrorlist is not None:
+            urls.add(repo.mirrorlist)
+    return urls
