@@ -55,3 +55,9 @@ deb https://example.com/repo/ubuntu focal main
 deb-src http://example.com/repo/ubuntu focal main
 ''')
         self.assertEqual(dpkg.get_repositories_urls("test.list"), set(["https://example.com/repo/ubuntu/dists/focal", "http://example.com/repo/ubuntu/dists/focal"]))
+
+
+class TestGetDPKGRepositoryMetafileUrl(unittest.TestCase):
+
+    def test_simple_case(self):
+        self.assertEqual(dpkg.get_repository_metafile_url("http://example.com/repo/ubuntu/dists/focal"), "http://example.com/repo/ubuntu/dists/focal/Release")

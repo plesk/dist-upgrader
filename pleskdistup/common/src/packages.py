@@ -137,3 +137,16 @@ def get_repositories_urls(repofile: str) -> typing.Set[str]:
         return rpm.get_repositories_urls(repofile)
     else:
         raise NotImplementedError(f"Unsupported distro {started_on}")
+
+
+def get_repository_metafile_url(repository_url: str) -> str:
+    """
+    Get the repository metafile URL from the given repository URL.
+    """
+    started_on = dist.get_distro()
+    if started_on.deb_based:
+        return dpkg.get_repository_metafile_url(repository_url)
+    elif started_on.rhel_based:
+        return rpm.get_repository_metafile_url(repository_url)
+    else:
+        raise NotImplementedError(f"Unsupported distro {started_on}")

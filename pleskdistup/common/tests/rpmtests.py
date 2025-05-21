@@ -886,3 +886,9 @@ enabled=1
 gpgcheck=0
 """)
         self.assertEqual(rpm.get_repositories_urls("test.repo"), set(["http://repo1"]))
+
+
+class TestGetRPMRepositoryMetafileUrl(unittest.TestCase):
+
+    def test_simple_case(self):
+        self.assertEqual(rpm.get_repository_metafile_url("http://repo1"), "http://repo1/repodata/repomd.xml")

@@ -310,3 +310,12 @@ def get_repositories_urls(repofile: str) -> typing.Set[str]:
             urls.add(url)
 
     return urls
+
+
+def get_repository_metafile_url(repository_url: str) -> str:
+    """
+    Get the URL of the repository metafile.
+    :param repository_url: URL of the repository
+    :return: URL of the repository metafile
+    """
+    return repository_url.rstrip("/") + "/Release"

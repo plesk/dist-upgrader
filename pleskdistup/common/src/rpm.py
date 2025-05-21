@@ -350,3 +350,10 @@ def get_repositories_urls(repofile: str) -> typing.Set[str]:
         if repo.mirrorlist is not None:
             urls.add(repo.mirrorlist)
     return urls
+
+
+def get_repository_metafile_url(repository_url: str) -> str:
+    """
+    Get the repository metafile URL from the given repository URL.
+    """
+    return repository_url.rstrip("/") + "/repodata/repomd.xml"
