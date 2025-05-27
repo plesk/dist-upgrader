@@ -3,6 +3,7 @@ from collections import defaultdict
 import ipaddress
 import itertools
 import os
+import re
 import shutil
 import subprocess
 import typing
@@ -357,3 +358,54 @@ def get_repository_metafile_url(repository_url: str) -> str:
     Get the repository metafile URL from the given repository URL.
     """
     return repository_url.rstrip("/") + "/repodata/repomd.xml"
+
+
+def extract_gpgkey_from_rpm_database(
+        summary_regexp: str,
+        destination: str,
+        from_file: typing.Optional[str] = None
+) -> bool:
+    """
+    Extracts first GPG key from the RPM database based on the summary regular expression and saves it to the destination file.
+
+    :param summary_regexp: Regular expression to match the summary of the GPG key package.
+    :param destination: Path to the file where the GPG key will be saved.
+    """
+    rpm_gpg_keys_info = []
+
+    if from_file is not None:
+        if os.path.exists(from_file):
+            with open(from_file, "r") as src_file:
+                rpm_gpg_keys_info = src_file.readlines()
+    else:
+        rpm_gpg_keys_info = subprocess.check_output(
+            ["/usr/bin/rpm", "-qi", "gpg-pubkey"],
+            universal_newlines=True
+        ).splitlines()
+
+    match_found = False
+    in_key_block = False
+    with open(destination, "w") as dst_file:
+        for line in rpm_gpg_keys_info:
+            try:
+                if line.startswith("Summary") and re.search(summary_regexp, line):
+                    match_found = True
+                    continue
+            except re.error as e:
+                raise Exception(f"Invalid regular expression for GPG key extraction: {summary_regexp}") from e
+
+            if match_found:
+                if "-----BEGIN PGP PUBLIC KEY BLOCK-----" in line:
+                    in_key_block = True
+
+                if in_key_block:
+                    dst_file.write(line + "\n")
+                    if "-----END PGP PUBLIC KEY BLOCK-----" in line:
+                        in_key_block = False
+                        return True
+
+                if line.startswith("Name"):
+                    match_found = False
+
+    os.remove(destination)
+    return False
