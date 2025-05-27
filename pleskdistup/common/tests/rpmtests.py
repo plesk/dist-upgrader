@@ -892,3 +892,293 @@ class TestGetRPMRepositoryMetafileUrl(unittest.TestCase):
 
     def test_simple_case(self):
         self.assertEqual(rpm.get_repository_metafile_url("http://repo1"), "http://repo1/repodata/repomd.xml")
+
+
+class ExtractGpgkeyFromRpmDatabaseTests(unittest.TestCase):
+    TEST_DIR = "test_rpm_database"
+
+    def setUp(self):
+
+        if not os.path.exists(self.TEST_DIR):
+            os.mkdir(self.TEST_DIR)
+
+    def tearDown(self):
+        if os.path.exists(self.TEST_DIR):
+            shutil.rmtree(self.TEST_DIR)
+
+    def test_no_rpm_database(self):
+        src_file = os.path.join(self.TEST_DIR, "non_existing.txt")
+        dst_file = os.path.join(self.TEST_DIR, "non_existing_res.asc")
+
+        self.assertFalse(rpm.extract_gpgkey_from_rpm_database(".*mykey.*", dst_file, src_file))
+        self.assertFalse(os.path.exists(dst_file))
+
+    def test_rpm_database_no_matches(self):
+        src_file = os.path.join(self.TEST_DIR, "non_match.txt")
+        dst_file = os.path.join(self.TEST_DIR, "non_match_res.asc")
+
+        with open(src_file, "w") as f:
+            f.write("This is not a valid rpm database file")
+
+        self.assertFalse(rpm.extract_gpgkey_from_rpm_database(".*mykey.*", dst_file, src_file))
+        self.assertFalse(os.path.exists(dst_file))
+
+    def test_rpm_database_match_no_data(self):
+        src_file = os.path.join(self.TEST_DIR, "valid_rpm_database.txt")
+        dst_file = os.path.join(self.TEST_DIR, "valid_rpm_database_res.asc")
+
+        with open(src_file, "w") as f:
+            f.write("""Name        : gpg-pubkey
+Version     : aaaaaaaa
+Release     : ffffffff
+Architecture: (none)
+Install Date: Mon May 26 11:46:21 2025
+Group       : Public Keys
+Size        : 0
+License     : pubkey
+Signature   : (none)
+Source RPM  : (none)
+Build Date  : Wed Oct  7 10:49:04 2009
+Build Host  : localhost
+Relocations : (not relocatable)
+Packager    : My Packager (My Key) <packager@my.com>
+Summary     : gpg(mykey Packager (my Key) <packager@my.com>)
+""")
+
+        self.assertFalse(rpm.extract_gpgkey_from_rpm_database(".*mykey.*", dst_file, src_file))
+        self.assertFalse(os.path.exists(dst_file))
+
+    def test_rpm_database_match_with_data(self):
+        src_file = os.path.join(self.TEST_DIR, "multyple_key_rpm_database.txt")
+        dst_file = os.path.join(self.TEST_DIR, "multyple_key_rpm_database_res.asc")
+
+        with open(src_file, "w") as f:
+            f.write("""Name        : gpg-pubkey
+Version     : aaaaaaaa
+Release     : ffffffff
+Architecture: (none)
+Install Date: Mon May 26 11:46:21 2025
+Group       : Public Keys
+Size        : 0
+License     : pubkey
+Signature   : (none)
+Source RPM  : (none)
+Build Date  : Wed Oct  7 10:49:04 2009
+Build Host  : localhost
+Relocations : (not relocatable)
+Packager    : My Packager (My Key) <packager@my.com>
+Summary     : gpg(mykey Packager (my Key) <packager@my.com>)
+Description :
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: rpm-4.11.3 (NSS-3)
+
+qlqlqlwekqweoqwekpoqwpkeopqwkepoqkwpe
+-----END PGP PUBLIC KEY BLOCK-----
+""")
+        self.assertTrue(rpm.extract_gpgkey_from_rpm_database(".*mykey.*", dst_file, src_file))
+        self.assertTrue(os.path.exists(dst_file))
+
+        with open(dst_file, "r") as f:
+            content = f.read()
+            self.assertIn("-----BEGIN PGP PUBLIC KEY BLOCK-----\n", content)
+            self.assertIn("Version: rpm-4.11.3 (NSS-3)\n", content)
+            self.assertIn("qlqlqlwekqweoqwekpoqwpkeopqwkepoqkwpe\n", content)
+            self.assertIn("-----END PGP PUBLIC KEY BLOCK-----\n", content)
+
+    def test_rpm_database_match_with_multiple_keys(self):
+        src_file = os.path.join(self.TEST_DIR, "valid_rpm_database.txt")
+        dst_file = os.path.join(self.TEST_DIR, "valid_rpm_database_res.asc")
+
+        with open(src_file, "w") as f:
+            f.write("""Name        : gpg-pubkey
+Version     : aaaaaaaa
+Release     : ffffffff
+Architecture: (none)
+Install Date: Mon May 26 11:46:21 2025
+Group       : Public Keys
+Size        : 0
+License     : pubkey
+Signature   : (none)
+Source RPM  : (none)
+Build Date  : Wed Oct  7 10:49:04 2009
+Build Host  : localhost
+Relocations : (not relocatable)
+Packager    : My Packager (My Key) <packager@my.com>
+Summary     : gpg(mykey Packager (my Key) <packager@my.com>)
+Description :
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: rpm-4.11.3 (NSS-3)
+
+qlqlqlwekqweoqwekpoqwpkeopqwkepoqkwpe
+-----END PGP PUBLIC KEY BLOCK-----
+
+Name        : gpg-pubkey
+Version     : bbbbbbbb
+Release     : cccccccc
+Architecture: (none)
+Install Date: Mon May 26 11:46:21 2025
+Group       : Public Keys
+Size        : 0
+License     : pubkey
+Signature   : (none)
+Source RPM  : (none)
+Build Date  : Wed Oct  7 10:49:04 2009
+Build Host  : localhost
+Relocations : (not relocatable)
+Packager    : Another Packager (Another Key) <packager@another.com>
+Summary     : gpg(anotherkey Packager (Another Key) <packager@another.com>)
+Description :
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: rpm-4.11.3 (NSS-3)
+
+vjjfirwqqohjeiudxshafuqwehirhqweijqpwe
+-----END PGP PUBLIC KEY BLOCK-----
+
+Name        : gpg-pubkey
+Version     : 11111111
+Release     : 44444444
+Architecture: (none)
+Install Date: Mon May 26 11:46:21 2025
+Group       : Public Keys
+Size        : 0
+License     : pubkey
+Signature   : (none)
+Source RPM  : (none)
+Build Date  : Wed Oct  7 10:49:04 2009
+Build Host  : localhost
+Relocations : (not relocatable)
+Packager    : Last Packager (Last Key) <packager@last.com>
+Summary     : gpg(lastkey Packager (Last Key) <packager@last.com>)
+Description :
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: rpm-4.11.3 (NSS-3)
+
+oyiyjjhgjktoroprplfkmfhtyrturioqwpekqwejt
+-----END PGP PUBLIC KEY BLOCK-----
+""")
+        self.assertTrue(rpm.extract_gpgkey_from_rpm_database(".*another.*", dst_file, src_file))
+        self.assertTrue(os.path.exists(dst_file))
+
+        with open(dst_file, "r") as f:
+            content = f.read()
+            self.assertIn("-----BEGIN PGP PUBLIC KEY BLOCK-----\n", content)
+            self.assertIn("Version: rpm-4.11.3 (NSS-3)\n", content)
+            self.assertIn("vjjfirwqqohjeiudxshafuqwehirhqweijqpwe\n", content)
+            self.assertIn("-----END PGP PUBLIC KEY BLOCK-----\n", content)
+
+    def test_empty_file(self):
+        src_file = os.path.join(self.TEST_DIR, "empty.txt")
+        dst_file = os.path.join(self.TEST_DIR, "empty_res.asc")
+        with open(src_file, "w"):
+            pass
+        self.assertFalse(rpm.extract_gpgkey_from_rpm_database(".*", dst_file, src_file))
+        self.assertFalse(os.path.exists(dst_file))
+
+    def test_file_with_malformed_key_block(self):
+        src_file = os.path.join(self.TEST_DIR, "malformed.txt")
+        dst_file = os.path.join(self.TEST_DIR, "malformed_res.asc")
+        with open(src_file, "w") as f:
+            f.write("""Name        : gpg-pubkey
+Summary     : gpg(mykey)
+Description :
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+qlqlqlwekqweoqwekpoqwpkeopqwkepoqkwpe
+# missing END block
+""")
+        self.assertFalse(rpm.extract_gpgkey_from_rpm_database(".*mykey.*", dst_file, src_file))
+        self.assertFalse(os.path.exists(dst_file))
+
+    def test_file_with_malformed_key_block_by_name(self):
+        src_file = os.path.join(self.TEST_DIR, "malformed.txt")
+        dst_file = os.path.join(self.TEST_DIR, "malformed_res.asc")
+        with open(src_file, "w") as f:
+            f.write("""Name        : gpg-pubkey
+Summary     : gpg(mykey)
+Description :
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+qlqlqlwekqweoqwekpoqwpkeopqwkepoqkwpe
+# missing END block
+Name        : another-gpg-pubkey
+""")
+        self.assertFalse(rpm.extract_gpgkey_from_rpm_database(".*mykey.*", dst_file, src_file))
+        self.assertFalse(os.path.exists(dst_file))
+
+    def test_multiple_matching_keys(self):
+        src_file = os.path.join(self.TEST_DIR, "multi_match.txt")
+        dst_file = os.path.join(self.TEST_DIR, "multi_match_res.asc")
+        with open(src_file, "w") as f:
+            f.write("""Name        : gpg-pubkey
+Summary     : gpg(mykey)
+Description :
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: rpm-4.11.3 (NSS-3)
+KEY1
+-----END PGP PUBLIC KEY BLOCK-----
+
+Name        : gpg-pubkey
+Summary     : gpg(mykey)
+Description :
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: rpm-4.11.3 (NSS-3)
+KEY2
+-----END PGP PUBLIC KEY BLOCK-----
+""")
+        self.assertTrue(rpm.extract_gpgkey_from_rpm_database(".*mykey.*", dst_file, src_file))
+        self.assertTrue(os.path.exists(dst_file))
+        with open(dst_file, "r") as f:
+            content = f.read()
+            self.assertIn("KEY1", content)
+            # For now only first matching key is extracted
+            # Maybe later we should make several files or throw an error
+            # not sure for now
+            self.assertNotIn("KEY2", content)
+
+    def test_partial_match(self):
+        src_file = os.path.join(self.TEST_DIR, "partial_match.txt")
+        dst_file = os.path.join(self.TEST_DIR, "partial_match_res.asc")
+        with open(src_file, "w") as f:
+            f.write("""Name        : gpg-pubkey
+Summary     : gpg(somekey)
+Description :
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: rpm-4.11.3 (NSS-3)
+PARTIAL
+-----END PGP PUBLIC KEY BLOCK-----
+""")
+        # Should not match 'mykey'
+        self.assertFalse(rpm.extract_gpgkey_from_rpm_database(".*mykey.*", dst_file, src_file))
+        self.assertFalse(os.path.exists(dst_file))
+
+    def test_key_block_with_extra_whitespace(self):
+        src_file = os.path.join(self.TEST_DIR, "whitespace.txt")
+        dst_file = os.path.join(self.TEST_DIR, "whitespace_res.asc")
+        with open(src_file, "w") as f:
+            f.write("""Name        : gpg-pubkey
+Summary     : gpg(mykey)
+Description :
+
+   -----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: rpm-4.11.3 (NSS-3)
+WHITESPACE
+-----END PGP PUBLIC KEY BLOCK-----
+""")
+        self.assertTrue(rpm.extract_gpgkey_from_rpm_database(".*mykey.*", dst_file, src_file))
+        self.assertTrue(os.path.exists(dst_file))
+        with open(dst_file, "r") as f:
+            content = f.read()
+            self.assertIn("WHITESPACE", content)
+
+    def test_wrong_regexp(self):
+        src_file = os.path.join(self.TEST_DIR, "wrong_regexp.txt")
+        dst_file = os.path.join(self.TEST_DIR, "wrong_regexp_res.asc")
+        with open(src_file, "w") as f:
+            f.write("""Name        : gpg-pubkey
+Summary     : gpg(somekey)
+Description :
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: rpm-4.11.3 (NSS-3)
+PARTIAL
+-----END PGP PUBLIC KEY BLOCK-----
+""")
+        with self.assertRaises(Exception):
+            rpm.extract_gpgkey_from_rpm_database("[", dst_file, src_file)
