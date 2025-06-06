@@ -177,6 +177,49 @@ class UninstallTuxcareEls(action.ActiveAction):
     def estimate_revert_time(self) -> int:
         return 20
 
+class ReinstallTuxcareEls(action.ActiveAction):
+    """ TuxCare ELS extension is installed on EoL OSes and should be reconfigured. Re-installing also removes and recreates the repositories
+    """
+    ext_name: str
+
+    def __init__(self) -> None:
+        self.name = "reinstalling tuxcare-els"
+        self.ext_name = "tuxcare-els"
+
+    def _is_required(self) -> bool:
+        try:
+            return self.ext_name in dict(plesk.list_installed_extensions())
+        except plesk.PleskDatabaseIsDown:
+            # If database is not ready we will not be able to uninstall the extension anyway
+            log.warn("Mark the Tuxcare ELS extension reinstallation as unnecessary because the Plesk database isn't running")
+            return False
+
+    def _prepare_action(self) -> action.ActionResult:
+        try:
+            plesk.uninstall_extension(self.ext_name)
+        except plesk.PleskDatabaseIsDown:
+            log.warn("Removing TuxCare ELS extension called when Plesk database is already down")
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        try:
+            plesk.install_extension(self.ext_name)
+        except plesk.PleskDatabaseIsDown:
+            log.warn("Installing TuxCare ELS extension called when Plesk database is already down")
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        try:
+            plesk.install_extension(self.ext_name)
+        except plesk.PleskDatabaseIsDown:
+            log.warn("Re-installing TuxCare ELS extension called when Plesk database is still down")
+        return action.ActionResult()
+
+    def estimate_prepare_time(self) -> int:
+        return 10
+
+    def estimate_revert_time(self) -> int:
+        return 20
 
 class AssertPleskExtensions(action.CheckAction):
     installed: typing.Set[str]
