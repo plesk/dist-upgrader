@@ -178,6 +178,39 @@ class UninstallTuxcareEls(action.ActiveAction):
         return 20
 
 
+class PostInstallTuxcareEls(action.ActiveAction):
+    """ TuxCare ELS extension should be installed on select target EoL OSes.
+    """
+    ext_name: str
+
+    def __init__(self) -> None:
+        self.name = "install tuxcare-els"
+        self.ext_name = "tuxcare-els"
+
+    def _prepare_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        try:
+            plesk.install_extension(self.ext_name)
+        except plesk.PleskDatabaseIsDown:
+            log.warn("Installing TuxCare ELS extension called when Plesk database is still down")
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        try:
+            plesk.uninstall_extension(self.ext_name)
+        except plesk.PleskDatabaseIsDown:
+            log.warn("Uninstalling TuxCare ELS extension called when Plesk database is already down")
+        return action.ActionResult()
+
+    def estimate_post_time(self) -> int:
+        return 20
+
+    def estimate_revert_time(self) -> int:
+        return 10
+
+
 class AssertPleskExtensions(action.CheckAction):
     installed: typing.Set[str]
     not_installed: typing.Set[str]
