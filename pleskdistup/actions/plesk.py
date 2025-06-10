@@ -511,3 +511,37 @@ class AssertPleskVersionIsAvailable(action.CheckAction):
         except Exception as e:
             log.err(f"Checking Plesk version has failed with error: {e}")
             raise
+
+
+class PostRetrieveLicenseKeys(action.ActiveAction):
+    """Some additional licenses, such as TuxCare ELS, should be regenerated for the new OS.
+
+        Retrieving all keys may pose a risk, as some keys could become corrupted or invalid after conversion, which is not intended.
+        All keys are retrieved because it is currently not possible to retrieve the key only for a specific product using the CLI.
+        Changes in the CLI would tie the implementation to the Plesk version.
+        By using this action, you accept the associated risk.
+    """
+
+    def __init__(self) -> None:
+        self.name = "retrieve license keys"
+
+    def _prepare_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        util.logged_check_call([
+            "/usr/sbin/plesk", "bin", "license", "--retrieve",
+        ])
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def estimate_prepare_time(self) -> int:
+        return 0
+
+    def estimate_post_time(self) -> int:
+        return 30
+
+    def estimate_revert_time(self) -> int:
+        return 0
