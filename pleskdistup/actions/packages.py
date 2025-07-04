@@ -118,3 +118,21 @@ class AssertRepositorySubstitutionAvailable(action.CheckAction):
                 return False
 
         return True
+
+
+class AssertPackageAvailable(action.CheckAction):
+    """
+    Check if the package is available in the target repository.
+    """
+
+    def __init__(self, package_name: str, name: str = "asserting package available", recommendation: str = ""):
+        self.name = name
+        self.package_name = package_name
+        self.description = f"Package '{package_name}' is not available."
+        if recommendation:
+            self.description += f" {recommendation}"
+
+    def _do_check(self) -> bool:
+        if not packages.is_package_available(self.package_name):
+            return False
+        return True
