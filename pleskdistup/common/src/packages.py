@@ -153,3 +153,18 @@ def get_repository_metafile_url(repository_url: str) -> str:
         return rpm.get_repository_metafile_url(repository_url)
     else:
         raise NotImplementedError(f"Unsupported distro {started_on}")
+
+
+def is_package_available(package_name: str) -> bool:
+    """
+    Check if the package could be installed on the system.
+    :param package_name: name of the package to check
+    :return: True if the package is available, False otherwise
+    """
+    started_on = dist.get_distro()
+    if started_on.deb_based:
+        return dpkg.is_package_available(package_name)
+    elif started_on.rhel_based:
+        return rpm.is_package_available(package_name)
+    else:
+        raise NotImplementedError(f"Unsupported distro {started_on}")

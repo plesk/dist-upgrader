@@ -409,3 +409,28 @@ def extract_gpgkey_from_rpm_database(
 
     os.remove(destination)
     return False
+
+
+def is_package_available(package_name: str) -> bool:
+    """
+    Check if the package is available in enabled repositories.
+    :param package_name: name of the package to check
+    :return: True if the package is available, False otherwise
+    """
+    cmd = ["/usr/bin/yum", "list", "available", package_name]
+    res = subprocess.run(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True
+    )
+
+    # If the command returns 0, the package is available.
+    # If it returns 1, the package is not available.
+    # If it returns any other code, it means there was an error in yum itself.
+    if res.returncode != 0 and res.returncode != 1:
+        log.debug(
+            f"Command '{' '.join(cmd)}' failed with return code {res.returncode}. stdout: {res.stdout}, stderr: {res.stderr}"
+        )
+
+    return res.returncode == 0
