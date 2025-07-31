@@ -647,7 +647,7 @@ class RepositoryTests(unittest.TestCase):
 
         repo = rpm.Repository.from_lines(lines)
 
-        self.assertEqual(repo.gpgkeys, ["http://key1.com/key.gpg", "       http://key2.com/key.gpg", "       http://key3.com/key.gpg"])
+        self.assertEqual(repo.gpgkeys, ["http://key1.com/key.gpg", "http://key2.com/key.gpg", "http://key3.com/key.gpg"])
 
     def test_multiline_additional(self):
         lines = [
@@ -791,6 +791,30 @@ class CollectAllGpgKeysFromRepofilesTests(unittest.TestCase):
                     "gpgkey=http://key1.com/key.gpg\n")
         self.assertEqual(rpm.collect_all_gpgkeys_from_repofiles("test_dir", ["*.repo"]),
                          ["http://key1.com/key.gpg", "http://key1.com/key.gpg"])
+
+    def test_space_separated_gpgkeys(self):
+        with open("test_dir/repo1.repo", "w") as f:
+            f.write("[repo1]\n"
+                    "name=repo1\n"
+                    "baseurl=http://repo1\n"
+                    "enabled=1\n"
+                    "gpgcheck=0\n"
+                    "gpgkey=http://key1.com/key.gpg http://key2.com/key.gpg http://key3.com/key.gpg\n")
+
+        self.assertEqual(rpm.collect_all_gpgkeys_from_repofiles("test_dir", ["repo1.repo"]),
+                         ["http://key1.com/key.gpg", "http://key2.com/key.gpg", "http://key3.com/key.gpg"])
+
+    def test_tabs_separated_gpgkeys(self):
+        with open("test_dir/repo1.repo", "w") as f:
+            f.write("[repo1]\n"
+                    "name=repo1\n"
+                    "baseurl=http://repo1\n"
+                    "enabled=1\n"
+                    "gpgcheck=0\n"
+                    "gpgkey=http://key1.com/key.gpg\thttp://key2.com/key.gpg\thttp://key3.com/key.gpg\n")
+
+        self.assertEqual(rpm.collect_all_gpgkeys_from_repofiles("test_dir", ["repo1.repo"]),
+                         ["http://key1.com/key.gpg", "http://key2.com/key.gpg", "http://key3.com/key.gpg"])
 
 
 class TestGetRPMRepositoriesUrls(unittest.TestCase):

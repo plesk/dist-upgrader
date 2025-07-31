@@ -58,3 +58,53 @@ class TestDictOfListsMerge(unittest.TestCase):
             ),
             {"a": [1, 2, 3, 7, 8, 9], "b": [4, 5, 6], "c": [10, 11, 12]}
         )
+
+
+class TestMultiSplit(unittest.TestCase):
+    def test_single_delimiter(self):
+        self.assertEqual(
+            util.multi_split("apple,banana,orange", [","]),
+            ["apple", "banana", "orange"]
+        )
+
+    def test_multiple_delimiters(self):
+        self.assertEqual(
+            util.multi_split("apple;banana:orange", [";", ":"]),
+            ["apple", "banana", "orange"]
+        )
+
+    def test_three_delimiters(self):
+        self.assertEqual(
+            util.multi_split("apple,banana;orange:grape", [",", ";", ":"]),
+            ["apple", "banana", "orange", "grape"]
+        )
+
+    def test_empty_delimiters(self):
+        self.assertEqual(
+            util.multi_split("apple,,banana;:orange", []),
+            ["apple,,banana;:orange"]
+        )
+
+    def test_keep_empty_strings(self):
+        self.assertEqual(
+            util.multi_split("apple,,banana;:orange", [",", ";", ":"]),
+            ["apple", "", "banana", "", "orange"]
+        )
+
+    def test_skip_empty_strings(self):
+        self.assertEqual(
+            util.multi_split("apple,,banana;:orange", [",", ";", ":"], remove_empty=True),
+            ["apple", "banana", "orange"]
+        )
+
+    def test_no_delimiters(self):
+        self.assertEqual(
+            util.multi_split("applebananaorange", [",", ";", ":"]),
+            ["applebananaorange"]
+        )
+
+    def test_empty_string(self):
+        self.assertEqual(
+            util.multi_split("", [",", ";", ":"]),
+            [""]
+        )

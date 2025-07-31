@@ -60,7 +60,7 @@ class Repository:
             content += f"gpgcheck={self.gpgcheck}\n"
 
         if self.gpgkeys is not None:
-            content += "gpgkey=" + "\n".join(self.gpgkeys) + "\n"
+            content += "gpgkey=" + "\n       ".join(self.gpgkeys) + "\n"
 
         for add_line in self.additional:
             content += add_line
@@ -114,7 +114,7 @@ class Repository:
             gpgcheck=parsed_lines.get("gpgcheck"),
             # Configuration variable is "gpgkey", function parameter is "gpgkeys".
             # It's not a typo. We can have several GPG keys, so it's array.
-            gpgkeys=parsed_lines.get("gpgkey", "").split("\n") if "gpgkey" in parsed_lines else None,
+            gpgkeys=util.multi_split(parsed_lines.get("gpgkey", ""), ["\n", " ", "\t"], remove_empty=True) if "gpgkey" in parsed_lines else None,
             additional=additional,
         )
 

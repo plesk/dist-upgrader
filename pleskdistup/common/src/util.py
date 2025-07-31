@@ -1,5 +1,6 @@
 # Copyright 2023-2025. WebPros International GmbH. All rights reserved.
 
+import re
 import subprocess
 from select import select
 import typing
@@ -90,3 +91,27 @@ def merge_dicts_of_lists(
         else:
             dict1[key] = value
     return dict1
+
+
+def multi_split(
+    text: str,
+    delimiters: typing.List[str],
+    remove_empty: bool = False,
+) -> typing.List[str]:
+    """
+    Splits the input text by multiple delimiters.
+    :param text: The input string to split.
+    :param delimiters: A list of delimiter strings.
+    :param remove_empty: If True, empty strings will be removed from the result.
+    :return: A list of substrings.
+    """
+    if not delimiters:
+        return [text]
+
+    pattern = '|'.join(map(re.escape, delimiters))
+    if remove_empty:
+        # We could skip empty strings for example when spaces used
+        # not only as a delimiter but also for alignment.
+        return [item for item in re.split(pattern, text) if item]
+
+    return re.split(pattern, text)
