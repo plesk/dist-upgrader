@@ -658,7 +658,16 @@ class AssertNoMoreThenOneKernelDevelInstalled(action.CheckAction):
 
 
 class AssertSshPermitRootLoginConfigured(action.CheckAction):
-    def __init__(self) -> None:
+    """
+    Validates that `PermitRootLogin` is configured correctly in configuration file for sshd.
+    By default, this check fails on known outdated values such as `'without-password'`,
+    since it's unclear whether substitution actions will be applied or not.
+    If you intend to allow such values, make sure to also invoke
+    `SubstituteSshPermitRootLoginConfigured` to handle them appropriately.
+    """
+    skip_known_substitudes: bool
+
+    def __init__(self, skip_known_substitudes=False) -> None:
         self.name = "checking if PermitRootLogin is configured in sshd_config"
         self.description = """The PermitRootLogin setting is missing in the /etc/ssh/sshd_config file.
 \tBy default, this will be set to 'prohibit-password' on the new system, which may prevent SSH connection.
@@ -666,6 +675,7 @@ class AssertSshPermitRootLoginConfigured(action.CheckAction):
 \t- If you use password authentication, add "PermitRootLogin yes" to the file.
 \t- If you use key-based authentication, add "PermitRootLogin prohibit-password" to the file.
 """
+        self.skip_known_substitudes = skip_known_substitudes
 
     def _do_check(self) -> bool:
         sshd_config = "/etc/ssh/sshd_config"
@@ -674,7 +684,12 @@ class AssertSshPermitRootLoginConfigured(action.CheckAction):
 
         with open(sshd_config, "r") as f:
             for line in f:
-                if line.strip().startswith("PermitRootLogin yes") or line.strip().startswith("PermitRootLogin prohibit-password"):
+                if line.strip().startswith("PermitRootLogin yes") or \
+                   line.strip().startswith("PermitRootLogin prohibit-password"):
+                    return True
+
+                if self.skip_known_substitudes and line.strip().startswith("PermitRootLogin without-password"):
+                    log.debug("Skipping known substitute for PermitRootLogin")
                     return True
 
         return False

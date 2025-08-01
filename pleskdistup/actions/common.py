@@ -344,3 +344,35 @@ class RevertChangesInGrub(action.ActiveAction):
 
     def estimate_revert_time(self) -> int:
         return 1
+
+
+class SubstituteSshPermitRootLoginConfigured(action.ActiveAction):
+    sshd_config_path: str
+
+    def __init__(self) -> None:
+        self.name = "substitute known PermitRootLogin values in sshd_config"
+        self.sshd_config_path = "/etc/ssh/sshd_config"
+
+    def _prepare_action(self) -> action.ActionResult:
+        if not os.path.exists(self.sshd_config_path):
+            return action.ActionResult()
+
+        files.backup_file(self.sshd_config_path)
+        # We know that without-password is an outdated equivalent of prohibit-password
+        # so we could just replace it with the new value
+        files.replace_string(
+            self.sshd_config_path,
+            "PermitRootLogin without-password",
+            "PermitRootLogin prohibit-password"
+        )
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        if not os.path.exists(self.sshd_config_path):
+            return action.ActionResult()
+
+        files.restore_file_from_backup(self.sshd_config_path)
+        return action.ActionResult()
