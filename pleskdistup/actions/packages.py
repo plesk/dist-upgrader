@@ -86,6 +86,46 @@ class InstallPackages(action.ActiveAction):
         return self.estimate_prepare_time()
 
 
+class TemporaryRemovePackage(action.ActiveAction):
+    """
+    Temporarily removes a package during the prepare phase and reinstalls it
+    during the post phase (finish) and revert phase (rollback).
+    """
+    package_name: str
+
+    def __init__(
+        self,
+        package_name: str,
+        name: typing.Optional[str] = None,
+    ):
+        self.package_name = package_name
+        self.name = name or f"temporarily removing {package_name}"
+
+    def _is_required(self) -> bool:
+        return packages.is_package_installed(self.package_name)
+
+    def _prepare_action(self) -> action.ActionResult:
+        packages.remove_packages([self.package_name])
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        packages.install_packages([self.package_name])
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        packages.install_packages([self.package_name])
+        return action.ActionResult()
+
+    def estimate_prepare_time(self) -> int:
+        return 10
+
+    def estimate_post_time(self) -> int:
+        return 20
+
+    def estimate_revert_time(self) -> int:
+        return 20
+
+
 class AssertRepositorySubstitutionAvailable(action.CheckAction):
     """
     Check if the repository substitution is available.
