@@ -1003,6 +1003,32 @@ class SetPackageMapptingTests(unittest.TestCase):
                 "in_packageset": None,
                 "out_packageset": None,
             },
+            {
+                "id": "5",
+                "action": 4,
+                "in_packageset": {
+                    "package": [
+                        {
+                            "name": "several",
+                            "repository": "some-repo",
+                        },
+                    ],
+                    "set_id": "6",
+                },
+                "out_packageset": {
+                    "package": [
+                        {
+                            "name": "several_one",
+                            "repository": "other-repo",
+                        },
+                        {
+                            "name": "several_two",
+                            "repository": "other-repo",
+                        },
+                    ],
+                    "set_id": "7",
+                },
+            },
         ]
     }
 
@@ -1054,6 +1080,24 @@ class SetPackageMapptingTests(unittest.TestCase):
         with open(self.JSON_FILE_PATH) as f:
             json_data = json.load(f)
             self.assertEqual(json_data, self.INITIAL_JSON)
+
+    def test_rewrite_several_out_packages(self):
+        leapp_configs.set_package_mapping("several", "some-repo", "several_three", "right-repo", leapp_pkgs_conf_path=self.JSON_FILE_PATH)
+
+        with open(self.JSON_FILE_PATH) as f:
+            json_data = json.load(f)
+            self.assertEqual(len(json_data["packageinfo"][4]["out_packageset"]["package"]), 1)
+            self.assertEqual(json_data["packageinfo"][4]["out_packageset"]["package"][0]["name"], "several_three")
+            self.assertEqual(json_data["packageinfo"][4]["out_packageset"]["package"][0]["repository"], "right-repo")
+
+    def test_remove_one_out_packages_by_rewrite(self):
+        leapp_configs.set_package_mapping("several", "some-repo", "several_one", "right-repo", leapp_pkgs_conf_path=self.JSON_FILE_PATH)
+
+        with open(self.JSON_FILE_PATH) as f:
+            json_data = json.load(f)
+            self.assertEqual(len(json_data["packageinfo"][4]["out_packageset"]["package"]), 1)
+            self.assertEqual(json_data["packageinfo"][4]["out_packageset"]["package"][0]["name"], "several_one")
+            self.assertEqual(json_data["packageinfo"][4]["out_packageset"]["package"][0]["repository"], "right-repo")
 
 
 class RemovePackageActionTests(unittest.TestCase):
