@@ -15,6 +15,7 @@ LEAPP_REPOS_FILE_PATH = os.path.join(PATH_TO_CONFIGFILES, "leapp_upgrade_reposit
 LEAPP_MAP_FILE_PATH = os.path.join(PATH_TO_CONFIGFILES, "repomap.csv")
 LEAPP_PKGS_CONF_PATH = os.path.join(PATH_TO_CONFIGFILES, "pes-events.json")
 LEAPP_VENDORS_DIR_PATH = os.path.join(PATH_TO_CONFIGFILES, "vendors.d")
+LEAPP_EPEL_MAPPING_PATH = os.path.join(LEAPP_VENDORS_DIR_PATH, "epel_pes.json")
 
 
 def _do_replacement(
