@@ -198,10 +198,6 @@ class PostInstallTuxcareEls(action.ActiveAction):
         return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
-        try:
-            plesk.uninstall_extension(self.ext_name)
-        except plesk.PleskDatabaseIsDown:
-            log.warn("Uninstalling TuxCare ELS extension called when Plesk database is already down")
         return action.ActionResult()
 
     def estimate_post_time(self) -> int:
