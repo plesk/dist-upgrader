@@ -173,6 +173,6 @@ class AssertPackageAvailable(action.CheckAction):
             self.description += f" {recommendation}"
 
     def _do_check(self) -> bool:
-        if not packages.is_package_available(self.package_name):
+        if not packages.is_package_available(self.package_name) and not packages.is_package_installed(self.package_name):
             return False
         return True
