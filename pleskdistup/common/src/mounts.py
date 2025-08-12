@@ -46,3 +46,41 @@ def get_fstab_configuration_misorderings(configpath: str) -> typing.List[typing.
                 root_found = True
 
     return misorderings
+
+
+def get_fstab_duplicate_mount_points(configpath: str) -> typing.Dict[str, typing.List[str]]:
+    """
+    Detects duplicate mount points in the fstab configuration file.
+    This function reads the fstab configuration file and identifies entries that mount
+    to the same mount point, which can cause conflicts.
+    Args:
+        configpath (str): The path to the fstab configuration file.
+    Returns:
+        List[Tuple[str, List[Tuple[int, str]]]]: A list of tuples where each tuple contains
+        a mount point and a list of tuples with line numbers and full fstab entries that
+        use this mount point.
+    Example:
+        >>> get_fstab_duplicate_mount_points('/etc/fstab')
+        [('/home', ['UUID=1234-5678 /home ext4 defaults 0 0',
+                    '/dev/sdb1 /home xfs defaults 0 0'])]
+    """
+    if not os.path.exists(configpath):
+        return {}
+
+    mount_points: typing.Dict[str, typing.List[str]] = {}
+
+    with open(configpath, "r") as f:
+        for line in f.readlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+
+            parts = line.split()
+            if len(parts) >= 2:
+                mount_point = parts[1]
+
+                if mount_point not in mount_points:
+                    mount_points[mount_point] = []
+                mount_points[mount_point].append(line)
+
+    return {mount_point: entries for mount_point, entries in mount_points.items() if len(entries) > 1}
