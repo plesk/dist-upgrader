@@ -62,3 +62,28 @@ Or you could skip the check by calling the tool with --allow-raid-devices option
 
         self.description = self.description.format("\n\t- ".join(raid_devices_in_fstab))
         return False
+
+
+class AssertFstabHasNoDuplicates(action.CheckAction):
+    def __init__(self):
+        self.name = "checking if /etc/fstab has no duplicate mount points"
+        self.description = """The /etc/fstab file contains duplicate mount points.
+\tTo proceed with the conversion, you need to resolve following duplicates:
+{}"""
+
+    def _do_check(self) -> bool:
+        if not os.path.exists(FSTAB_PATH):
+            # Might be a problem, but it is not something we checking in scope of this check
+            return True
+
+        duplicates = mounts.get_fstab_duplicate_mount_points(FSTAB_PATH)
+
+        if len(duplicates) == 0:
+            return True
+
+        duplicate_descriptions = []
+        for mount_point, entries in duplicates.items():
+            duplicate_descriptions.append(f"\t- Mount point '{mount_point}' appears {len(entries)} times:\n\t\t" + "\n\t\t".join(entries))
+
+        self.description = self.description.format("\n".join(duplicate_descriptions))
+        return False
