@@ -198,3 +198,36 @@ class AssertNoLibodbcFromMicrosoftRepository(action.CheckAction):
         return not (packages.is_package_installed(self.package_name) and
                     packages.is_repository_url_enabled(self.microsoft_repo_url) and
                     "2.3.11-1" == packages.get_package_installed_version(self.package_name))
+
+
+class ProhibitLibodbcFromMicrosoftRepository(action.ActiveAction):
+    name: str = "prohibiting libodbc from microsoft repository"
+    suspicious_packages: typing.List[str] = ["libodbc1", "idbcinst", "odbcinst1debian2"]
+    microsoft_repo_url: str = "packages.microsoft.com"
+
+    def _is_required(self):
+        return any(packages.is_package_installed(pkg) for pkg in self.suspicious_packages) and packages.is_repository_url_enabled(self.microsoft_repo_url)
+
+    def _prepare_action(self) -> action.ActionResult:
+        for pkg in self.suspicious_packages:
+            packages.prohibit_package_from_repository(pkg, self.microsoft_repo_url)
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        for pkg in self.suspicious_packages:
+            packages.allow_package_from_repository(pkg, self.microsoft_repo_url)
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        for pkg in self.suspicious_packages:
+            packages.allow_package_from_repository(pkg, self.microsoft_repo_url)
+        return action.ActionResult()
+
+    def estimate_prepare_time(self) -> int:
+        return 5
+
+    def estimate_post_time(self) -> int:
+        return 5
+
+    def estimate_revert_time(self) -> int:
+        return 5
