@@ -271,6 +271,10 @@ def find_related_repofiles(repository_file: str) -> typing.List[str]:
     return files.find_files_case_insensitive("/etc/yum.repos.d", repository_file)
 
 
+def find_all_repofiles(sources_dir: str = "/etc/yum.repos.d/") -> typing.List[str]:
+    return files.find_files_case_insensitive(sources_dir, "*.repo")
+
+
 def update_package_list() -> None:
     util.logged_check_call(["/usr/bin/yum", "update", "-y"])
 
@@ -459,3 +463,26 @@ def disable_repo_if(repofile: str, condition: typing.Callable[[Repository], bool
         shutil.move(repofile + ".next", repofile)
 
     return disabled_repos
+
+
+def prohibit_package_from_repository(package: str, repository: str) -> None:
+    # Was not required so far. Potentially could be implemented via exclude directive in repo file.
+    raise NotImplementedError("Package lock is not supported for rpm-based distros yet")
+
+
+def allow_package_from_repository(package: str, repository: str) -> None:
+    raise NotImplementedError("Package lock is not supported for rpm-based distros yet")
+
+
+def is_repository_url_enabled(repository_url: str, sources_dir: str = "/etc/yum.repos.d/") -> bool:
+    """
+    Check if the given repository URL is enabled in any of the repository files.
+    :param repository_url: URL of the repository
+    :return: True if the repository is enabled, False otherwise
+    """
+    for repofile in find_all_repofiles(sources_dir=sources_dir):
+        for repo in extract_repodata(repofile):
+            if any(repository_url in (link or "") for link in (repo.url, repo.metalink, repo.mirrorlist)) and repo.enabled == "1":
+                return True
+
+    return False

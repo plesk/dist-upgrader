@@ -211,6 +211,10 @@ def find_related_repofiles(repository_file: str) -> typing.List[str]:
     return files.find_files_case_insensitive("/etc/apt/sources.list.d", repository_file)
 
 
+def find_all_repofiles(sources_dir: str = "/etc/apt/sources.list.d") -> typing.List[str]:
+    return files.find_files_case_insensitive(sources_dir, "*.list")
+
+
 def update_package_list(tmpfail_retry_intervals: typing.Optional[typing.List[int]] = None) -> None:
     cmd = ["/usr/bin/apt-get", "update", "-y"]
     _exec_retry_when_locked(cmd, tmpfail_retry_intervals)
@@ -343,3 +347,42 @@ def is_package_available(package_name: str) -> bool:
         log.debug(f"apt-cache show {package_name} failed with stdout: {res.stdout}, stderr: {res.stderr}")
 
     return res.returncode == 0
+
+
+def prohibit_package_from_repository(package: str, repository: str) -> None:
+    """
+    Prohibit the package from being installed from the given repository.
+    :param package: package name
+    :param repository: repository URL or its part
+    """
+    pin_file = "/etc/apt/preferences.d/prohibit-{}-from-{}.pref".format(package, re.sub(r'[^a-zA-Z0-9]', '_', repository))
+    with open(pin_file, "w") as f:
+        f.write("Package: {}\n".format(package))
+        f.write("Pin: origin {}\n".format(repository))
+        f.write("Pin-Priority: -1\n")
+
+
+def allow_package_from_repository(package: str, repository: str) -> None:
+    """
+    Allow the package to be installed from the given repository.
+    :param package: package name
+    :param repository: repository URL or its part
+    """
+    pin_file = "/etc/apt/preferences.d/prohibit-{}-from-{}.pref".format(package, re.sub(r'[^a-zA-Z0-9]', '_', repository))
+    if os.path.exists(pin_file):
+        os.remove(pin_file)
+
+
+def is_repository_url_enabled(repository_url: str, sources_dir: str = "/etc/apt/sources.list.d/") -> bool:
+    """
+    Check if the repository is enabled.
+    :param repository_url: URL of the repository
+    :return: True if the repository is enabled, False otherwise
+    """
+    for repofile in find_all_repofiles(sources_dir=sources_dir):
+        with open(repofile, "r") as f:
+            for line in f:
+                line = line.strip().rstrip()
+                if (line.startswith("deb ") or line.startswith("deb-src ")) and repository_url in line:
+                    return True
+    return False
