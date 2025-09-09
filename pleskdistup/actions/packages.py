@@ -176,3 +176,25 @@ class AssertPackageAvailable(action.CheckAction):
         if not packages.is_package_available(self.package_name) and not packages.is_package_installed(self.package_name):
             return False
         return True
+
+
+class AssertNoLibodbcFromMicrosoftRepository(action.CheckAction):
+    name: str = "asserting no libodbc from microsoft repository"
+    package_name: str = "libodbc1"
+    microsoft_repo_url: str = "packages.microsoft.com"
+
+    def __init__(self):
+        self.description = f"""Package '{self.package_name}' from the Microsoft repository should be removed due
+\tto a conflict with the Ubuntu 22 system package 'libodbc2'
+\tTo proceed with distupgrade re-install {self.package_name} from the official Ubuntu repositories by calling:
+\t- apt-get install libodbc1=2.3.6-0.1ubuntu0.1
+"""
+
+    def _do_check(self) -> bool:
+        # The Microsoft package version 2.3.11-1 is the source of the conflict, as it includes the libodbc.so.2 file,
+        # which clashes with the same file provided by the libodbc2 package on Ubuntu 22.
+        # Interestingly, the libodbc1 package from the Ubuntu 22 Microsoft repository does not include libodbc.so.2,
+        # making it compatible. However, its version is lower than 2.3.11-1, so it won't be selected during a dist-upgrade.
+        return not (packages.is_package_installed(self.package_name) and
+                    packages.is_repository_url_enabled(self.microsoft_repo_url) and
+                    "2.3.11-1" == packages.get_package_installed_version(self.package_name))
