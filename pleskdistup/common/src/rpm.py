@@ -486,3 +486,19 @@ def is_repository_url_enabled(repository_url: str, sources_dir: str = "/etc/yum.
                 return True
 
     return False
+
+
+def get_package_installed_version(package_name: str) -> typing.Optional[str]:
+    """
+    Get the installed version of the package.
+    :param package_name: name of the package
+    :return: version of the package if installed, None otherwise
+    """
+    try:
+        version = subprocess.check_output(
+            ["/usr/bin/rpm", "-q", "--qf", "%{VERSION}-%{RELEASE}", package_name],
+            universal_newlines=True
+        ).strip()
+        return version
+    except subprocess.CalledProcessError:
+        return None

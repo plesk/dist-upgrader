@@ -198,3 +198,13 @@ def is_repository_url_enabled(repository_url: str) -> bool:
         return rpm.is_repository_url_enabled(repository_url)
     else:
         raise NotImplementedError(f"Unsupported distro {started_on}")
+
+
+def get_package_installed_version(package_name: str) -> typing.Optional[str]:
+    started_on = dist.get_distro()
+    if started_on.deb_based:
+        return dpkg.get_package_installed_version(package_name)
+    elif started_on.rhel_based:
+        return rpm.get_package_installed_version(package_name)
+    else:
+        raise NotImplementedError(f"Unsupported distro {started_on}")

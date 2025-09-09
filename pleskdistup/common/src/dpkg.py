@@ -386,3 +386,20 @@ def is_repository_url_enabled(repository_url: str, sources_dir: str = "/etc/apt/
                 if (line.startswith("deb ") or line.startswith("deb-src ")) and repository_url in line:
                     return True
     return False
+
+
+def get_package_installed_version(package_name: str) -> typing.Optional[str]:
+    """
+    Get the installed version of the package.
+    :param package_name: name of the package
+    :return: installed version or None if the package is not installed
+    """
+    res = subprocess.run(
+        ["/usr/bin/dpkg-query", "--showformat", "${Version}", "--show", package_name],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        universal_newlines=True,
+    )
+    if res.returncode != 0:
+        return None
+    return res.stdout if res.stdout else None
