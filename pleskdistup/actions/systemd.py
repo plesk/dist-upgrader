@@ -35,7 +35,7 @@ Description=Resume Plesk dist-upgrade after reboot
 After=network.target network-online.target
 
 [Service]
-Type=simple
+Type=oneshot
 # want to run it once per boot time
 RemainAfterExit=yes
 ExecStart={util_path} --state-dir "{state_dir}" --resume {arguments}
