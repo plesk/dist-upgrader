@@ -434,3 +434,28 @@ def is_package_available(package_name: str) -> bool:
         )
 
     return res.returncode == 0
+
+
+def disable_repo_if(repofile: str, condition: typing.Callable[[Repository], bool]) -> typing.List[str]:
+    """
+    Disable repositories in a repo file if they match the given condition.
+    :param repofile: path to the repository file
+    :param condition: callable that takes a repository object and returns True if it should be disabled
+    :return: list of repository IDs that were disabled
+    """
+    if not os.path.exists(repofile):
+        return []
+
+    disabled_repos = []
+    with open(repofile + ".next", "w") as dst:
+        for repo in extract_repodata(repofile):
+            if condition(repo):
+                repo.enabled = "0"
+                disabled_repos.append(repo.id)
+
+            dst.write(repr(repo))
+
+    if os.path.exists(repofile + ".next"):
+        shutil.move(repofile + ".next", repofile)
+
+    return disabled_repos
