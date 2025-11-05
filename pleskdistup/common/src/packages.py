@@ -168,3 +168,43 @@ def is_package_available(package_name: str) -> bool:
         return rpm.is_package_available(package_name)
     else:
         raise NotImplementedError(f"Unsupported distro {started_on}")
+
+
+def prohibit_package_from_repository(package: str, repository: str) -> None:
+    started_on = dist.get_distro()
+    if started_on.deb_based:
+        return dpkg.prohibit_package_from_repository(package, repository)
+    elif started_on.rhel_based:
+        return rpm.prohibit_package_from_repository(package, repository)
+    else:
+        raise NotImplementedError(f"Unsupported distro {started_on}")
+
+
+def allow_package_from_repository(package: str, repository: str) -> None:
+    started_on = dist.get_distro()
+    if started_on.deb_based:
+        return dpkg.allow_package_from_repository(package, repository)
+    elif started_on.rhel_based:
+        return rpm.allow_package_from_repository(package, repository)
+    else:
+        raise NotImplementedError(f"Unsupported distro {started_on}")
+
+
+def is_repository_url_enabled(repository_url: str) -> bool:
+    started_on = dist.get_distro()
+    if started_on.deb_based:
+        return dpkg.is_repository_url_enabled(repository_url)
+    elif started_on.rhel_based:
+        return rpm.is_repository_url_enabled(repository_url)
+    else:
+        raise NotImplementedError(f"Unsupported distro {started_on}")
+
+
+def get_package_installed_version(package_name: str) -> typing.Optional[str]:
+    started_on = dist.get_distro()
+    if started_on.deb_based:
+        return dpkg.get_package_installed_version(package_name)
+    elif started_on.rhel_based:
+        return rpm.get_package_installed_version(package_name)
+    else:
+        raise NotImplementedError(f"Unsupported distro {started_on}")

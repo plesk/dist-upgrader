@@ -1435,3 +1435,126 @@ gpgcheck=1
             # Should have two instances of enabled=0 now (original epel + newly disabled epel)
             epel_section = content[content.find("[epel]"):]
             self.assertIn("enabled=0", epel_section)
+
+
+class TestFindEnabledRPMRepository(unittest.TestCase):
+    TEST_DIR = "./test.repo.d"
+
+    def setUp(self):
+        os.makedirs(self.TEST_DIR, exist_ok=True)
+
+    def tearDown(self):
+        if os.path.exists(self.TEST_DIR):
+            shutil.rmtree(self.TEST_DIR)
+
+        if os.path.exists(os.path.join(self.TEST_DIR, "test.repo")):
+            os.remove(os.path.join(self.TEST_DIR, "test.repo"))
+
+    def test_no_config_file(self):
+        self.assertFalse(rpm.is_repository_url_enabled("example.com"))
+
+    def test_repository_not_present(self):
+        with open(os.path.join(self.TEST_DIR, "test.repo"), "w") as test_file:
+            test_file.write('''
+[repo1]
+name=repo1
+baseurl=http://example.com/repo/centos
+enabled=1
+gpgcheck=0
+''')
+        # Should not match this URL
+        self.assertFalse(rpm.is_repository_url_enabled("nonexistent.repo", sources_dir=self.TEST_DIR))
+
+    def test_repository_present(self):
+        with open(os.path.join(self.TEST_DIR, "test.repo"), "w") as test_file:
+            test_file.write('''
+[repo1]
+name=repo1
+baseurl=http://example.com/repo/centos
+enabled=1
+gpgcheck=0
+''')
+        self.assertTrue(rpm.is_repository_url_enabled("example.com/repo/centos", sources_dir=self.TEST_DIR))
+
+    def test_repository_present_but_disabled(self):
+        with open(os.path.join(self.TEST_DIR, "test.repo"), "w") as test_file:
+            test_file.write('''
+[repo1]
+name=repo1
+baseurl=http://example.com/repo/centos
+enabled=0
+gpgcheck=0
+''')
+        self.assertFalse(rpm.is_repository_url_enabled("example.com/repo/centos", sources_dir=self.TEST_DIR))
+
+    def test_repository_present_but_commented_out(self):
+        with open(os.path.join(self.TEST_DIR, "test.repo"), "w") as test_file:
+            test_file.write('''
+# [repo1]
+# name=repo1
+# baseurl=http://example.com/repo/centos
+# enabled=1
+# gpgcheck=0
+''')
+        self.assertFalse(rpm.is_repository_url_enabled("example.com/repo/centos", sources_dir=self.TEST_DIR))
+
+    def test_repository_present_with_metalink(self):
+        with open(os.path.join(self.TEST_DIR, "test.repo"), "w") as test_file:
+            test_file.write('''
+[repo1]
+name=repo1
+metalink=http://example.com/metalink
+enabled=1
+gpgcheck=0
+''')
+        self.assertTrue(rpm.is_repository_url_enabled("example.com/metalink", sources_dir=self.TEST_DIR))
+
+    def test_repository_present_with_mirrorlist(self):
+        with open(os.path.join(self.TEST_DIR, "test.repo"), "w") as test_file:
+            test_file.write('''
+[repo1]
+name=repo1
+mirrorlist=http://example.com/mirrorlist
+enabled=1
+gpgcheck=0
+''')
+        self.assertTrue(rpm.is_repository_url_enabled("example.com/mirrorlist", sources_dir=self.TEST_DIR))
+
+    def test_multiple_files(self):
+        with open(os.path.join(self.TEST_DIR, "test1.repo"), "w") as test_file:
+            test_file.write('''
+[repo1]
+name=repo1
+baseurl=http://example1.com/repo/centos
+enabled=1
+gpgcheck=0
+''')
+        with open(os.path.join(self.TEST_DIR, "test2.repo"), "w") as test_file:
+            test_file.write('''
+[repo2]
+name=repo2
+baseurl=http://example2.com/repo/centos
+enabled=1
+gpgcheck=0
+''')
+        self.assertTrue(rpm.is_repository_url_enabled("example1.com/repo/centos", sources_dir=self.TEST_DIR))
+        self.assertTrue(rpm.is_repository_url_enabled("example2.com/repo/centos", sources_dir=self.TEST_DIR))
+
+    def test_repository_disabled_in_one_file_enabled_in_another(self):
+        with open(os.path.join(self.TEST_DIR, "test1.repo"), "w") as test_file:
+            test_file.write('''
+[repo1]
+name=repo1
+baseurl=http://example.com/repo/centos
+enabled=0
+gpgcheck=0
+''')
+        with open(os.path.join(self.TEST_DIR, "test2.repo"), "w") as test_file:
+            test_file.write('''
+[repo2]
+name=repo2
+baseurl=http://example.com/repo/centos
+enabled=1
+gpgcheck=0
+''')
+        self.assertTrue(rpm.is_repository_url_enabled("example.com/repo/centos", sources_dir=self.TEST_DIR))
