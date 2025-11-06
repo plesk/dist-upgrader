@@ -16,7 +16,7 @@ jobs:
         fetch-tags: true
     - name: Perform tests
       id: test
-      uses: SandakovMM/build-with-buck@v3
+      uses: SandakovMM/build-with-buck@v5
       with:
         command: test
         target: --all
