@@ -39,6 +39,8 @@ Type=oneshot
 # want to run it once per boot time
 RemainAfterExit=yes
 ExecStart={util_path} --state-dir "{state_dir}" --resume {arguments}
+TimeoutStartSec=infinity
+TimeoutStopSec=infinity
 
 [Install]
 WantedBy=multi-user.target
