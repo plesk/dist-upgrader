@@ -231,3 +231,42 @@ class ProhibitLibodbcFromMicrosoftRepository(action.ActiveAction):
 
     def estimate_revert_time(self) -> int:
         return 5
+
+
+class RemovePackagesOnFinish(action.ActiveAction):
+    """
+    Removes packages during the finishing stage of the conversion.
+    This action does nothing during prepare phase and removes specified
+    packages during the post phase (after OS upgrade and reboot).
+    """
+    packages_to_remove: typing.List[str]
+    _name: str
+
+    def __init__(
+        self,
+        packages_to_remove: typing.Iterable[str],
+        name: str = "removing packages on finish",
+    ):
+        self.packages_to_remove = list(packages_to_remove)
+        self._name = name
+
+    @property
+    def name(self) -> str:
+        return self._name.format(self=self)
+
+    @name.setter
+    def name(self, val: str) -> None:
+        self._name = val
+
+    def _prepare_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        packages.remove_packages([package for package in self.packages_to_remove if packages.is_package_installed(package)])
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def estimate_post_time(self) -> int:
+        return 5 * len(self.packages_to_remove)
