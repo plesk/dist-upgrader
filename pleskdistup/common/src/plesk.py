@@ -182,15 +182,25 @@ def list_installed_components() -> typing.Dict[str, PleskComponent]:
     """
     cmd = ["/usr/sbin/plesk", "installer", "--select-release-current", "--show-components"]
     log.debug(f"Listing installed Plesk components by {cmd}")
-    proc = subprocess.run(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=True,
-        universal_newlines=True,
-    )
-    log.debug(f"Command {cmd} returned {proc.returncode}, stdout: '{proc.stdout}', stderr: '{proc.stderr}'")
-    comp_info = proc.stdout.splitlines()
+    comp_info = []
+
+    try:
+        proc = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+            universal_newlines=True,
+        )
+        log.debug(f"Command {cmd} returned {proc.returncode}, stdout: '{proc.stdout}', stderr: '{proc.stderr}'")
+        comp_info = proc.stdout.splitlines()
+    except subprocess.CalledProcessError as e:
+        log.debug(f"Command {cmd} failed with return code {e.returncode}, stdout: '{e.stdout}', stderr: '{e.stderr}'")
+        if "BUSY" in e.stdout:
+            raise PleskInstallerBusy(f"Plesk installer command failed with BUSY state: {e.stderr}")
+        else:
+            raise e
+
     res: typing.Dict[str, PleskComponent] = {}
     comp_re = re.compile(r"\s*(?P<name>\S+)\s*\[(?P<state>[^]]+)\]\s*-\s*(?P<desc>.*)")
     for line in comp_info:
@@ -216,6 +226,12 @@ def is_component_installed(component_name: str) -> bool:
 class PleskDatabaseIsDown(Exception):
     def __init__(self, message: str = ""):
         self.message = f"Plesk database is not ready at: {message}"
+        super().__init__(self.message)
+
+
+class PleskInstallerBusy(Exception):
+    def __init__(self, message: str = ""):
+        self.message = f"Plesk installer is busy: {message}"
         super().__init__(self.message)
 
 
