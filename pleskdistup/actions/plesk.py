@@ -1,7 +1,6 @@
 # Copyright 2023-2025. WebPros International GmbH. All rights reserved.
 
 import os
-import pathlib
 import subprocess
 import typing
 
@@ -293,9 +292,6 @@ class SwitchPleskRepositories(action.ActiveAction):
         self.name = name
 
     def _prepare_action(self) -> action.ActionResult:
-        for f in pathlib.Path("/etc/apt/sources.list.d/").glob("plesk*.list"):
-            log.debug(f"Removing {f}")
-            os.unlink(f)
         util.logged_check_call([
             "/usr/sbin/plesk", "installer", "--override-os-version",
             self.to_os_version, "--check-updates", "--skip-cleanup",
