@@ -356,6 +356,7 @@ class AssertPleskComponents(action.CheckAction):
     not_installed_description: str
     installed_violations: typing.Set[str]
     not_installed_violations: typing.Set[str]
+    is_installer_locked: bool
     _name: str
 
     def __init__(
@@ -382,6 +383,8 @@ class AssertPleskComponents(action.CheckAction):
         if not_installed_description is not None:
             self._not_installed_description = not_installed_description
 
+        self.is_installer_locked = False
+
     @property
     def name(self) -> str:
         res = self._name
@@ -398,6 +401,9 @@ class AssertPleskComponents(action.CheckAction):
 
     @property
     def description(self) -> str:
+        if self.is_installer_locked:
+            return "Plesk Installer is currently running. Please wait until it finishes or call 'plesk installer stop' to abort it."
+
         desc: typing.List[str] = []
         if self._installed_description and self.installed_violations:
             desc.append(self._installed_description.format(installed_violations=self.installed_violations))
@@ -412,7 +418,13 @@ class AssertPleskComponents(action.CheckAction):
         raise NotImplementedError
 
     def _do_check(self) -> bool:
-        comp_list = plesk.list_installed_components()
+        try:
+            comp_list = plesk.list_installed_components()
+        except plesk.PleskInstallerBusy:
+            log.warn("Plesk Installer is busy, can't retrieve installed components")
+            self.is_installer_locked = True
+            return False
+
         log.debug(f"Detected installed Plesk components: {comp_list}")
         # TODO error out for unknown components
         self.installed_violations = set(comp for comp in self.installed if comp not in comp_list or not comp_list[comp].is_installed)
