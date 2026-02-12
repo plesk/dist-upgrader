@@ -1,5 +1,6 @@
 # Copyright 2023-2025. WebPros International GmbH. All rights reserved.
 import unittest
+import unittest.mock
 import os
 import json
 import tempfile
@@ -517,3 +518,144 @@ variable3=value1
         files.cnf_unset_section_variable(self.temp_file, "test2", "variable1")
         with open(self.temp_file) as f:
             self.assertEqual(f.read(), EXPECTED_FILE_CONTENT)
+
+
+class ChangeFileOwnershipTests(unittest.TestCase):
+
+    def setUp(self):
+        self.temp_file = tempfile.mkstemp()[1]
+
+    def tearDown(self) -> None:
+        os.remove(self.temp_file)
+
+    @unittest.mock.patch('src.files.os.chown')
+    def test_change_file_ownership(self, mock_chown):
+        """Test that change_file_ownership calls os.chown with correct parameters."""
+        test_file = self.temp_file
+        uid, gid = 1000, 1000
+
+        files.change_file_ownership(test_file, uid, gid)
+        mock_chown.assert_called_once_with(test_file, uid, gid)
+
+    @unittest.mock.patch('src.files.os.chown')
+    def test_change_file_ownership_with_pathlike(self, mock_chown):
+        """Test that change_file_ownership works with PathLike objects."""
+        test_path = self.temp_file
+        uid, gid = 500, 500
+        files.change_file_ownership(test_path, uid, gid)
+        mock_chown.assert_called_once_with(test_path, uid, gid)
+
+    @unittest.mock.patch('src.files.shutil.chown')
+    def test_change_file_ownership_non_existent_file(self, mock_chown):
+        """Test that change_file_ownership handles non-existent files correctly."""
+        non_existent_file = "/path/to/non_existent_file.txt"
+        uid, gid = 1000, 1000
+
+        files.change_file_ownership(non_existent_file, uid, gid)
+
+        mock_chown.assert_not_called()
+
+    @unittest.mock.patch('src.files.shutil.chown')
+    def test_change_file_ownership_directory(self, mock_chown):
+        """Test that change_file_ownership handles directories correctly."""
+        temp_dir = tempfile.mkdtemp()
+        uid, gid = 1000, 1000
+
+        files.change_file_ownership(temp_dir, uid, gid)
+
+        mock_chown.assert_not_called()
+
+        shutil.rmtree(temp_dir)
+
+
+class ChangeDirectoryOwnershipTests(unittest.TestCase):
+
+    def setUp(self):
+        self.temp_dir = tempfile.mkdtemp()
+        self.subdir = os.path.join(self.temp_dir, "subdir")
+        self.file1 = os.path.join(self.temp_dir, "file1.txt")
+        self.file2 = os.path.join(self.subdir, "file2.txt")
+
+        os.mkdir(self.subdir)
+        with open(self.file1, "w") as f:
+            f.write("test file 1")
+        with open(self.file2, "w") as f:
+            f.write("test file 2")
+
+    def tearDown(self):
+        shutil.rmtree(self.temp_dir)
+
+    @unittest.mock.patch('src.files.os.chown')
+    def test_change_directory_ownership_non_recursive(self, mock_chown):
+        """Test non-recursive directory ownership change."""
+        uid, gid = 1000, 1000
+
+        files.change_directory_ownership(self.temp_dir, uid, gid, recursive=False)
+
+        mock_chown.assert_called_once_with(self.temp_dir, uid, gid)
+
+    @unittest.mock.patch('src.files.os.chown')
+    def test_change_directory_ownership_recursive(self, mock_chown):
+        """Test recursive directory ownership change."""
+        uid, gid = 1000, 1000
+        files.change_directory_ownership(self.temp_dir, uid, gid, recursive=True)
+
+        expected_calls = [
+            unittest.mock.call(self.temp_dir, uid, gid),
+            unittest.mock.call(self.subdir, uid, gid),
+            unittest.mock.call(self.file1, uid, gid),
+            unittest.mock.call(self.file2, uid, gid)
+        ]
+
+        self.assertEqual(mock_chown.call_count, 4)
+        mock_chown.assert_has_calls(expected_calls, any_order=True)
+
+    @unittest.mock.patch('src.files.os.chown')
+    def test_change_directory_ownership_recursive_default(self, mock_chown):
+        """Test that recursive=True is the default behavior."""
+        uid, gid = 500, 500
+
+        files.change_directory_ownership(self.temp_dir, uid, gid)
+        self.assertEqual(mock_chown.call_count, 4)
+
+    @unittest.mock.patch('src.files.os.chown')
+    def test_change_directory_ownership_with_pathlike(self, mock_chown):
+        """Test that change_directory_ownership works with PathLike objects."""
+        test_path = os.path.join(self.temp_dir, "subdir")
+        uid, gid = 2000, 2000
+        files.change_directory_ownership(test_path, uid, gid, recursive=False)
+        mock_chown.assert_called_once_with(test_path, uid, gid)
+
+    @unittest.mock.patch('src.files.shutil.chown')
+    def test_change_directory_ownership_non_existent_recursive(self, mock_chown):
+        """Test recursive ownership change on non-existent directory."""
+        non_existent_dir = "/path/to/non_existent_directory"
+        uid, gid = 1000, 1000
+
+        files.change_directory_ownership(non_existent_dir, uid, gid, recursive=True)
+
+        mock_chown.assert_not_called()
+
+    @unittest.mock.patch('src.files.shutil.chown')
+    def test_change_directory_ownership_non_existent_non_recursive(self, mock_chown):
+        """Test non-recursive ownership change on non-existent directory."""
+        non_existent_dir = "/path/to/non_existent_directory"
+        uid, gid = 1000, 1000
+
+        files.change_directory_ownership(non_existent_dir, uid, gid, recursive=False)
+
+        mock_chown.assert_not_called()
+
+    @unittest.mock.patch('src.files.shutil.chown')
+    def test_change_directory_ownership_file_instead_of_directory_recursive(self, mock_chown):
+        """Test recursive ownership change when passing a file instead of directory."""
+        uid, gid = 1000, 1000
+        files.change_directory_ownership(self.file1, uid, gid, recursive=True)
+        mock_chown.assert_not_called()
+
+    @unittest.mock.patch('src.files.shutil.chown')
+    def test_change_directory_ownership_file_instead_of_directory_non_recursive(self, mock_chown):
+        """Test non-recursive ownership change when passing a file instead of directory."""
+        uid, gid = 1000, 1000
+        files.change_directory_ownership(self.file1, uid, gid, recursive=False)
+        mock_chown.assert_called_once_with(self.file1, uid, gid)
