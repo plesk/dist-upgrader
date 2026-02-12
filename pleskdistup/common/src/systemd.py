@@ -1,9 +1,12 @@
 # Copyright 2023-2025. WebPros International GmbH. All rights reserved.
+import contextlib
 import os
 import re
+import tempfile
 import typing
 import shutil
 import subprocess
+import stat
 
 from . import dist, log, util
 
@@ -194,3 +197,42 @@ def inject_systemd_config(path_to_config: str, section: str, variable: str, valu
             dst.write(f"{variable}={value}\n")
 
     shutil.move(path_to_config + ".next", path_to_config)
+
+
+@contextlib.contextmanager
+def systemctl_stub():
+    """
+    Temporarily replace systemctl with a no-op stub script.
+    This allows external scripts (e.g., package post-install scripts)
+    to run without triggering actual systemd operations like daemon-reload
+    that could disrupt the conversion process running as a systemd service.
+
+    Example:
+        with systemctl_stub():
+            # Install packages that call systemctl in post-install scripts
+            subprocess.check_call(["yum", "install", "-y", "some-package"])
+    """
+    systemctl_path = "/usr/bin/systemctl"
+    backup_path = systemctl_path + ".distupgrade-backup"
+
+    stub_fd, stub_path = tempfile.mkstemp(prefix="systemctl-stub-", text=True)
+    try:
+        with os.fdopen(stub_fd, 'w') as f:
+            f.write("#!/bin/sh\n")
+            f.write("# Temporary systemctl stub during package installation\n")
+            f.write("exit 0\n")
+
+        os.chmod(stub_path, stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
+
+        if os.path.exists(systemctl_path):
+            os.rename(systemctl_path, backup_path)
+            os.rename(stub_path, systemctl_path)
+        yield
+    finally:
+        if os.path.exists(backup_path):
+            if os.path.exists(systemctl_path):
+                os.remove(systemctl_path)
+            os.rename(backup_path, systemctl_path)
+
+        if stub_path and os.path.exists(stub_path):
+            os.remove(stub_path)
