@@ -224,3 +224,39 @@ def cnf_unset_section_variable(filename: str, section: str, variable: str) -> No
             dst.write(line)
 
     shutil.move(filename + ".next", filename)
+
+
+def change_file_ownership(filepath: PathType, uid: int, gid: int) -> None:
+    """Change ownership of a file."""
+    log.debug(f"Changing ownership of file '{filepath}' to {uid}:{gid}")
+    if not os.path.exists(filepath):
+        log.warn(f"Cannot change ownership of '{filepath}' because it does not exist")
+        return
+    if os.path.isdir(filepath):
+        log.warn(f"Cannot change ownersip of '{filepath}' because it is a directory")
+        return
+
+    shutil.chown(filepath, uid, gid)
+
+
+def change_directory_ownership(dirpath: PathType, uid: int, gid: int, recursive: bool = True) -> None:
+    """Change ownership of a directory, optionally recursively."""
+    log.debug(f"Changing ownership of directory '{dirpath}' to {uid}:{gid} (recursive={recursive})")
+
+    if not os.path.exists(dirpath):
+        log.warn(f"Cannot change ownership of '{dirpath}' because it does not exist")
+        return
+
+    if not recursive:
+        shutil.chown(dirpath, uid, gid)
+        return
+
+    if not os.path.isdir(dirpath):
+        log.warn(f"Cannot change ownership of '{dirpath}' because it is not a directory")
+        return
+
+    for root, dirs, files in os.walk(os.fspath(dirpath)):
+        shutil.chown(root, uid, gid)
+        for file in files:
+            file_path = os.path.join(root, file)
+            shutil.chown(file_path, uid, gid)
