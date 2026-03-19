@@ -40,6 +40,8 @@ class FetchGPGKeyForLeapp(action.ActiveAction):
         return len(self.target_gpg_keys) != 0 and self._is_gpg_key_missing_in_leapp_configuration()
 
     def _prepare_action(self) -> action.ActionResult:
+        os.makedirs(self.leapp_gpg_keys_store, exist_ok=True)
+
         for key_url in self.target_gpg_keys:
             gpg_key_target_path = self._get_leapp_gpg_key_store(key_url)
             log.debug(f"Going to save GPG key from {key_url!r} to {gpg_key_target_path!r}")
