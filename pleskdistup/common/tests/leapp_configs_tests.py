@@ -19,14 +19,22 @@ class AddMappingTests(unittest.TestCase):
             if os.path.exists(files):
                 os.remove(files)
 
-    def _perform_test(self, repos: typing.Dict[str, str], expected_repos: str, expected_mapping: str, ignore: typing.Optional[typing.List[str]] = None) -> None:
+    def _perform_test(
+            self,
+            repos: typing.Dict[str, str],
+            expected_repos: str,
+            expected_mapping: str,
+            ignore: typing.Optional[typing.List[str]] = None,
+            skip_disabled: bool = False
+    ) -> None:
         for filename, content in repos.items():
             with open(filename, "w") as f:
                 f.write(content)
 
         leapp_configs.add_repositories_mapping(list(repos), ignore=ignore,
                                                leapp_repos_file_path=self.LEAPP_REPO_FILE,
-                                               mapfile_path=self.LEAPP_MAP_FILE)
+                                               mapfile_path=self.LEAPP_MAP_FILE,
+                                               skip_disabled=skip_disabled)
 
         with open(self.LEAPP_REPO_FILE) as f:
             lines = [line.rstrip() for line in f.readlines() if not line.rstrip() == ""]
@@ -576,6 +584,61 @@ gpgcheck=0
 
         self._perform_test({"simple_repos.repo": simple_repos},
                            expected_leapp_repos, expected_leapp_mapping)
+
+    def test_skip_disabled_true(self):
+        repos_with_disabled = """[enabled-repo]
+name=Enabled Repository
+baseurl=http://enabled-repo
+enabled=1
+gpgcheck=0
+
+[disabled-repo]
+name=Disabled Repository
+baseurl=http://disabled-repo
+enabled=0
+gpgcheck=0
+
+[no-enabled-field-repo]
+name=No Enabled Field Repository
+baseurl=http://no-enabled-repo
+gpgcheck=0
+"""
+
+        expected_repos = """[alma-enabled-repo]
+name=Alma Enabled Repository
+baseurl=http://enabled-repo
+enabled=1
+gpgcheck=0
+[alma-no-enabled-field-repo]
+name=Alma No Enabled Field Repository
+baseurl=http://no-enabled-repo
+gpgcheck=0
+"""
+
+        expected_mapping = """enabled-repo,alma-enabled-repo,alma-enabled-repo,all,all,x86_64,rpm,ga,ga
+no-enabled-field-repo,alma-no-enabled-field-repo,alma-no-enabled-field-repo,all,all,x86_64,rpm,ga,ga
+"""
+
+        self._perform_test({"mixed.repo": repos_with_disabled}, expected_repos, expected_mapping, skip_disabled=True)
+
+    def test_skip_disabled_only_disabled_repos(self):
+        only_disabled_repos = """[disabled-repo1]
+name=Disabled Repository 1
+baseurl=http://disabled-repo1
+enabled=0
+gpgcheck=0
+
+[disabled-repo2]
+name=Disabled Repository 2
+baseurl=http://disabled-repo2
+enabled=0
+gpgcheck=0
+"""
+
+        expected_repos = """"""
+        expected_mapping = """"""
+
+        self._perform_test({"disabled.repo": only_disabled_repos}, expected_repos, expected_mapping, skip_disabled=True)
 
 
 class SetPackageRepositoryTests(unittest.TestCase):

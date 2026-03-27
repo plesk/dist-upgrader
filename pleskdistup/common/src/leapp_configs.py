@@ -225,7 +225,8 @@ def adopt_repositories(repofile: str, ignore: typing.Optional[typing.List[str]] 
 
 def add_repositories_mapping(repofiles: typing.List[str], ignore: typing.Optional[typing.List[str]] = None,
                              leapp_repos_file_path: str = LEAPP_REPOS_FILE_PATH,
-                             mapfile_path: str = LEAPP_MAP_FILE_PATH) -> None:
+                             mapfile_path: str = LEAPP_MAP_FILE_PATH,
+                             skip_disabled: bool = False) -> None:
     if ignore is None:
         ignore = []
 
@@ -240,6 +241,10 @@ def add_repositories_mapping(repofiles: typing.List[str], ignore: typing.Optiona
             for repo in rpm.extract_repodata(file):
                 if repo.id in ignore:
                     log.debug(f"Skip repository {repo.id!r} since it is in ignore list.")
+                    continue
+
+                if skip_disabled and repo.enabled == "0":
+                    log.debug(f"Skip disabled repository {repo.id!r} since skip_disabled is enabled.")
                     continue
 
                 log.debug(f"Repository entry with id '{repo.id!r}' is extracted.")
