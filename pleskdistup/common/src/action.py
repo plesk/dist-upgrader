@@ -1,4 +1,4 @@
-# Copyright 2023-2025. WebPros International GmbH. All rights reserved.
+# Copyright 2023-2026. WebPros International GmbH. All rights reserved.
 
 import os
 import json
@@ -30,6 +30,7 @@ class ActionResult:
     info: typing.Optional[str]
     reboot_requested: typing.Optional[RebootType]
     next_phase: typing.Any
+    do_before_reboot: typing.Callable[[], None]
 
     def __init__(
         self,
@@ -37,11 +38,13 @@ class ActionResult:
         info: typing.Optional[str] = None,
         reboot_requested: typing.Optional[RebootType] = None,
         next_phase: typing.Any = None,
+        do_before_reboot: typing.Callable[[], None] = lambda: None,
     ):
         self.state = state
         self.info = info
         self.reboot_requested = reboot_requested
         self.next_phase = next_phase
+        self.do_before_reboot = do_before_reboot
 
     def __repr__(self) -> str:
         attrs = ", ".join(f"{k}={v!r}" for k, v in self.__dict__.items())
@@ -170,6 +173,7 @@ class ActiveFlow(ActionsFlow):
     total_time: int
     error: typing.Optional[typing.Union[Exception, str]]
     reboot_requested: typing.Optional[RebootType]
+    do_before_reboot: typing.Callable[[], None]
 
     # flow_tracker allows to track phase and stage switches to resume the process later.
     # resume_stage is the last successfully completed stage. The
@@ -192,6 +196,7 @@ class ActiveFlow(ActionsFlow):
         self.total_time = 0
         self.error = None
         self.reboot_requested = None
+        self.do_before_reboot = lambda: None
 
     @staticmethod
     def get_path_to_actions_data(state_dir: str) -> str:
@@ -296,6 +301,7 @@ class ActiveFlow(ActionsFlow):
                             log.info(f"Already have pending {self.reboot_requested} request, which can't be overridden by {res.reboot_requested}")
                         else:
                             self.reboot_requested = res.reboot_requested
+                            self.do_before_reboot = res.do_before_reboot
                 except UnicodeDecodeError as ex:
                     self._save_action_state(stage_id, action.name, ActionState.FAILED)
                     self._perform_on_failure(stage_id, action.name)

@@ -1,14 +1,101 @@
 # Copyright 2023-2025. WebPros International GmbH. All rights reserved.
 
+import collections
 import configparser
 import json
 import os
+import shutil
 import subprocess
 import typing
 import urllib.request
 from abc import abstractmethod
 
-from pleskdistup.common import action, log, packages, php, plesk, version
+from pleskdistup.common import action, log, files, packages, php, plesk, rpm, version
+
+
+class AssertNoRepositoryDuplicates(action.CheckAction):
+    repofiles: typing.List[str]
+
+    def __init__(
+        self,
+        repofiles: typing.Optional[typing.List[str]] = None,
+    ) -> None:
+        if repofiles is None:
+            repofiles = files.find_files_case_insensitive("/etc/yum.repos.d", "*.repo")
+        self.repofiles = repofiles
+        self.name = "checking if there are duplicate repositories"
+        self.description = """There are duplicate repositories present:
+\t- {}
+
+\tPlease remove duplicates to proceed the conversion.
+"""
+
+    def _do_check(self) -> bool:
+        repositories = []
+        for repofile in self.repofiles:
+            with open(repofile, "r") as f:
+                for line in f.readlines():
+                    line = line.strip()
+                    if line.startswith("[") and line.endswith("]"):
+                        repositories.append(line)
+
+        duplicates = [repository for repository, count in collections.Counter(repositories).items() if count > 1]
+        if len(duplicates) == 0:
+            return True
+
+        self.description = self.description.format("\n\t- ".join(duplicates))
+        return False
+
+
+class AssertIPRepositoryNotPresent(action.CheckAction):
+    def __init__(self):
+        self.name = "verify the presence of a repository sourced from an IP address"
+        self.description = """There is an RPM repository from a source host with an IP address.
+\tWe cannot confirm if this repository's packages conflict with AlmaLinux's official repositories.
+\tTo proceed with the conversion, please remove the repositories listed in the following .repo files:
+\t- {}
+"""
+
+    def _is_repo_source_ip_address(self, repo_file) -> bool:
+        for repo in rpm.extract_repodata(repo_file):
+            if rpm.repository_source_is_ip(repo):
+                return True
+        return False
+
+    def _do_check(self) -> bool:
+        ip_source_repositories_files = [file for file in files.find_files_case_insensitive("/etc/yum.repos.d", ["*.repo"])
+                                        if self._is_repo_source_ip_address(file)]
+
+        if len(ip_source_repositories_files) == 0:
+            return True
+
+        self.description = self.description.format("\n\t- ".join(ip_source_repositories_files))
+        return False
+
+
+class AssertNoAbsoluteLinksInRoot(action.CheckAction):
+    def __init__(self):
+        self.name = "checking there are no absolute links in the root directory"
+        self.description = """Absolute links are present in the root directory. Leapp does not support absolute links in '/'.
+\tFrom leapp source: "After rebooting, parts of the upgrade process can fail if symbolic links in point to absolute paths."
+\tTo proceed with the conversion, change the links to relative ones for following files:
+\t- {}
+"""
+
+    def _do_check(self) -> bool:
+        absolute_links = []
+        for directory in os.listdir('/'):
+            dirpath = os.path.join('/', directory)
+            if os.path.islink(dirpath):
+                target = os.readlink(dirpath)
+                if os.path.isabs(target):
+                    absolute_links.append(dirpath)
+
+        if len(absolute_links) == 0:
+            return True
+
+        self.description = self.description.format("\n\t- ".join(absolute_links))
+        return False
 
 
 # This action should be considered as deprecated
@@ -722,3 +809,83 @@ class AssertScriptVersionUpToDate(action.CheckAction):
             return True
 
         return True
+
+
+class AssertLocalRepositoryNotPresent(action.CheckAction):
+    file_list: typing.List[str]
+    check_file_content: typing.Callable[[str], bool]
+
+    @staticmethod
+    def check_repository_file_content(content: str) -> bool:
+        return (
+            "baseurl=file:" in content or "baseurl = file:" in content or
+            "metalink=file:" in content or "metalink = file:" in content or
+            "mirrorlist=file:" in content or "mirrorlist = file:" in content
+        )
+
+    def __init__(self,
+                 file_list: typing.Optional[typing.List[str]] = None,
+                 check_file_content: typing.Optional[typing.Callable[[str], bool]] = None,
+                 ):
+        if file_list is None:
+            # CentOS-Media.repo is a special file which is created by default on CentOS 7. It contains a local repository
+            # but leapp allows it anyway. So we could skip it.
+            file_list = [
+                f for f in files.find_files_case_insensitive("/etc/yum.repos.d", "*.repo")
+                if os.path.basename(f) != "CentOS-Media.repo"
+            ]
+        self.file_list = file_list
+        self.check_file_content = check_file_content or self.check_repository_file_content
+        self.name = "checking if the local repository is present"
+        self.description = """There are rpm repositories with local storage present. Leapp is not support such kind of repositories.
+\tPlease remove the local repositories to proceed the conversion. Files where locally stored repositories are defined:
+\t- {}
+"""
+
+    def check_repo(self, file: str) -> bool:
+        with open(file) as f:
+            content = f.read()
+            return self.check_file_content(content)
+
+    def _do_check(self) -> bool:
+        local_repositories_files = [
+            file for file in self.file_list
+            if self.check_repo(file)
+        ]
+
+        if len(local_repositories_files) == 0:
+            return True
+
+        self.description = self.description.format("\n\t- ".join(local_repositories_files))
+        return False
+
+
+class AssertAvailableSpaceForLocation(action.CheckAction):
+    def __init__(self, location: str, required_space: int):
+        self.name = f"checking available space for {location}"
+        self.location = location
+        self.required_space = required_space
+        self.description = """There is insufficient disk space available. Leapp requires a minimum of {} of free space
+\ton the disk where the '{}' directory is located. Available space: {}.
+\tFree up enough disk space and try again.
+"""
+
+    def _huminize_size(self, size) -> str:
+        original = size
+        for unit in ("B", "KB", "MB", "GB", "TB"):
+            if size < 1024:
+                return f"{size:.2f} {unit}"
+            size /= 1024
+        return f"{original} B"
+
+    def _do_check(self) -> bool:
+        if not os.path.exists(self.location):
+            self.description = f"The leapp required location '{self.location}' does not exist. To proceed with the conversion, create the directory."
+            return False
+
+        available_space = shutil.disk_usage(self.location)[2]
+        if available_space >= self.required_space:
+            return True
+
+        self.description = self.description.format(self._huminize_size(self.required_space), self.location, self._huminize_size(available_space))
+        return False

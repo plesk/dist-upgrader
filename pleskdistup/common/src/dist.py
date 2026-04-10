@@ -1,4 +1,4 @@
-# Copyright 2023-2025. WebPros International GmbH. All rights reserved.
+# Copyright 2023-2026. WebPros International GmbH. All rights reserved.
 import sys
 from abc import ABC, abstractmethod
 from functools import lru_cache
@@ -133,6 +133,7 @@ class CloudLinux(StoredVersionMixin, RhelBasedDistro):
 _distro_mapping = {
     ("CentOS Linux", "7"): CentOs("7"),
     ("AlmaLinux", "8"): AlmaLinux("8"),
+    ("AlmaLinux", "9"): AlmaLinux("9"),
     ("CloudLinux", "7"): CloudLinux("7"),
     ("CloudLinux", "8"): CloudLinux("8"),
     ("Debian GNU/Linux", "10"): Debian("10"),

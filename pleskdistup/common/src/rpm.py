@@ -1,4 +1,4 @@
-# Copyright 2023-2025. WebPros International GmbH. All rights reserved.
+# Copyright 2023-2026. WebPros International GmbH. All rights reserved.
 from collections import defaultdict
 import ipaddress
 import itertools
@@ -230,7 +230,7 @@ def remove_packages(pkgs: typing.List[str]) -> None:
         return
 
     if os.path.exists("/usr/bin/package-cleanup"):
-        duplicates = subprocess.check_output(["/usr/bin/package-cleanup", "--dupes"], universal_newlines=True).splitlines()
+        duplicates = util.logged_check_call(["/usr/bin/package-cleanup", "--dupes"]).splitlines()
         for duplicate, pkg in itertools.product(duplicates, pkgs):
             if pkg in duplicate:
                 util.logged_check_call(["/usr/bin/rpm", "-e", "--nodeps", duplicate])
