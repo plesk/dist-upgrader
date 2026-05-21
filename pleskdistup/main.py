@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright 2023-2025. WebPros International GmbH. All rights reserved.
+# Copyright 2023-2026. WebPros International GmbH. All rights reserved.
 
 import argparse
 import json
@@ -673,6 +673,7 @@ def main():
             )
         elif options.phase is Phase.FINISH:
             print(messages.FINISH_RESTART_MESSAGE, end='')
+        convert_result.do_before_reboot()
         systemd.do_reboot()
 
     return 0 if convert_result.success else 1

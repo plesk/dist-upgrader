@@ -7,6 +7,19 @@ import typing
 from pleskdistup.common import action, dpkg, packages
 
 
+class AssertPackageIsNotInstalled(action.CheckAction):
+    def __init__(self, package_name: str, description: typing.Optional[str] = None):
+        self.package_name = package_name
+        self.name = f"checking if the '{package_name}' package is installed"
+        if description:
+            self.description = description
+        else:
+            self.description = f"The '{package_name}' package is installed. Please remove it to proceed with the conversion."
+
+    def _do_check(self) -> bool:
+        return len(packages.get_installed_packages_list(self.package_name)) == 0
+
+
 class ReinstallSystemd(action.ActiveAction):
     name: str
 

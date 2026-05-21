@@ -4,6 +4,7 @@ import os
 import json
 import shutil
 import typing
+from functools import partial
 
 import src.leapp_configs as leapp_configs
 import src.rpm as rpm
@@ -1779,7 +1780,11 @@ gpgcheck=0
         with open("keepid.repo", "w") as f:
             f.write(keep_id_repos)
 
-        leapp_configs.create_leapp_vendor_repository_adoption("keepid.repo", self.TEST_DIRECTORY, keep_id=True)
+        leapp_configs.create_leapp_vendor_repository_adoption(
+            "keepid.repo",
+            self.TEST_DIRECTORY,
+            do_adapt_repository=partial(leapp_configs.get_adapted_repository, keep_id=True)
+        )
 
         self._compare_file_but_skip_empty(os.path.join(self.TEST_DIRECTORY, "keepid.repo"), expected_leapp_repos)
         self._compare_mapping_json(os.path.join(self.TEST_DIRECTORY, "keepid_map.json"), expected_mapping_json)

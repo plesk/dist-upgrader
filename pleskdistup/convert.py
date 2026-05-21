@@ -1,4 +1,4 @@
-# Copyright 2023-2025. WebPros International GmbH. All rights reserved.
+# Copyright 2023-2026. WebPros International GmbH. All rights reserved.
 
 import os
 import threading
@@ -49,14 +49,17 @@ def start_flow(
 class ConvertResult:
     success: bool
     reboot_requested: bool
+    do_before_reboot: typing.Callable[[], None]
 
     def __init__(
         self,
         success: bool = True,
         reboot_requested: bool = False,
+        do_before_reboot: typing.Callable[[], None] = lambda: None,
     ):
         self.success = success
         self.reboot_requested = reboot_requested
+        self.do_before_reboot = do_before_reboot
 
     def __repr__(self) -> str:
         attrs = ", ".join(f"{k}={v!r}" for k, v in self.__dict__.items())
@@ -77,4 +80,7 @@ def convert(
         start_flow(flow, status_file_path, time_exceeded_msg)
         if flow.is_failed():
             raise RuntimeError(flow.get_error())
-        return ConvertResult(success=True, reboot_requested=(flow.reboot_requested is not None))
+        return ConvertResult(success=True,
+                             reboot_requested=(flow.reboot_requested is not None),
+                             do_before_reboot=flow.do_before_reboot,
+                             )

@@ -1,9 +1,11 @@
-# Copyright 2023-2025. WebPros International GmbH. All rights reserved.
+# Copyright 2023-2026. WebPros International GmbH. All rights reserved.
 
 import os
 import typing
 
 from pleskdistup.common import action, log, systemd, util
+
+DEFAULT_RESUME_SERVICE_NAME = "plesk-dist-upgrade-resume.service"
 
 
 class AddUpgradeSystemdService(action.ActiveAction):
@@ -14,17 +16,20 @@ class AddUpgradeSystemdService(action.ActiveAction):
     _name: str
     _service_file_path: str
     _service_content: str
+    _remove_service_in_post: bool
 
     def __init__(
         self,
         util_path: str,
         options: typing.Any,
         name: str = "add the service {self.service_name!r} to resume Plesk dist-upgrade after reboot",
-        service_name: str = "plesk-dist-upgrade-resume.service",
+        service_name: str = DEFAULT_RESUME_SERVICE_NAME,
+        remove_service_in_post: bool = True,
     ) -> None:
         self.util_path = util_path
         self.options = options
         self.service_name = service_name
+        self._remove_service_in_post = remove_service_in_post
 
         self._state_dir = options.state_dir
         self._name = name
@@ -77,7 +82,8 @@ WantedBy=multi-user.target
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
-        systemd.remove_systemd_service(self.service_name)
+        if self._remove_service_in_post:
+            systemd.remove_systemd_service(self.service_name)
         return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
