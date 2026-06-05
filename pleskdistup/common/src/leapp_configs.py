@@ -601,7 +601,7 @@ def create_leapp_vendor_repository_adoption(
 
     mapping_json = {
         "datetime": datetime.now(timezone.utc).strftime("%Y%m%d%H%MZ"),
-        "version_format": "1.2.1",
+        "version_format": "1.3.0",
         "mapping": [
             {
                 "source_major_version": source_major_version,
