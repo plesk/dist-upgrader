@@ -728,6 +728,10 @@ def extract_leapp_report_inhibitors(json_report_path: str = "/var/log/leapp/leap
         inhibitors = _extract_leapp_report_inhibitors_from_txt(txt_report_path)
 
     if not inhibitors:
-        log.err(f"Neither JSON report file '{json_report_path}' nor text report file '{txt_report_path}' could be accessed. Please check if the files exist and have the correct permissions.")
+        if os.path.isfile(txt_report_path):
+            with open(txt_report_path, "r", encoding="utf-8") as f:
+                log.err(f.read())
+        else:
+            log.err(f"Neither JSON report file '{json_report_path}' nor text report file '{txt_report_path}' could be accessed. Please check if the files exist and have the correct permissions.")
 
     return inhibitors
