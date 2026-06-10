@@ -99,6 +99,57 @@ class InstallPackages(action.ActiveAction):
         return self.estimate_prepare_time()
 
 
+class RemovePackages(action.ActiveAction):
+    """
+    Removes packages by remembering which were installed
+    already and only install those during rollback
+    """
+    packages: typing.List[str]
+    tmpsavepath: str
+
+    def __init__(
+        self,
+        packages: typing.List[str],
+        tmpsavepath: str,
+        display_name: typing.Optional[str] = None,
+    ):
+        self.packages = packages
+        self.tmpsavepath = tmpsavepath
+        self.name = display_name or f"removing packages {packages}"
+
+    def _prepare_action(self) -> action.ActionResult:
+        if os.path.isfile(self.tmpsavepath):
+            return action.ActionResult()
+
+        already_installed = packages.filter_installed_packages(self.packages)
+        with open(self.tmpsavepath, "w") as f:
+            f.write("\n".join(already_installed))
+        packages.remove_packages(already_installed)
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        os.unlink(self.tmpsavepath)
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        already_installed: typing.List[str] = self.packages
+        if os.path.isfile(self.tmpsavepath):
+            with open(self.tmpsavepath) as f:
+                already_installed = f.read().splitlines()
+        packages.install_packages(already_installed)
+        os.unlink(self.tmpsavepath)
+        return action.ActionResult()
+
+    def estimate_prepare_time(self) -> int:
+        return 10
+
+    def estimate_post_time(self) -> int:
+        return 1
+
+    def estimate_revert_time(self) -> int:
+        return 10
+
+
 class TemporaryRemovePackage(action.ActiveAction):
     """
     Temporarily removes a package during the prepare phase and reinstalls it
