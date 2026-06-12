@@ -136,15 +136,18 @@ class RebundleRubyApplications(action.ActiveAction):
         return 60 * len(self._get_ruby_domains())
 
 
-class UninstallTuxcareEls(action.ActiveAction):
-    """ TuxCare ELS extension is installed on EoL OSes and may enable repositories incompatible with
-        the target OS version. Uninstalling also removes the repositories.
-    """
+class UninstallExtension(action.ActiveAction):
     ext_name: str
+    post_reinstall: bool
 
-    def __init__(self) -> None:
-        self.name = "uninstall tuxcare-els"
-        self.ext_name = "tuxcare-els"
+    def __init__(self,
+                 ext_name: str,
+                 display_name: typing.Optional[str] = None,
+                 post_reintall: bool = False,
+                 ) -> None:
+        self.ext_name = ext_name
+        self.post_reinstall = post_reintall
+        self.name = f"uninstall {ext_name}" if not display_name else display_name
 
     def _is_required(self) -> bool:
         try:
@@ -158,17 +161,22 @@ class UninstallTuxcareEls(action.ActiveAction):
         try:
             plesk.uninstall_extension(self.ext_name)
         except plesk.PleskDatabaseIsDown:
-            log.warn("Removing TuxCare ELS extension called when Plesk database is already down")
+            log.warn(f"Removing {self.ext_name} extension called when Plesk database is already down")
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
+        if self.post_reinstall:
+            try:
+                plesk.install_extension(self.ext_name)
+            except plesk.PleskDatabaseIsDown:
+                log.warn(f"Installing {self.ext_name} extension called when Plesk database is still down")
         return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
         try:
             plesk.install_extension(self.ext_name)
         except plesk.PleskDatabaseIsDown:
-            log.warn("Re-installing TuxCare ELS extension called when Plesk database is still down")
+            log.warn(f"Re-installing {self.ext_name} extension called when Plesk database is still down")
         return action.ActionResult()
 
     def estimate_prepare_time(self) -> int:
@@ -176,6 +184,15 @@ class UninstallTuxcareEls(action.ActiveAction):
 
     def estimate_revert_time(self) -> int:
         return 20
+
+
+class UninstallTuxcareEls(UninstallExtension):
+    """ TuxCare ELS extension is installed on EoL OSes and may enable repositories incompatible with
+        the target OS version. Uninstalling also removes the repositories.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("tuxcare-els")
 
 
 class PostInstallTuxcareEls(action.ActiveAction):
