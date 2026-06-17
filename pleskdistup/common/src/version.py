@@ -104,8 +104,12 @@ class KernelVersion():
         return result
 
     def __lt__(self, other) -> bool:
-        if int(self.major) < int(other.major) or int(self.minor) < int(other.minor) or int(self.patch < other.patch):
+        v_self = (int(self.major), int(self.minor), int(self.patch))
+        v_other = (int(other.major), int(other.minor), int(other.patch))
+        if v_self < v_other:
             return True
+        elif v_self > v_other:
+            return False
 
         for build_part_left, build_part_right in zip(self.build.split("."), other.build.split(".")):
             if int(build_part_left) < int(build_part_right):

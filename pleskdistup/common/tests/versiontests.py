@@ -115,6 +115,11 @@ class KernelVersionTests(unittest.TestCase):
         kernel2 = version.KernelVersion("30.10.0-1160.95.1.el7.x86_64")
         self.assertLess(kernel1, kernel2)
 
+    def test_find_max_kernel_version(self):
+        k2 = version.KernelVersion("3.10.0-1160.119.1.el7.x86_64")
+        k3 = version.KernelVersion("4.18.0-553.134.1.el8_10.x86_64")
+        self.assertTrue(k3 >= k2)
+
     def test_compare_different_length_build(self):
         kernel1 = version.KernelVersion("3.10.0-957.5.1.el7.x86_64")
         kernel2 = version.KernelVersion("3.10.0-1160.95.1.el7.x86_64")
