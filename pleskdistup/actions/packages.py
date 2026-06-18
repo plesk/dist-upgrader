@@ -4,7 +4,7 @@ import os
 import subprocess
 import typing
 
-from pleskdistup.common import action, dpkg, packages
+from pleskdistup.common import action, dpkg, packages, rpm
 
 
 class AssertPackageIsNotInstalled(action.CheckAction):
@@ -99,47 +99,49 @@ class InstallPackages(action.ActiveAction):
         return self.estimate_prepare_time()
 
 
-class RemovePackages(action.ActiveAction):
+class RemoveReplacePackages(action.ActiveAction):
     """
-    Removes packages by remembering which were installed
-    already and only install those during rollback
+    Removes or replaces packages by saving to rollback accordingly
     """
-    packages: typing.List[str]
+    packmap: typing.Dict[str, str]
     tmpsavepath: str
 
     def __init__(
         self,
-        packages: typing.List[str],
+        packmap: typing.Dict[str, str],
         tmpsavepath: str,
         display_name: typing.Optional[str] = None,
     ):
-        self.packages = packages
+        self.packmap = packmap
         self.tmpsavepath = tmpsavepath
         os.makedirs(os.path.dirname(self.tmpsavepath),
                     exist_ok=True)
-        self.name = display_name or f"removing packages {packages}"
+        self.name = display_name or f"remove/replace packages {packmap.keys()}"
 
     def _prepare_action(self) -> action.ActionResult:
         if os.path.isfile(self.tmpsavepath):
             return action.ActionResult()
 
-        already_installed = packages.filter_installed_packages(self.packages)
+        already_installed = packages.filter_installed_packages(self.packmap.keys())
         with open(self.tmpsavepath, "w") as f:
             f.write("\n".join(already_installed))
         packages.remove_packages(already_installed)
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
+        if os.path.isfile(self.tmpsavepath):
+            with open(self.tmpsavepath) as f:
+                rpm.install_packages(
+                    [self.packmap[dep] for dep in f.read().splitlines() if self.packmap[dep]]
+                )
         os.unlink(self.tmpsavepath)
         return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
-        already_installed: typing.List[str] = self.packages
         if os.path.isfile(self.tmpsavepath):
             with open(self.tmpsavepath) as f:
-                already_installed = f.read().splitlines()
-        packages.install_packages(already_installed)
-        os.unlink(self.tmpsavepath)
+                rpm.install_packages(f.read().splitlines())
+            os.unlink(self.tmpsavepath)
         return action.ActionResult()
 
     def estimate_prepare_time(self) -> int:
