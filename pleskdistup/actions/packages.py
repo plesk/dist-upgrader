@@ -115,6 +115,8 @@ class RemovePackages(action.ActiveAction):
     ):
         self.packages = packages
         self.tmpsavepath = tmpsavepath
+        os.makedirs(os.path.dirname(self.tmpsavepath),
+                    exist_ok=True)
         self.name = display_name or f"removing packages {packages}"
 
     def _prepare_action(self) -> action.ActionResult:
