@@ -1558,3 +1558,87 @@ enabled=1
 gpgcheck=0
 ''')
         self.assertTrue(rpm.is_repository_url_enabled("example.com/repo/centos", sources_dir=self.TEST_DIR))
+
+
+class TestYumConfOps(unittest.TestCase):
+    TEST_DIR = "./test.yum.conf.dir"
+
+    def setUp(self):
+        os.makedirs(self.TEST_DIR, exist_ok=True)
+        rpm.YUM_CONF_PATH = os.path.join(self.TEST_DIR, "yum.conf")
+
+    def tearDown(self):
+        try:
+            os.unlink(rpm.YUM_CONF_PATH)
+        except FileNotFoundError:
+            pass
+        os.rmdir(self.TEST_DIR)
+        rpm.YUM_CONF_PATH = "/etc/yum.conf"
+
+    def test_no_config_file(self):
+        self.assertIsNone(
+            rpm.yum_conf_get_exclude_list())
+
+    def test_no_exclude_line(self):
+        with open(rpm.YUM_CONF_PATH, "w") as test_file:
+            test_file.write('''
+[main]
+gpgcheck=1
+installonly_limit=3
+clean_requirements_on_remove=True
+best=True
+skip_if_unavailable=False
+''')
+        self.assertEqual([], rpm.yum_conf_get_exclude_list())
+        rpm.yum_conf_replace_exclude_list("test1,test33")
+        self.assertEqual(["test1", "test33"],
+                         rpm.yum_conf_get_exclude_list())
+
+    def test_with_exclude_line_empty(self):
+        with open(rpm.YUM_CONF_PATH, "w") as test_file:
+            test_file.write('''
+[main]
+gpgcheck=1
+installonly_limit=3
+clean_requirements_on_remove=True
+best=True
+skip_if_unavailable=False
+exclude=
+''')
+        self.assertEqual([], rpm.yum_conf_get_exclude_list())
+        rpm.yum_conf_rm_leapp_disablement()
+        self.assertEqual([], rpm.yum_conf_get_exclude_list())
+
+    def test_with_exclude_line_full_leapp(self):
+        with open(rpm.YUM_CONF_PATH, "w") as test_file:
+            test_file.write('''
+[main]
+gpgcheck=1
+installonly_limit=3
+clean_requirements_on_remove=True
+best=True
+skip_if_unavailable=False
+exclude=python2-leapp,snactor,leapp-upgrade-el7toel8,leapp
+''')
+        self.assertEqual(
+            rpm.yum_conf_get_exclude_list(),
+            ['python2-leapp', 'snactor', 'leapp-upgrade-el7toel8', 'leapp'])
+        rpm.yum_conf_rm_leapp_disablement()
+        self.assertEqual([], rpm.yum_conf_get_exclude_list())
+
+    def test_with_exclude_line_partial_leapp(self):
+        with open(rpm.YUM_CONF_PATH, "w") as test_file:
+            test_file.write('''
+[main]
+gpgcheck=1
+installonly_limit=3
+clean_requirements_on_remove=True
+best=True
+skip_if_unavailable=False
+exclude=python2-leapp,snactor,test52,leapp-upgrade-el7toel8,leapp,test22
+    ''')
+        self.assertEqual(
+            ['python2-leapp', 'snactor', 'test52', 'leapp-upgrade-el7toel8', 'leapp', 'test22'],
+            rpm.yum_conf_get_exclude_list())
+        rpm.yum_conf_rm_leapp_disablement()
+        self.assertEqual(['test52', 'test22'], rpm.yum_conf_get_exclude_list())

@@ -15,6 +15,7 @@ from . import files, util, log
 REPO_HEAD = """[{id}]
 name={name}
 """
+YUM_CONF_PATH: str = "/etc/yum.conf"
 
 
 class Repository:
@@ -502,3 +503,48 @@ def get_package_installed_version(package_name: str) -> typing.Optional[str]:
         return version
     except subprocess.CalledProcessError:
         return None
+
+
+def yum_conf_get_exclude_list() -> typing.Optional[typing.List[str]]:
+    """Return exclude values as a list."""
+    if not os.path.exists(YUM_CONF_PATH):
+        return None
+    try:
+        with open(YUM_CONF_PATH, "r") as f:
+            for line in f.readlines():
+                stripped = line.strip()
+                if stripped.startswith("exclude="):
+                    value = stripped.split("=", 1)[1].strip()
+                    if not value:
+                        return []
+                    return [s.strip() for s in value.split(',')]
+            return []
+    except OSError:
+        pass
+    return None
+
+
+def yum_conf_replace_exclude_list(new_excludes: str):
+    lines: typing.List[str] = []
+    replaced = False
+    with open(YUM_CONF_PATH, "r") as f:
+        for line in f.readlines():
+            stripped = line.strip()
+            if stripped.startswith("exclude="):
+                lines.append(f"exclude={new_excludes}")
+                replaced = True
+            else:
+                lines.append(line)
+    if not replaced:
+        lines.append(f"exclude={new_excludes}")
+    with open(YUM_CONF_PATH, "w") as f:
+        f.writelines(lines)
+
+
+def yum_conf_rm_leapp_disablement() -> None:
+    el = yum_conf_get_exclude_list()
+    if el:
+        yum_conf_replace_exclude_list(
+            ",".join(
+                [s for s in el if s != "snactor" and "leapp" not in s])
+        )
