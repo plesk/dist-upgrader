@@ -118,6 +118,10 @@ class RemoveReplacePackages(action.ActiveAction):
                     exist_ok=True)
         self.name = display_name or f"remove/replace packages {packmap.keys()}"
 
+    def is_required(self) -> bool:
+        return bool(packages.filter_installed_packages(
+            [k for k in self.packmap.keys()]))
+
     def _prepare_action(self) -> action.ActionResult:
         if os.path.isfile(self.tmpsavepath):
             return action.ActionResult()
