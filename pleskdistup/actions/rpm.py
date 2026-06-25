@@ -15,17 +15,23 @@ class FetchGPGKeyForLeapp(action.ActiveAction):
     sure leapp will be able to proceed with the conversion when packages from repository installed.
     """
     target_repository_files_regex: typing.List[str] = []
+    is_hard_fail: bool = True
 
     leapp_gpg_keys_store: str = "/etc/leapp/files/vendors.d/rpm-gpg"
 
-    def __init__(self):
+    def __init__(self, is_hard_fail: bool = True):
         if not hasattr(self, 'name') or self.name is None:
             self.name = "fetching GPG key for leapp"
+        self.is_hard_fail = is_hard_fail
 
         try:
             self.target_gpg_keys = rpm.collect_all_gpgkeys_from_repofiles("/etc/yum.repos.d", self.target_repository_files_regex)
         except Exception as e:
-            raise RuntimeError(f"Unable to collect GPG keys from repository files: {e}") from e
+            log.warn(f"Error occurred while collecting GPG keys from repositories: {e}")
+            if self.is_hard_fail:
+                raise RuntimeError(
+                    f"Unable to collect GPG keys from repository files: {e}"
+                ) from e
 
     def _get_leapp_gpg_key_store(self, key_url: str) -> str:
         return os.path.join(self.leapp_gpg_keys_store, key_url.split('/')[-1])
@@ -53,11 +59,13 @@ class FetchGPGKeyForLeapp(action.ActiveAction):
                     with open(gpg_key_target_path, 'wb') as out_file:
                         out_file.write(response.read())
             except Exception as e:
-                log.err(f"Error occurred while fetching GPG key from '{key_url}': {e}")
-                raise RuntimeError(
-                    f"Unable to fetch GPG key from '{key_url}': {e}. To continue with the conversion,"
-                    f"please manually install the key into {self.leapp_gpg_keys_store!r}."
-                ) from e
+                log.warn(f"Error occurred while fetching GPG key from '{key_url}': {e}")
+                if self.is_hard_fail:
+                    raise RuntimeError(
+                        f"Unable to fetch GPG key from '{key_url}': {e}."
+                        f"To continue with the conversion,"
+                        f"please manually install the key into {self.leapp_gpg_keys_store!r}."
+                    ) from e
 
         return action.ActionResult()
 
