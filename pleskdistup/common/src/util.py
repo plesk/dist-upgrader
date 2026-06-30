@@ -77,6 +77,16 @@ def exec_get_output_streamed(
                 line = process.stderr.readline()
                 if line:
                     process_stderr_line(line)
+
+    if process_stdout_line is not None and process.stdout:
+        for line in process.stdout:
+            if line:
+                process_stdout_line(line)
+    if process_stderr_line is not None and process.stderr:
+        for line in process.stderr:
+            if line:
+                process_stderr_line(line)
+
     return process.returncode
 
 
