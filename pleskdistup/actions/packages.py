@@ -118,7 +118,7 @@ class RemoveReplacePackages(action.ActiveAction):
                     exist_ok=True)
         self.name = display_name or f"remove/replace packages {packmap.keys()}"
 
-    def is_required(self) -> bool:
+    def _is_required(self) -> bool:
         return bool(packages.filter_installed_packages(
             [k for k in self.packmap.keys()]))
 
