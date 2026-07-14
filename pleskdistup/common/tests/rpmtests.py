@@ -2,6 +2,7 @@
 import unittest
 import os
 import shutil
+import copy
 
 import src.rpm as rpm
 
@@ -1435,6 +1436,177 @@ gpgcheck=1
             # Should have two instances of enabled=0 now (original epel + newly disabled epel)
             epel_section = content[content.find("[epel]"):]
             self.assertIn("enabled=0", epel_section)
+
+
+class ConvertRepoIfTests(unittest.TestCase):
+    REPO_FILE_CONTENT = """[base]
+name=CentOS Base Repository
+baseurl=http://mirror.pp.plesk.tech/centos/7/os/$basearch/
+enabled=1
+gpgcheck=1
+
+[epel]
+name=EPEL Repository
+baseurl=http://download.fedoraproject.org/pub/epel/7/$basearch
+enabled=1
+gpgcheck=1
+"""
+
+    REPO_FILE_NAME = "test_transform_repo.repo"
+
+    def setUp(self):
+        with open(self.REPO_FILE_NAME, "w") as f:
+            f.write(self.REPO_FILE_CONTENT)
+
+    def tearDown(self):
+        if os.path.exists(self.REPO_FILE_NAME):
+            os.remove(self.REPO_FILE_NAME)
+
+    def test_repofile_nonexistent(self):
+        """Test non-existent repo file"""
+
+        disabled_repos = rpm.convert_repos_if(
+            self.REPO_FILE_NAME + "_non_existent",
+            lambda repo: repo.url and "mirror.pp.plesk.tech" in repo.url,
+            None,
+        )
+        self.assertEqual(0, len(disabled_repos))
+
+        with open(self.REPO_FILE_NAME) as file:
+            self.assertEqual(self.REPO_FILE_CONTENT, file.read())
+
+    def test_disable_plesk_mirror_repos(self):
+        """Test disabling repositories that use mirror.pp.plesk.tech"""
+        expected_content = """[base]
+name=CentOS Base Repository
+baseurl=http://mirror.pp.plesk.tech/centos/7/os/$basearch/
+enabled=0
+gpgcheck=1
+
+[epel]
+name=EPEL Repository
+baseurl=http://download.fedoraproject.org/pub/epel/7/$basearch
+enabled=1
+gpgcheck=1
+"""
+
+        def disablerepo(repo: rpm.Repository) -> rpm.Repository:
+            r = copy.copy(repo)
+            r.enabled = "0"
+            return r
+
+        disabled_repos = rpm.convert_repos_if(
+            self.REPO_FILE_NAME,
+            lambda repo: repo.url and "mirror.pp.plesk.tech" in repo.url,
+            disablerepo,
+        )
+
+        self.assertEqual(1, len(disabled_repos))
+        self.assertEqual("base", disabled_repos[0].id)
+
+        with open(self.REPO_FILE_NAME) as file:
+            self.assertEqual(expected_content, file.read())
+
+    def test_disable_specific_repos_by_id(self):
+        """Test disabling specific repositories by ID"""
+        expected_content = """[base]
+name=CentOS Base Repository
+baseurl=http://mirror.pp.plesk.tech/centos/7/os/$basearch/
+enabled=0
+gpgcheck=1
+
+[epel]
+name=EPEL Repository
+baseurl=http://download.fedoraproject.org/pub/epel/7/$basearch
+enabled=1
+gpgcheck=1
+"""
+
+        def disablerepo(repo: rpm.Repository) -> rpm.Repository:
+            r = copy.copy(repo)
+            r.enabled = "0"
+            return r
+
+        disabled_repos = rpm.convert_repos_if(
+            self.REPO_FILE_NAME,
+            lambda repo: repo.id == "base",
+            disablerepo,
+        )
+
+        self.assertEqual(1, len(disabled_repos))
+        self.assertEqual("base", disabled_repos[0].id)
+
+        with open(self.REPO_FILE_NAME) as file:
+            self.assertEqual(expected_content, file.read())
+
+    def test_disable_enabled_repos_only(self):
+        """Test disabling only enabled repositories"""
+        expected_content = """[base]
+name=CentOS Base Repository
+baseurl=http://mirror.pp.plesk.tech/centos/7/os/$basearch/
+enabled=0
+gpgcheck=1
+
+[epel]
+name=EPEL Repository
+baseurl=http://download.fedoraproject.org/pub/epel/7/$basearch
+enabled=0
+gpgcheck=1
+"""
+
+        def disablerepo(repo: rpm.Repository) -> rpm.Repository:
+            r = copy.copy(repo)
+            r.enabled = "0"
+            return r
+
+        disabled_repos = rpm.convert_repos_if(
+            self.REPO_FILE_NAME,
+            lambda repo: repo.enabled == "1",
+            disablerepo,
+        )
+
+        self.assertEqual(2, len(disabled_repos))
+        self.assertEqual("epel", disabled_repos[1].id)
+        self.assertEqual("base", disabled_repos[0].id)
+
+        with open(self.REPO_FILE_NAME) as file:
+            self.assertEqual(expected_content, file.read())
+
+    def test_remove_no_matching_repos(self):
+        """Test when no repositories match the condition"""
+        removed_repos = rpm.convert_repos_if(
+            self.REPO_FILE_NAME,
+            lambda repo: repo.id == "nonexistent",
+            lambda repo: None,
+        )
+
+        self.assertEqual(0, len(removed_repos))
+
+        # File content should remain unchanged
+        with open(self.REPO_FILE_NAME) as file:
+            self.assertEqual(file.read(), self.REPO_FILE_CONTENT)
+
+    def test_remove_epel_repos(self):
+        """Test when no repositories match the condition"""
+        expected_content = """[base]
+name=CentOS Base Repository
+baseurl=http://mirror.pp.plesk.tech/centos/7/os/$basearch/
+enabled=1
+gpgcheck=1
+
+"""
+
+        removed_repos = rpm.convert_repos_if(
+            self.REPO_FILE_NAME,
+            lambda repo: repo.id == "epel",
+            lambda repo: None,
+        )
+
+        self.assertEqual(1, len(removed_repos))
+        self.assertEqual("epel", removed_repos[0].id)
+
+        with open(self.REPO_FILE_NAME) as file:
+            self.assertEqual(expected_content, file.read())
 
 
 class TestFindEnabledRPMRepository(unittest.TestCase):
