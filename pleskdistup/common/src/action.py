@@ -26,6 +26,30 @@ class RebootType(Enum):
 # Unfortunately, dataclasses available since Python 3.7 aren't supported
 # on Ubuntu 18 (Python 3.6)
 class ActionResult:
+    """The return value of every `ActiveAction` phase hook.
+
+    Beyond just reporting success/failure, this is how a hook signals the flow to do
+    something out of the ordinary — reboot, jump to another phase, or run a callback
+    right before rebooting.
+
+    Fields:
+      - `state`             — `ActionState.SUCCESS` / `SKIPPED` / `FAILED`. Drives whether
+                              the flow marks the action as done, skipped-on-purpose, or aborts the run.
+      - `info`              — optional human-readable message surfaced in logs / the progress bar.
+      - `reboot_requested`  — set to a `RebootType` to make the flow reboot the host:
+                                * `AFTER_CURRENT_STAGE` — reboot as soon as the current stage finishes.
+                                * `AFTER_LAST_STAGE`    — defer the reboot until all remaining actions run.
+                              Use this whenever the change only takes effect after a fresh boot
+                              (kernel swap, switching the running OS, systemd generator changes, etc.).
+      - `next_phase`        — advanced escape hatch: forces the flow to jump to a different phase
+                              after this action instead of following the normal order. Only meaningful
+                              on the **last** action of a stage — and you almost never need it. Default
+                              `None` (natural phase transitions) is correct in virtually all cases.
+      - `do_before_reboot`  — callback invoked immediately before the requested reboot fires.
+                              Use it for last-second work that must NOT run if no reboot happens
+                              (e.g. writing a "reboot pending" marker, flushing state).
+    """
+
     state: ActionState
     info: typing.Optional[str]
     reboot_requested: typing.Optional[RebootType]
@@ -82,6 +106,33 @@ class Action(ABC):
 
 
 class ActiveAction(Action):
+    """A single unit of work in the conversion flow.
+
+    To add a new action, subclass this and implement the three phase hooks:
+      - `_prepare_action`  — CONVERT phase, runs on the OLD system before the OS switch.
+      - `_post_action`     — FINISH phase, runs on the NEW (converted) system after reboot.
+      - `_revert_action`   — REVERT phase, undoes `_prepare_action` when the user runs `--revert`
+                             (only valid before the first reboot).
+
+    In `__init__`, set `self.name` to a short lowercase human-readable label (shown in
+    `--show-plan` and the progress bar). Optionally override `estimate_prepare_time`,
+    `estimate_post_time`, `estimate_revert_time` on the base `Action` to give the progress
+    bar a realistic ETA (defaults to 1 second per phase).
+
+    Idempotency and resume: the flow persists per-action state and will NOT re-run a
+    succeeded action on resume unless `_should_be_repeated_if_succeeded` is overridden to
+    return True. Anything the hook needs to pass to a later phase (across reboots) must go
+    into the state dir; in-memory state does not survive the reboot as well as `/tmp`.
+
+    Optional behavior tweaks — override the `_`-prefixed predicates:
+      - `_is_required`                    — skip the action entirely on this system.
+      - `_is_revert_after_fail_required`  — trigger our own revert if we fail mid-prepare.
+      - `_should_be_repeated_if_succeeded` — opt out of resume-skipping.
+
+    Do NOT override any public wrappers (`invoke_*` / `is_*`) — the flow calls those;
+    only the `_`-prefixed hooks/predicates below.
+    """
+
     def invoke_prepare(self) -> ActionResult:
         return self._prepare_action()
 
@@ -98,34 +149,73 @@ class ActiveAction(Action):
         return self._is_required()
 
     def _is_required(self) -> bool:
-        # All actions are required by default - just to simplify things
+        """Return False to skip this action entirely on this system.
+
+        Default: True — every action runs unless the subclass opts out. Use this for
+        environment-dependent skips (e.g. a MariaDB action on a host without MariaDB).
+        Keep the check cheap; expensive discovery belongs inside the phase hooks.
+        """
         return True
 
     def is_revert_after_fail_required(self) -> bool:
         return self._is_revert_after_fail_required()
 
     def _is_revert_after_fail_required(self) -> bool:
-        # By default, we don't revert actions on fail
+        """Return True if a failure inside `_prepare_action` should trigger this action's own `_revert_action`.
+
+        Default: False — a failed prepare leaves cleanup to `_on_prepare_failure` and the
+        overall abort. Override to True when `_prepare_action` may leave the system
+        half-mutated and `_revert_action` is the right place to clean up that partial state.
+        """
         return False
 
     def should_be_repeated_if_succeeded(self) -> bool:
-        # By default, we don't repeat actions if they succeeded
         return self._should_be_repeated_if_succeeded()
 
     def _should_be_repeated_if_succeeded(self) -> bool:
-        # By default, we don't revert actions on fail
+        """Return True to force re-execution even if persisted state marks this action as succeeded.
+
+        Default: False — succeeded actions are skipped on resume/rerun, which is what makes
+        the flow idempotent and safe to restart. Override for hooks that MUST run every time
+        (e.g. rewriting motd, restarting a service on every finish invocation).
+        """
         return False
 
     @abstractmethod
     def _prepare_action(self) -> ActionResult:
+        """CONVERT-phase hook: runs on the OLD system before the OS switch.
+
+        Do anything this action needs to do before the dist-upgrade — install helper
+        packages, back up config, drop caches, stop conflicting services, fix configs,
+        remove conflicting packages, etc. Anything you mutate here should either be
+        idempotent OR be undone in `_revert_action`. If `_post_action` needs to read
+        state after the reboot, write it to the state dir.
+        """
         pass
 
     @abstractmethod
     def _post_action(self) -> ActionResult:
+        """FINISH-phase hook: runs on the NEW system after reboot.
+
+        Restore/finalize what `_prepare_action` set up, re-enable services, apply
+        post-upgrade fixups, re-install packages etc.
+        Actions run in **reverse** registration order in the FinishActionsFlow —
+        to make an action run last, register it first in the upgrader's `construct_actions()` map.
+
+        The system is already dist-upgraded here, so a failure cannot be undone by REVERT.
+        Failures at this point are best-effort recovery — log clearly
+        and prefer to keep going where safe.
+        """
         pass
 
     @abstractmethod
     def _revert_action(self) -> ActionResult:
+        """REVERT-phase hook: undo `_prepare_action` on the OLD system when the user runs `--revert`.
+
+        Only reachable before the first reboot — once the OS is switched, revert is no
+        longer offered. Restore backed-up files, uninstall temporary packages, re-enable
+        services you disabled. Actions run in reverse registration order, same as FINISH.
+        """
         pass
 
     def _on_prepare_failure(self) -> ActionResult:
@@ -534,6 +624,24 @@ class RevertActionsFlow(ReverseActionFlow):
 
 
 class CheckAction(Action):
+    """A single pre-conversion check that gates whether the tool is allowed to run.
+
+    All registered `CheckAction`s run in `CheckFlow` before any real work starts
+    (and standalone under `--precheck`). If any fail, the conversion aborts
+    before the system is touched — the primary mechanism to prevent running on
+    a host that is not ready. Subclass and implement `_do_check` returning
+    `True` when the condition holds, `False` when it does not; by convention
+    subclasses are named `Assert*`.
+
+    In `__init__` set:
+      - `self.name` — short lowercase label ("checking ...", "verify ...").
+      - `self.description` — user-facing message printed **only** on failure,
+        explaining what is wrong AND how to fix it. Usually a template that
+        gets filled in inside `_do_check` with the offending items right
+        before returning `False`; see the `pleskdistup-checkaction` skill for
+        the four idioms used across the codebase.
+    """
+
     def do_check(self) -> bool:
         return self._do_check()
 
