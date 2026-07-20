@@ -441,6 +441,42 @@ def is_package_available(package_name: str) -> bool:
     return res.returncode == 0
 
 
+def convert_repos_if(repofile: str,
+                     condition: typing.Callable[[Repository], bool],
+                     conversion: typing.Callable[[Repository], typing.Optional[Repository]],
+                     ) -> typing.List[Repository]:
+    """
+    Convert repositories in a repo file if they match the given condition.
+    :param repofile: path to the repository file
+    :param condition: callable that takes a repository object and returns True if it should be disabled
+    :param conversion: callable that takes a Repository and returns converted Repository
+    :return: list of Repository that were converted, previous values
+    """
+    converted_repos: typing.List[Repository] = []
+    if not os.path.exists(repofile):
+        return converted_repos
+
+    touched = False
+    with open(repofile + ".next", "w") as dst:
+        for repo in extract_repodata(repofile):
+            if condition(repo):
+                touched = True
+                converted_repos.append(repo)
+                r = conversion(repo)
+                if r:
+                    dst.write(repr(r))
+            else:
+                dst.write(repr(repo))
+
+    if os.path.exists(repofile + ".next"):
+        if touched:
+            shutil.move(repofile + ".next", repofile)
+        else:
+            os.unlink(repofile + ".next")
+
+    return converted_repos
+
+
 def disable_repo_if(repofile: str, condition: typing.Callable[[Repository], bool]) -> typing.List[str]:
     """
     Disable repositories in a repo file if they match the given condition.
