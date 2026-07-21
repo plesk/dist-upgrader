@@ -3,7 +3,7 @@
 import os
 import typing
 
-from pleskdistup.common import action, log, systemd, util
+from pleskdistup.common import action, log, systemd
 
 DEFAULT_RESUME_SERVICE_NAME = "plesk-dist-upgrade-resume.service"
 
@@ -149,18 +149,18 @@ class DisablePleskRelatedServicesDuringUpgrade(action.ActiveAction):
             self.plesk_systemd_services.append("postfix.service")
 
     def _prepare_action(self) -> action.ActionResult:
-        util.logged_check_call(["/usr/bin/systemctl", "stop"] + self.plesk_systemd_services)
-        util.logged_check_call(["/usr/bin/systemctl", "disable"] + self.plesk_systemd_services + self.oneshot_services)
+        systemd.stop_services(self.plesk_systemd_services)
+        systemd.disable_services(self.plesk_systemd_services + self.oneshot_services)
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
-        util.logged_check_call(["/usr/bin/systemctl", "enable"] + self.plesk_systemd_services + self.oneshot_services)
+        systemd.enable_services(self.plesk_systemd_services + self.oneshot_services)
         # Don't do startup because the services will be started up after reboot at the end of the script anyway.
         return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
-        util.logged_check_call(["/usr/bin/systemctl", "enable"] + self.plesk_systemd_services + self.oneshot_services)
-        util.logged_check_call(["/usr/bin/systemctl", "start"] + self.plesk_systemd_services)
+        systemd.enable_services(self.plesk_systemd_services + self.oneshot_services)
+        systemd.start_services(self.plesk_systemd_services)
         return action.ActionResult()
 
     def estimate_prepare_time(self) -> int:
@@ -192,9 +192,8 @@ class HandlePleskFirewallService(action.ActiveAction):
     def _post_action(self) -> action.ActionResult:
         # The firewalld service conflicts with the plesk-firewall service, so we need to ensure
         # that it does not start on the target system
-        if systemd.is_service_exists("firewalld.service"):
-            util.logged_check_call(["/usr/bin/systemctl", "stop", "firewalld.service"])
-            util.logged_check_call(["/usr/bin/systemctl", "disable", "firewalld.service"])
+        systemd.stop_services(["firewalld.service"])
+        systemd.disable_services(["firewalld.service"])
 
         return action.ActionResult()
 
@@ -213,17 +212,17 @@ class DisableServiceDuringUpgrade(action.ActiveAction):
         return systemd.is_service_startable(self.target_service) and systemd.is_service_active(self.target_service)
 
     def _prepare_action(self) -> action.ActionResult:
-        util.logged_check_call(["/usr/bin/systemctl", "stop", self.target_service])
-        util.logged_check_call(["/usr/bin/systemctl", "disable", self.target_service])
+        systemd.stop_services([self.target_service])
+        systemd.disable_services([self.target_service])
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
-        util.logged_check_call(["/usr/bin/systemctl", "enable", self.target_service])
+        systemd.enable_services([self.target_service])
         return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
-        util.logged_check_call(["/usr/bin/systemctl", "enable", self.target_service])
-        util.logged_check_call(["/usr/bin/systemctl", "start", self.target_service])
+        systemd.enable_services([self.target_service])
+        systemd.start_services([self.target_service])
         return action.ActionResult()
 
 
@@ -249,11 +248,10 @@ class StartPleskBasicServices(action.ActiveAction):
     def _enable_services(self) -> action.ActionResult:
         # MariaDB could be started before, so we should stop it first
         # TODO. Or we could check it is started and just remove it from list
-        if systemd.is_service_exists("mariadb.service"):
-            util.logged_check_call(["/usr/bin/systemctl", "stop", "mariadb.service"])
+        systemd.stop_services(["mariadb.service"])
 
-        util.logged_check_call(["/usr/bin/systemctl", "enable"] + self.plesk_basic_services)
-        util.logged_check_call(["/usr/bin/systemctl", "start"] + self.plesk_basic_services)
+        systemd.enable_services(self.plesk_basic_services + ["proftpd.socket"])
+        systemd.start_services(self.plesk_basic_services)
         return action.ActionResult()
 
     def _prepare_action(self) -> action.ActionResult:
