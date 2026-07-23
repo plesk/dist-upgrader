@@ -2,6 +2,8 @@
 import os
 import subprocess
 
+from . import dist
+
 _PATH_TO_PSQL_UTIL = '/usr/bin/psql'
 
 
@@ -15,6 +17,8 @@ def get_postgres_major_version() -> int:
 
 
 def get_pgsql_root_path() -> str:
+    if dist.get_distro().deb_based:
+        return '/var/lib/postgresql'
     return '/var/lib/pgsql'
 
 
