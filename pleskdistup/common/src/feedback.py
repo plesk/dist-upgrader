@@ -5,7 +5,7 @@ import subprocess
 import typing
 import zipfile
 
-from . import dist, log, plesk
+from . import dist, log, plesk, postgres
 
 
 class Feedback():
@@ -72,6 +72,15 @@ class Feedback():
                 versions.write(f"Kernel information: {kernel_info}\n")
             except subprocess.CalledProcessError:
                 versions.write("Plesk version is not available\n")
+
+            if postgres.is_postgres_installed():
+                try:
+                    versions.write(f"PostgreSQL version: {postgres.get_postgres_major_version()}\n")
+                except Exception as ex:
+                    log.warn(f"Unable to determine PostgreSQL version: {ex}")
+                    versions.write("PostgreSQL version: unknown\n")
+            else:
+                versions.write("PostgreSQL is not installed\n")
 
     def prepare(self) -> None:
         self._prepare_versions_file(self.VERSIONS_FILE_PATH)

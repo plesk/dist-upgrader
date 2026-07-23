@@ -1,6 +1,7 @@
 # Copyright 2023-2025. WebPros International GmbH. All rights reserved.
 import os
 import unittest
+import unittest.mock as mock
 import zipfile
 
 from src import feedback, log
@@ -23,6 +24,7 @@ class TestFeedback(unittest.TestCase):
             "Upgrader 'TestUpgrader' version: 1.0.0-rev1": False,
             "Distribution information: ": False,
             "Kernel information: ": False,
+            "PostgreSQL": False,
         }
 
         with open("versions.txt", "r") as versions_file:
@@ -71,3 +73,32 @@ class TestFeedback(unittest.TestCase):
         with zipfile.ZipFile(self.TARGET_FEEDBACK, "r") as zip_file:
             self.assertTrue("testfile" in zip_file.namelist())
             self.assertTrue("versions.txt" in zip_file.namelist())
+
+    @staticmethod
+    def _read_versions_file(*args, **kwargs) -> str:
+        test_feedback = feedback.Feedback("tests", "1.0.0-rev1", "TestUpgrader", "1.0.0-rev1")
+        test_feedback.prepare()
+        with open("versions.txt", "r") as versions_file:
+            return versions_file.read()
+
+    @mock.patch("src.postgres.is_postgres_installed", return_value=False)
+    def test_version_file_postgres_not_installed(self, _mock_installed):
+        content = self._read_versions_file()
+        self.assertIn("PostgreSQL is not installed", content)
+
+    @mock.patch("src.postgres.get_postgres_major_version", return_value=15)
+    @mock.patch("src.postgres.is_postgres_installed", return_value=True)
+    def test_version_file_postgres_version(self, _mock_installed, _mock_version):
+        content = self._read_versions_file()
+        self.assertIn("PostgreSQL version: 15", content)
+
+    @mock.patch("src.postgres.get_postgres_major_version", side_effect=Exception("boom"))
+    @mock.patch("src.postgres.is_postgres_installed", return_value=True)
+    def test_version_file_postgres_version_unknown(self, _mock_installed, _mock_version):
+        content = self._read_versions_file()
+        self.assertIn("PostgreSQL version: unknown", content)
+        # A failed PostgreSQL probe must not drop the other version lines (PGV-5/PGV-6).
+        self.assertIn("The 'tests' utility version: 1.0.0-rev1", content)
+        self.assertIn("Upgrader 'TestUpgrader' version: 1.0.0-rev1", content)
+        self.assertIn("Distribution information: ", content)
+        self.assertIn("Kernel information: ", content)
