@@ -456,6 +456,11 @@ def main():
         help="show the version of this utility."
     )
 
+    parser.add_argument(
+        "--skip-ancient-packages", action="store_true",
+        help="skip scanning ancient packages of previous installed OSes."
+    )
+
     options, extra_args = parser.parse_known_args()
     if getattr(options, "help", False):
         parser.print_help()

@@ -20,6 +20,31 @@ class AssertPackageIsNotInstalled(action.CheckAction):
         return len(packages.get_installed_packages_list(self.package_name)) == 0
 
 
+class AssertAncientDebPackagesNotInstalled(action.CheckAction):
+    ancientOSes: typing.List[str]
+
+    def __init__(self, ancientOSes: typing.List[str]):
+        self.name = "checking if any ancient package(s) installed"
+        self.description = """Probably leaked, ancient package(s) found.
+\tTo proceed with the conversion, please remove all those packages or run with `--skip-ancient-packages`:
+\t- {}
+"""
+        self.ancientOSes = ancientOSes
+
+    def _do_check(self) -> bool:
+        ancients = []
+        for pkg, ver in packages.get_installed_packages_list("*"):
+            for o in self.ancientOSes:
+                if o in ver:
+                    ancients.append((pkg, ver))
+
+        if not ancients:
+            return True
+        self.description = self.description.format(
+            "\n\t- ".join([pkg + "-" + ver for pkg, ver in ancients]))
+        return False
+
+
 class ReinstallSystemd(action.ActiveAction):
     name: str
 
