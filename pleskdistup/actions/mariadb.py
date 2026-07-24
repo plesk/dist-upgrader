@@ -5,7 +5,7 @@ import subprocess
 import typing
 from abc import ABC, abstractmethod
 
-from pleskdistup.common import action, dpkg, files, log, mariadb, motd, packages, systemd
+from pleskdistup.common import action, dpkg, files, log, mariadb, motd, packages, rpm, systemd
 
 
 MARIADB_VERSION_ON_UBUNTU_20 = mariadb.MariaDBVersion("10.3.38")
@@ -27,6 +27,31 @@ class AddMysqlConnector(action.ActiveAction):
 
     def _revert_action(self) -> action.ActionResult:
         return action.ActionResult()
+
+
+class AssertMariadbRepoEnabled(action.CheckAction):
+    def __init__(
+        self,
+        mariadb_version_on_target: mariadb.MariaDBVersion,
+        known_repo_files: typing.List[str],
+        repo_dir: str = "/etc/yum.repos.d",
+    ):
+        self.name = "check an enabled mariadb repository is available"
+        self.mariadb_version_on_target = mariadb_version_on_target
+        self.known_repo_files = known_repo_files
+        self.repo_dir = repo_dir
+        self.description = """MariaDB is installed from a disabled or missing repository since there are
+\tno enabled repositories found in any of the known repository files:
+\t- {files}
+\tTo proceed with the conversion, enable a MariaDB repository in one of these files.
+""".format(files="\n\t- ".join([repo_dir + '/' + repo_file for repo_file in known_repo_files]))
+
+    def _do_check(self) -> bool:
+        if not mariadb.is_mariadb_installed() or mariadb.get_installed_mariadb_version() <= self.mariadb_version_on_target:
+            return True
+
+        repofiles = files.find_files_case_insensitive(self.repo_dir, self.known_repo_files)
+        return any(rpm.has_enabled_repository(repofile) for repofile in repofiles)
 
 
 def get_db_server_config_file():

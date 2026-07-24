@@ -525,6 +525,20 @@ def is_repository_url_enabled(repository_url: str, sources_dir: str = "/etc/yum.
     return False
 
 
+def has_enabled_repository(repofile: str) -> bool:
+    """
+    Check whether the given .repo file contains at least one enabled repository.
+    A repository without an explicit ``enabled=`` line is treated as enabled (yum default).
+    A non-existent file is treated as having no enabled repository.
+    """
+    if not os.path.exists(repofile):
+        return False
+    for repo in extract_repodata(repofile):
+        if repo.enabled is None or repo.enabled.strip() != "0":
+            return True
+    return False
+
+
 def get_package_installed_version(package_name: str) -> typing.Optional[str]:
     """
     Get the installed version of the package.
