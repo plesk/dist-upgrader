@@ -572,6 +572,7 @@ def create_leapp_vendor_repository_adoption(
         do_adapt_repository: typing.Callable[[rpm.Repository], rpm.Repository] = partial(get_adapted_repository, keep_id=False),
         distro: str = "",
         source_major_version: str = "7", target_major_version: str = "8",
+        leapp_conf_format_version: str = "1.3.0",
 ) -> None:
     """
     Create a repository mapping configuration for leapp in /etc/leapp/files/vendors.d directory.
@@ -601,7 +602,7 @@ def create_leapp_vendor_repository_adoption(
 
     mapping_json = {
         "datetime": datetime.now(timezone.utc).strftime("%Y%m%d%H%MZ"),
-        "version_format": "1.3.0",
+        "version_format": leapp_conf_format_version,
         "mapping": [
             {
                 "source_major_version": source_major_version,
