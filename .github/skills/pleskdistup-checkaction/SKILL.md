@@ -44,6 +44,13 @@ def _do_check(self) -> bool:
     return False
 ```
 
+**Render several values as a bullet list, not an inline comma-join.** Whenever the description
+enumerates more than one item (offending repos, files, domains, packages, …), format them one per
+line as a `\t- ` bullet list — `"\n\t- ".join(items)` filling a template that starts the list with
+`\t- {}`. It reads far better in the terminal than `", ".join(...)`, and it applies both to the
+late-fill case above and to values known at construction time (e.g. a list of repo-file paths
+passed into `__init__`). Reserve inline comma-joins for a single short value.
+
 Existing examples to grep for: `AssertNoRepositoryDuplicates`, `AssertIPRepositoryNotPresent`, `AssertNoAbsoluteLinksInRoot`, `AssertMinFreeDiskSpace`.
 
 ### 2. Multi-section description assembled conditionally
