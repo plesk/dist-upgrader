@@ -1814,3 +1814,71 @@ exclude=python2-leapp,snactor,test52,leapp-upgrade-el7toel8,leapp,test22
             rpm.yum_conf_get_exclude_list())
         rpm.yum_conf_rm_leapp_disablement()
         self.assertEqual(['test52', 'test22'], rpm.yum_conf_get_exclude_list())
+
+
+class HasEnabledRepositoryTests(unittest.TestCase):
+    TEST_DIR = "has_enabled_repository_test_dir"
+
+    def setUp(self):
+        os.makedirs(self.TEST_DIR, exist_ok=True)
+
+    def tearDown(self):
+        if os.path.exists(self.TEST_DIR):
+            shutil.rmtree(self.TEST_DIR)
+
+    def _write_repofile(self, name, content):
+        path = os.path.join(self.TEST_DIR, name)
+        with open(path, "w") as f:
+            f.write(content)
+        return path
+
+    def test_enabled_repository(self):
+        path = self._write_repofile("enabled.repo", """[repo1]
+name=repo1
+baseurl=http://repo1
+enabled=1
+gpgcheck=0
+""")
+        self.assertTrue(rpm.has_enabled_repository(path))
+
+    def test_all_disabled_repositories(self):
+        path = self._write_repofile("disabled.repo", """[repo1]
+name=repo1
+baseurl=http://repo1
+enabled=0
+gpgcheck=0
+
+[repo2]
+name=repo2
+baseurl=http://repo2
+enabled=0
+gpgcheck=0
+""")
+        self.assertFalse(rpm.has_enabled_repository(path))
+
+    def test_missing_enabled_line_is_enabled(self):
+        path = self._write_repofile("no_enabled.repo", """[repo1]
+name=repo1
+baseurl=http://repo1
+gpgcheck=0
+""")
+        self.assertTrue(rpm.has_enabled_repository(path))
+
+    def test_one_enabled_among_disabled(self):
+        path = self._write_repofile("mixed.repo", """[repo1]
+name=repo1
+baseurl=http://repo1
+enabled=0
+gpgcheck=0
+
+[repo2]
+name=repo2
+baseurl=http://repo2
+enabled=1
+gpgcheck=0
+""")
+        self.assertTrue(rpm.has_enabled_repository(path))
+
+    def test_non_existent_file(self):
+        self.assertFalse(rpm.has_enabled_repository(
+            os.path.join(self.TEST_DIR, "does_not_exist.repo")))
