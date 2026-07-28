@@ -10,7 +10,7 @@ import typing
 import urllib.request
 from abc import abstractmethod
 
-from pleskdistup.common import action, log, files, packages, php, plesk, rpm, version
+from pleskdistup.common import action, log, files, packages, php, plesk, rpm, selinux, version
 
 
 class AssertNoRepositoryDuplicates(action.CheckAction):
@@ -889,3 +889,40 @@ class AssertAvailableSpaceForLocation(action.CheckAction):
 
         self.description = self.description.format(self._huminize_size(self.required_space), self.location, self._huminize_size(available_space))
         return False
+
+
+class AssertSelinuxHttpdCanNetworkConnect(action.CheckAction):
+    HTTPD_CAN_NETWORK_CONNECT: str = "httpd_can_network_connect"
+
+    selinux_config: str
+
+    def __init__(self, selinux_config: str = selinux.SELINUX_CONFIG_PATH) -> None:
+        self.selinux_config = selinux_config
+        self.name = "checking if SELinux allows httpd to connect to the network"
+        self.description = """SELinux is configured to run in enforcing mode in '{config}', but the '{boolean}' boolean is permanently disabled.
+\tWebmail will not be able to work after the conversion in this configuration: SELinux denies
+\tthe outgoing connections webmail relies on.
+\tTo proceed with the conversion, do one of the following:
+\t- allow the connections by calling 'setsebool -P {boolean} 1'
+\t- or disable SELinux by setting 'SELINUX=permissive' (or 'SELINUX=disabled') in '{config}'
+""".format(config=selinux_config, boolean=self.HTTPD_CAN_NETWORK_CONNECT)
+
+    def _do_check(self) -> bool:
+        mode = selinux.get_configured_mode(self.selinux_config)
+        log.debug(f"SELinux mode configured in {self.selinux_config!r} is {mode.value!r}")
+        if mode is not selinux.SelinuxMode.ENFORCING:
+            return True
+
+        # We should check persisted state for the boolean exactly, because
+        # the runtime state will be reset during reboot into new OS anyway
+        state = selinux.get_boolean_persisted_state(self.HTTPD_CAN_NETWORK_CONNECT)
+        if state is None:
+            log.warn(
+                f"Unable to determine the persisted value of the {self.HTTPD_CAN_NETWORK_CONNECT!r} "
+                "SELinux boolean, skipping the check. If the boolean is disabled, webmail will not "
+                "work after the conversion."
+            )
+            return True
+
+        log.debug(f"The persisted value of the {self.HTTPD_CAN_NETWORK_CONNECT!r} SELinux boolean is {state}")
+        return state
