@@ -6,6 +6,7 @@ from .distupgrade import *
 from .emails import *
 from .extensions import *
 from .grub import *
+from .leapp import *
 from .mariadb import *
 from .mounts import *
 from .packages import *
