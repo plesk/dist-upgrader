@@ -56,6 +56,9 @@ def exec_get_output_streamed(
     kwargs["stderr"] = (subprocess.DEVNULL if process_stderr_line is None
                         else subprocess.PIPE)
     kwargs["universal_newlines"] = True
+    # Some commands may cause utf symbols, so we should make sure we expect the encoding.
+    kwargs.setdefault("encoding", "utf-8")
+    kwargs.setdefault("errors", "replace")
 
     process = subprocess.Popen(cmd, **kwargs)
     if process_stdout_line is None and process_stderr_line is None:
