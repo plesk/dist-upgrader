@@ -84,6 +84,10 @@ def is_service_startable(
     return True
 
 
+def reexec_systemd_daemon():
+    util.logged_check_call([SYSTEMCTL_BIN_PATH, "daemon-reexec"])
+
+
 def reload_systemd_daemon():
     util.logged_check_call([SYSTEMCTL_BIN_PATH, "daemon-reload"])
 
