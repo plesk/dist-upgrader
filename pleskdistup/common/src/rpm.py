@@ -218,11 +218,25 @@ def install_packages(
 
 
 def get_installed_packages_list(regex: str) -> typing.List[typing.Tuple[str, str]]:
-    pkgs_info = subprocess.check_output(["/usr/bin/rpm", "-qa", "--queryformat", "%{NAME} %{VERSION}-%{RELEASE}\n", regex], universal_newlines=True)
+    pkgs_info = subprocess.check_output(["/usr/bin/rpm", "-qa",
+                                         "--queryformat", "%{NAME} %{VERSION}-%{RELEASE}\n", regex],
+                                        universal_newlines=True)
     result = []
     for line in pkgs_info.splitlines():
         name, version = line.split(" ", 1)
         result.append((name, version))
+    return result
+
+
+def get_packages_with_sign_method(sign: str) -> typing.List[typing.Tuple[str, str]]:
+    out = util.logged_check_call(["/usr/bin/rpm", "-qa",
+                                  "--queryformat", "%{NAME}=%{VERSION}-%{RELEASE}|%{SIGGPG:pgpsig}\n"])
+    result = []
+    for line in out.splitlines():
+        packver, signstr = line.split("|", 1)
+        if sign in signstr:
+            name, version = packver.split("=", 1)
+            result.append((name, version))
     return result
 
 
