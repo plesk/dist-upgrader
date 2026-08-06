@@ -716,6 +716,10 @@ class FlowProgressbar():
         start_time = int(time.time())
         passed_time = 0
 
+        if self.total_time == 0:
+            self.write("\r\033[91m[" + "!!No time record found!!" + "] \033[0m")
+            return
+
         while passed_time <= self.total_time and not self.flow.is_finished():
             percent = int((passed_time) / self.total_time * 100)
 
