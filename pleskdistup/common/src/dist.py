@@ -139,6 +139,7 @@ _distro_mapping = {
     ("Debian GNU/Linux", "10"): Debian("10"),
     ("Debian GNU/Linux", "11"): Debian("11"),
     ("Debian GNU/Linux", "12"): Debian("12"),
+    ("Debian GNU/Linux", "13"): Debian("13"),
     ("Ubuntu", "18"): Ubuntu("18"),
     ("Ubuntu", "20"): Ubuntu("20"),
     ("Ubuntu", "22"): Ubuntu("22"),
