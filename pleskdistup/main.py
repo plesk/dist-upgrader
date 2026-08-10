@@ -533,6 +533,8 @@ def main():
         except Exception as ex:
             ex_info = traceback.format_exc()
             printerr(f"Couldn't resume from {options.resume_path!r}: {ex}\n{ex_info}")
+            printerr(f"Disabling {util_name} systemd service")
+            systemd.disable_services([util_name])
             return 1
     else:
         options.resume_stage = None
