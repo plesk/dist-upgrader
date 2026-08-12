@@ -92,13 +92,7 @@ def get_installed_packages_list(regex: str) -> typing.List[typing.Tuple[str, str
         raise NotImplementedError(f"Unsupported distro {started_on}")
 
 
-def handle_configuration_files_conflict(configuration_file_path: str) -> typing.Optional[str]:
-    """
-    Make sure that configuration file from the new package will be used
-    and the old one will be saved in distro specific backup format.
-    :param configuration_file_path: path to the configuration file
-    :return: path to the preserved configuration file
-    """
+def get_package_conflict_file_extensions() -> typing.Tuple[str, str]:
     started_on = dist.get_distro()
 
     old_suffix: str = ""
@@ -111,7 +105,27 @@ def handle_configuration_files_conflict(configuration_file_path: str) -> typing.
         new_suffix = ".dpkg-dist"
     else:
         raise NotImplementedError(f"Unsupported distro {started_on}")
+    return (old_suffix, new_suffix)
 
+
+def get_conflict_file(filepath: str) -> str:
+    _, new_ext = get_package_conflict_file_extensions()
+    full_path = filepath + new_ext
+    if os.path.exists(full_path):
+        return full_path
+    return ''
+
+
+def handle_configuration_files_conflict(configuration_file_path: str) -> typing.Optional[str]:
+    """
+    Make sure that configuration file from the new package will be used
+    and the old one will be saved in distro specific backup format.
+    :param configuration_file_path: path to the configuration file
+    :return: path to the preserved configuration file
+    """
+    started_on = dist.get_distro()
+
+    old_suffix, new_suffix = get_package_conflict_file_extensions()
     # If there are no configuration files we do not need to do anything
     if not os.path.exists(configuration_file_path + old_suffix) and not os.path.exists(configuration_file_path + new_suffix):
         return None

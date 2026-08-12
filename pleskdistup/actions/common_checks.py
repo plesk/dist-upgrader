@@ -926,3 +926,28 @@ class AssertSelinuxHttpdCanNetworkConnect(action.CheckAction):
 
         log.debug(f"The persisted value of the {self.HTTPD_CAN_NETWORK_CONNECT!r} SELinux boolean is {state}")
         return state
+
+
+class AssertConfigurationConflictsResolved(action.CheckAction):
+    config_files: typing.List[str] = []
+
+    def __init__(self, config_files: typing.List[str]) -> None:
+        self.config_files = config_files
+        self.name = f"checking if package conflict remains on {','.join(self.config_files)}"
+        self.description = """Please resolve file conflicts by
+(1, optional) merge old and new, and
+(2) remove/rename the new package's version:
+\t\t{}
+    """
+
+    def _do_check(self) -> bool:
+        files: typing.List[str] = []
+        for c in self.config_files:
+            conflict = packages.get_conflict_file(c)
+            if conflict:
+                files.append(conflict)
+        if not files:
+            return True
+
+        self.description = self.description.format(f"{','.join(files)}")
+        return False
