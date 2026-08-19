@@ -344,6 +344,9 @@ class AdoptAptRepositories(action.ActiveAction):
             for f in filenames:
                 if f.endswith(".list"):
                     self._process_file(os.path.join(root, f))
+                # DEB822 format, use same text replacing for now
+                if f.endswith(".sources"):
+                    self._process_file(os.path.join(root, f))
 
         packages.update_package_list()
         return action.ActionResult()
