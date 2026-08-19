@@ -144,6 +144,7 @@ _distro_mapping = {
     ("Ubuntu", "20"): Ubuntu("20"),
     ("Ubuntu", "22"): Ubuntu("22"),
     ("Ubuntu", "24"): Ubuntu("24"),
+    ("Ubuntu", "26"): Ubuntu("26"),
 }
 
 
