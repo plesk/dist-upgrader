@@ -160,7 +160,7 @@ class RemoveReplacePackages(action.ActiveAction):
     def _post_action(self) -> action.ActionResult:
         if os.path.isfile(self.tmpsavepath):
             with open(self.tmpsavepath) as f:
-                rpm.install_packages(
+                packages.install_packages(
                     [self.packmap[dep] for dep in f.read().splitlines() if self.packmap[dep]]
                 )
         os.unlink(self.tmpsavepath)
