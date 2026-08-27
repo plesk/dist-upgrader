@@ -8,6 +8,60 @@ from pleskdistup.common import action, log, systemd
 DEFAULT_RESUME_SERVICE_NAME = "plesk-dist-upgrade-resume.service"
 
 
+class StopStartServices(action.ActiveAction):
+    services: typing.List[str]
+    disable_on_prep: bool
+    enable_on_post: bool
+
+    def __init__(
+        self,
+        services: typing.List[str],
+        name: typing.Optional[str] = None,
+        disable_on_prep: bool = True,
+        enable_on_post: bool = True,
+    ) -> None:
+        self.services = services
+        if name is None:
+            name = f"stop/start {','.join(self.services)}"
+        self.name = name
+        self.disable_on_prep = disable_on_prep
+        self.enable_on_post = enable_on_post
+
+    def _prepare_action(self) -> action.ActionResult:
+        if not self.disable_on_prep:
+            return action.ActionResult()
+
+        systemd.stop_services(self.services)
+        systemd.disable_services(self.services)
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        if not self.enable_on_post:
+            return action.ActionResult()
+
+        systemd.enable_services(self.services)
+        systemd.start_services(self.services)
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        if not self.disable_on_prep:
+            return action.ActionResult()
+
+        systemd.enable_services(self.services)
+        systemd.start_services(self.services)
+        return action.ActionResult()
+
+    def estimate_prepare_time(self) -> int:
+        if self.disable_on_prep:
+            return 4
+        return 1
+
+    def estimate_post_time(self) -> int:
+        if self.enable_on_post:
+            return 4
+        return 1
+
+
 class AddUpgradeSystemdService(action.ActiveAction):
     util_path: str
     options: typing.Any
