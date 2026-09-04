@@ -305,7 +305,7 @@ class StartPleskBasicServices(action.ActiveAction):
         systemd.stop_services(["mariadb.service"])
 
         systemd.enable_services(self.plesk_basic_services + ["proftpd.socket"])
-        systemd.start_services(self.plesk_basic_services)
+        systemd.start_services(self.plesk_basic_services + ["proftpd.socket"])
         return action.ActionResult()
 
     def _prepare_action(self) -> action.ActionResult:
