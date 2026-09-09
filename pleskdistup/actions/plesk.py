@@ -4,7 +4,7 @@ import os
 import subprocess
 import typing
 
-from pleskdistup.common import action, dist, packages, plesk, log, util, version
+from pleskdistup.common import action, dist, motd, packages, plesk, log, util, version
 
 
 def _change_plesk_components(
@@ -553,3 +553,50 @@ class PostRetrieveLicenseKeys(action.ActiveAction):
 
     def estimate_revert_time(self) -> int:
         return 0
+
+
+class RestoreMissingNginx(action.ActiveAction):
+    nginx_config_path: str
+
+    def __init__(self, nginx_config_path: str = "/etc/nginx/nginx.conf") -> None:
+        self.name = "restore nginx if it was removed during the conversion"
+        self.nginx_config_path = nginx_config_path
+        self.motd_preserved_message_fmt: str = (
+            "The nginx configuration file {config_path!r} was replaced with the one from the new package."
+            "Your previous configuration has been preserved as {preserved_path!r}."
+        )
+
+    def _is_required(self) -> bool:
+        return packages.is_package_installed("sw-nginx")
+
+    def _prepare_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    # When sw-nginx is reinstalled or updated and the original nginx config file has been customized,
+    # we replace the config with the one from the file, so we should notify the user.
+    def _notify_about_preserved_configuration(self) -> None:
+        old_suffix, _ = packages.get_package_conflict_file_extensions()
+        preserved_config_path = self.nginx_config_path + old_suffix
+        if not os.path.exists(preserved_config_path):
+            return
+
+        log.warn(
+            f"The customized nginx configuration {self.nginx_config_path!r} was replaced"
+        )
+        motd.add_finish_ssh_login_message(self.motd_preserved_message_fmt.format(
+            config_path=self.nginx_config_path,
+            preserved_path=preserved_config_path,
+        ))
+
+    def _post_action(self) -> action.ActionResult:
+        if not packages.is_package_installed("sw-nginx"):
+            util.logged_check_call(["/usr/sbin/plesk", "installer", "add", "--components", "nginx"])
+
+        self._notify_about_preserved_configuration()
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def estimate_post_time(self) -> int:
+        return 3 * 60
