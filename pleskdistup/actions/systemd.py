@@ -304,7 +304,7 @@ class StartPleskBasicServices(action.ActiveAction):
         # TODO. Or we could check it is started and just remove it from list
         systemd.stop_services(["mariadb.service"])
 
-        systemd.enable_services(self.plesk_basic_services + ["proftpd.socket"])
+        systemd.enable_services(self.plesk_basic_services)
         systemd.start_services(self.plesk_basic_services)
         return action.ActionResult()
 
