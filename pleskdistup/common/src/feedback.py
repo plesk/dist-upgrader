@@ -1,5 +1,6 @@
 # Copyright 2023-2025. WebPros International GmbH. All rights reserved.
 
+import datetime
 import os
 import subprocess
 import typing
@@ -97,6 +98,17 @@ class Feedback():
             for f in files_to_store:
                 if os.path.exists(f):
                     zip_file.write(f)
+
+
+def get_archive_name(util_name: str) -> str:
+    """
+    Return the name of a feedback archive for the utility.
+
+    The name carries a timestamp, so that archives collected on different hosts, or on the same
+    host at different times, neither share a name nor overwrite each other. The timestamp is local
+    time on purpose: it is what the utility log inside the archive is stamped with.
+    """
+    return f"{util_name}_feedback_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.zip"
 
 
 def _collect_command_output(

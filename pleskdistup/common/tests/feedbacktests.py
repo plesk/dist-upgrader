@@ -1,5 +1,7 @@
 # Copyright 2023-2025. WebPros International GmbH. All rights reserved.
+import datetime
 import os
+import re
 import unittest
 import unittest.mock as mock
 import zipfile
@@ -102,3 +104,26 @@ class TestFeedback(unittest.TestCase):
         self.assertIn("Upgrader 'TestUpgrader' version: 1.0.0-rev1", content)
         self.assertIn("Distribution information: ", content)
         self.assertIn("Kernel information: ", content)
+
+
+class TestGetArchiveName(unittest.TestCase):
+
+    ARCHIVE_NAME_REGEX = re.compile(r"^(?P<util>.+)_feedback_(?P<timestamp>\d{8}-\d{6})\.zip$")
+
+    def test_name_shape_keeps_the_utility_name(self):
+        for util_name in ("centos2alma", "ubuntu20to22", "some-util.with.dots"):
+            name = feedback.get_archive_name(util_name)
+            match = self.ARCHIVE_NAME_REGEX.match(name)
+            self.assertIsNotNone(match, f"The feedback archive name {name!r} does not have the expected shape")
+            self.assertEqual(match.group("util"), util_name)
+
+    def test_timestamp_is_local_time(self):
+        before = datetime.datetime.now().replace(microsecond=0)
+        match = self.ARCHIVE_NAME_REGEX.match(feedback.get_archive_name("tests"))
+        after = datetime.datetime.now()
+
+        # Parsed back as a naive local timestamp: a UTC one would fall outside the window on any
+        # host that is not on UTC, which is what pins the format to local time.
+        stamp = datetime.datetime.strptime(match.group("timestamp"), "%Y%m%d-%H%M%S")
+        self.assertGreaterEqual(stamp, before)
+        self.assertLessEqual(stamp, after)
