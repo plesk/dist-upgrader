@@ -797,7 +797,7 @@ class AssertScriptVersionUpToDate(action.CheckAction):
         releases_url = f"{self.githubURL}/releases/latest"
 
         try:
-            with urllib.request.urlopen(releases_url) as response:
+            with urllib.request.urlopen(releases_url, timeout=10) as response:
                 latest_version_url = response.geturl()
                 latest_version = latest_version_url.split('/')[-1]
                 latest_version = version.DistupgradeToolVersion(latest_version)
