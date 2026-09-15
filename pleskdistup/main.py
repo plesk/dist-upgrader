@@ -42,7 +42,7 @@ def prepare_feedback(
     util_name: str,
     issues_url: str
 ) -> None:
-    feedback_archive: str = f"{util_name}_feedback.zip"
+    feedback_archive: str = os.path.abspath(feedback.get_archive_name(util_name))
 
     feed = feedback.Feedback(
         util_name,

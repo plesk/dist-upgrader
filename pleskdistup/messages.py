@@ -51,6 +51,7 @@ FEEDBACK_IS_READY_MESSAGE = """
 The feedback archive is ready. You can find it here: {feedback_archive_path}
 For further assistance, create an issue in our GitHub repository - {issues_url}.
 Please attach the feedback archive to the created issue and provide as much information about the problem as you can.
+Every run of this option creates a new archive, so previously created ones are kept. You can safely remove the archive once it has been attached to the issue.
 **************************************************************************************\033[0m
 """
 
