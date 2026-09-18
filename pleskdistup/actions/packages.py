@@ -4,7 +4,7 @@ import os
 import subprocess
 import typing
 
-from pleskdistup.common import action, dpkg, packages, rpm
+from pleskdistup.common import action, dpkg, packages
 
 
 class AssertPackageIsNotInstalled(action.CheckAction):
@@ -169,7 +169,7 @@ class RemoveReplacePackages(action.ActiveAction):
     def _revert_action(self) -> action.ActionResult:
         if os.path.isfile(self.tmpsavepath):
             with open(self.tmpsavepath) as f:
-                rpm.install_packages(f.read().splitlines())
+                packages.install_packages(f.read().splitlines())
             os.unlink(self.tmpsavepath)
         return action.ActionResult()
 
