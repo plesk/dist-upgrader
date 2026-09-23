@@ -1,6 +1,7 @@
 # Copyright 2023-2025. WebPros International GmbH. All rights reserved.
 
 from . import action
+from . import debconf
 from . import dist
 from . import dns
 from . import dpkg
