@@ -212,6 +212,12 @@ class ConfigureMariadb(action.ActiveAction):
     # format "<section>.<name>" and values are dictionaries with three
     # possible keys "prepare", "post", "revert" mapping to desired
     # ConfigValueOperator to apply to the setting at that stage
+    #
+    # If none of the settings defines a "revert" operator, the config file
+    # is backed up before the "prepare" stage and restored from that backup
+    # on revert. The backup is kept after a successful conversion for later
+    # inspection, and overwritten by the next "prepare". Otherwise
+    # the "revert" operators are applied to the current values as is.
     def __init__(
         self,
         settings: typing.Dict[str, typing.Dict[str, ConfigValueOperator]],
@@ -244,13 +250,21 @@ class ConfigureMariadb(action.ActiveAction):
     def _has_stage(self, stage: str) -> bool:
         return any(stage in setting for setting in self.settings.values())
 
+    def _use_backup(self) -> bool:
+        return not self._has_stage("revert")
+
     def _prepare_action(self) -> action.ActionResult:
+        files.backup_file(self.conf_file)
         return self._stage_action("prepare")
 
     def _post_action(self) -> action.ActionResult:
+        # The backup is intentionally kept after the conversion so the
+        # original config can be inspected later.
         return self._stage_action("post")
 
     def _revert_action(self) -> action.ActionResult:
+        if self._use_backup():
+            files.restore_file_from_backup(self.conf_file)
         return self._stage_action("revert")
 
     def estimate_prepare_time(self) -> int:
@@ -260,7 +274,7 @@ class ConfigureMariadb(action.ActiveAction):
         return 15 if self._has_stage("post") else 0
 
     def estimate_revert_time(self) -> int:
-        return 15 if self._has_stage("revert") else 0
+        return 15 if self._use_backup() or self._has_stage("revert") else 0
 
 
 class HoldMariadbAmbientCapabilities(action.ActiveAction):
