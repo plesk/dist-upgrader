@@ -163,7 +163,7 @@ class CheckAptReposBackups(action.CheckAction):
         ret = [sources_list_path]
         for root, _, filenames in os.walk(sources_list_d_path):
             for f in filenames:
-                if f.endswith(".list"):
+                if f.endswith(".list") or f.endswith(".sources"):
                     ret.append(os.path.join(root, f))
         return ret
 
@@ -339,14 +339,9 @@ class AdoptAptRepositories(action.ActiveAction):
         os.rename(fpath + ".new", fpath)
 
     def _prepare_action(self) -> action.ActionResult:
-        self._process_file(self.sources_list_path)
-        for root, _, filenames in os.walk(self.sources_list_d_path):
-            for f in filenames:
-                if f.endswith(".list"):
-                    self._process_file(os.path.join(root, f))
-                # DEB822 format, use same text replacing for now
-                if f.endswith(".sources"):
-                    self._process_file(os.path.join(root, f))
+        for f in CheckAptReposBackups.get_all_repo_list_files(
+                self.sources_list_path, self.sources_list_d_path):
+            self._process_file(f)
 
         packages.update_package_list()
         return action.ActionResult()
