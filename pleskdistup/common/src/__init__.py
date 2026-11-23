@@ -4,6 +4,7 @@ from . import action
 from . import debconf
 from . import dist
 from . import dns
+from . import dnssec
 from . import dpkg
 from . import log
 from . import mariadb
