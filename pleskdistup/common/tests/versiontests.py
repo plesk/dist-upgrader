@@ -386,3 +386,50 @@ class DistupgradeToolVersionTests(unittest.TestCase):
         tool_version1 = version.DistupgradeToolVersion("0.1.0")
         tool_version2 = version.DistupgradeToolVersion("1.0.0")
         self.assertLess(tool_version1, tool_version2)
+
+
+class BindVersionTests(unittest.TestCase):
+
+    def test_parse_plain_version(self):
+        bind_version = version.BindVersion("9.20.30")
+        self.assertEqual((bind_version.major, bind_version.minor, bind_version.patch), (9, 20, 30))
+
+    def test_parse_major_minor_only(self):
+        bind_version = version.BindVersion("9.19")
+        self.assertEqual((bind_version.major, bind_version.minor, bind_version.patch), (9, 19, 0))
+
+    def test_parse_named_output_debian_13(self):
+        bind_version = version.BindVersion("BIND 9.20.30-1~deb13u1-Debian (Stable Release) <id:>\n")
+        self.assertEqual(str(bind_version), "9.20.30")
+
+    def test_parse_named_output_debian_12(self):
+        bind_version = version.BindVersion("BIND 9.18.49-1~deb12u3-Debian (Extended Support Version) <id:>\n")
+        self.assertEqual(str(bind_version), "9.18.49")
+
+    def test_parse_named_output_centos_7(self):
+        bind_version = version.BindVersion("BIND 9.9.4-RedHat-9.9.4-74.el7_6.1 (Extended Support Version) <id:8f9657a>")
+        self.assertEqual(str(bind_version), "9.9.4")
+
+    def test_parse_unexpected_output(self):
+        with self.assertRaises(ValueError):
+            version.BindVersion("named: command not found")
+        with self.assertRaises(ValueError):
+            version.BindVersion("")
+
+    def test_compare_minor_numerically(self):
+        self.assertLess(version.BindVersion("9.9.4"), version.BindVersion("9.19"))
+        self.assertLess(version.BindVersion("9.18.49"), version.BindVersion("9.19"))
+
+    def test_compare_greater_or_equal(self):
+        self.assertGreaterEqual(version.BindVersion("9.19.0"), version.BindVersion("9.19"))
+        self.assertGreaterEqual(version.BindVersion("9.20.30"), version.BindVersion("9.19"))
+        self.assertGreaterEqual(version.BindVersion("10.0"), version.BindVersion("9.19"))
+
+    def test_compare_equal(self):
+        self.assertEqual(version.BindVersion("BIND 9.19.0-Debian"), version.BindVersion("9.19"))
+
+    def test_compare_patch(self):
+        self.assertLess(version.BindVersion("9.20.30"), version.BindVersion("9.20.31"))
+        self.assertFalse(version.BindVersion("9.20.31") < version.BindVersion("9.20.30"))
+        self.assertFalse(version.BindVersion("9.20.30") < version.BindVersion("9.20.30"))
+        self.assertNotEqual(version.BindVersion("9.20.30"), version.BindVersion("9.20.31"))

@@ -257,10 +257,12 @@ class HandlePleskFirewallService(action.ActiveAction):
 
 class DisableServiceDuringUpgrade(action.ActiveAction):
     target_service: str
+    start_on_post: bool
 
-    def __init__(self, target_service: str) -> None:
+    def __init__(self, target_service: str, start_on_post: bool = False) -> None:
         self.name = f"handle {target_service} service"
         self.target_service = target_service
+        self.start_on_post = start_on_post
 
     def _is_required(self) -> bool:
         return systemd.is_service_startable(self.target_service) and systemd.is_service_active(self.target_service)
@@ -272,6 +274,8 @@ class DisableServiceDuringUpgrade(action.ActiveAction):
 
     def _post_action(self) -> action.ActionResult:
         systemd.enable_services([self.target_service])
+        if self.start_on_post:
+            systemd.start_services([self.target_service])
         return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:

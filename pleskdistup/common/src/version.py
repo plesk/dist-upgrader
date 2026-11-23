@@ -1,5 +1,6 @@
 # Copyright 2023-2025. WebPros International GmbH. All rights reserved.
 
+import re
 import typing
 
 
@@ -282,6 +283,48 @@ class DistupgradeToolVersion:
         self.patch = 0
 
         self._extract_from_version(version)
+
+    def _to_tuple(self) -> typing.Tuple[int, int, int]:
+        return (self.major, self.minor, self.patch)
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(major={self.major!r}, minor={self.minor!r}, patch={self.patch!r})"
+
+    def __str__(self) -> str:
+        return f"{self.major}.{self.minor}.{self.patch}"
+
+    def __lt__(self, other) -> bool:
+        return self._to_tuple() < other._to_tuple()
+
+    def __eq__(self, other) -> bool:
+        return self._to_tuple() == other._to_tuple()
+
+    def __ge__(self, other) -> bool:
+        return not self.__lt__(other)
+
+
+class BindVersion:
+    """
+    BIND version representation class.
+
+    Accepts a plain version like "9.19" or "9.20.30", or the output of `named -v`
+    like "BIND 9.20.30-1~deb13u1-Debian (Stable Release) <id:>".
+    Versions could be compared with each other. Available fields are: major, minor and patch.
+    """
+
+    major: int
+    minor: int
+    patch: int
+
+    def __init__(self, version: str):
+        """Initialize a BindVersion object."""
+        match = re.match(r"\s*(?:BIND\s+)?(\d+)\.(\d+)(?:\.(\d+))?", version)
+        if match is None:
+            raise ValueError(f"Cannot extract BIND version from {version!r}")
+
+        self.major = int(match.group(1))
+        self.minor = int(match.group(2))
+        self.patch = int(match.group(3)) if match.group(3) is not None else 0
 
     def _to_tuple(self) -> typing.Tuple[int, int, int]:
         return (self.major, self.minor, self.patch)

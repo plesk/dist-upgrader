@@ -2,10 +2,11 @@
 import os
 import pwd
 import shutil
+import subprocess
 import sys
 import typing
 
-from pleskdistup.common import action, dist, files, packages, plesk, log, systemd, util
+from pleskdistup.common import action, dist, dnssec, files, motd, packages, plesk, log, systemd, util, version
 
 
 class DisableGrafana(action.ActiveAction):
@@ -347,6 +348,120 @@ class ReinstallAmavisAntivirus(action.ActiveAction):
         amavis_systemd_service = "amavisd.service"
         if systemd.is_service_startable(amavis_systemd_service):
             util.logged_check_call(["/usr/bin/systemctl", "enable", amavis_systemd_service])
+
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def estimate_post_time(self) -> int:
+        return 30
+
+
+def _is_dnssec_extension_installed() -> bool:
+    try:
+        return "dnssec" in dict(plesk.list_installed_extensions())
+    except (plesk.PleskDatabaseIsDown, subprocess.CalledProcessError) as ex:
+        log.warn(f"Unable to check if the Plesk DNSSEC extension is installed, assuming it is not: {ex}")
+        return False
+
+
+# The new BIND (>= 9.19) has no 'auto-dnssec', so DNSSEC needs 'dnssec-policy' support in Plesk.
+# dnsmng writes dnssec-policy since 18.0.74, but keeps it on later zone updates and
+# repairs only since 18.0.81. So we require at least this version.
+class AssertDnssecOnBind919SupportedByPlesk(action.CheckAction):
+    min_plesk_version: version.PleskVersion
+
+    def __init__(self, min_plesk_version: str = "18.0.81"):
+        self.min_plesk_version = version.PleskVersion(min_plesk_version)
+        self.name = "checking Plesk supports DNSSEC with BIND 9.19 or later"
+        self.description = (
+            f"The Plesk DNSSEC extension is installed, but Plesk older than {self.min_plesk_version} does not "
+            f"support DNSSEC with BIND 9.19 or later, which the new OS ships, so the DNS server may fail to start "
+            f"after the conversion. To proceed with the conversion, please update Plesk to "
+            f"{self.min_plesk_version} or later, or remove the DNSSEC extension."
+        )
+
+    def _do_check(self) -> bool:
+        return plesk.get_plesk_version() >= self.min_plesk_version or not _is_dnssec_extension_installed()
+
+
+# BIND 9.19 removed the auto-dnssec directive. Zones signed by the Plesk DNSSEC extension
+# on an older BIND keep 'auto-dnssec maintain;' in named.conf, so named fails to start after
+# the dist-upgrade to BIND 9.20. dnsmng writes the replacing dnssec-policy block only when a zone
+# is signed with explicit key properties, so we re-sign every such zone with its existing keys.
+# Keys are reused, hence DNSKEY and DS records published at registrars stay valid.
+class ResignDnssecZonesForBind919(action.ActiveAction):
+    dnsmng_cmd: typing.List[str]
+
+    def __init__(self) -> None:
+        self.name = "re-sign DNSSEC zones for BIND 9.19 or later"
+        self.dnsmng_cmd = ["/usr/sbin/plesk", "sbin", "dnsmng"]
+
+    def _is_required(self) -> bool:
+        return _is_dnssec_extension_installed()
+
+    def _prepare_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def _get_bind_version(self) -> typing.Optional[version.BindVersion]:
+        try:
+            output = subprocess.check_output(["/usr/sbin/named", "-v"], universal_newlines=True)
+            return version.BindVersion(output)
+        except (OSError, subprocess.CalledProcessError, ValueError) as ex:
+            log.warn(f"Unable to get BIND version: {ex}")
+            return None
+
+    def _report_failed_zones(self, zones: typing.List[str]) -> None:
+        message = (
+            "BIND was upgraded to a version without 'auto-dnssec' support, and the following DNSSEC-signed "
+            f"DNS zones could not be switched to 'dnssec-policy': {', '.join(zones)}. "
+            "To fix this, unsign these zones in the Plesk DNSSEC extension and sign them again reusing "
+            "the existing keys, so the DS records at the domain registrar stay valid.\n"
+        )
+        log.err(message)
+        motd.add_finish_ssh_login_message(message)
+
+    def _post_action(self) -> action.ActionResult:
+        bind_version = self._get_bind_version()
+        if bind_version is None or bind_version < version.BindVersion("9.19"):
+            log.debug(f"BIND version {bind_version} does not require switching DNSSEC zones to dnssec-policy")
+            return action.ActionResult()
+
+        signed_zones = dnssec.get_signed_zones()
+        if signed_zones is None:
+            message = (
+                "Unable to check DNS zones signed by the Plesk DNSSEC extension. If the DNS server does not start, "
+                "unsign the signed zones in the extension and sign them again reusing the existing keys.\n"
+            )
+            log.err(message)
+            motd.add_finish_ssh_login_message(message)
+            return action.ActionResult()
+
+        if not signed_zones.complete and not signed_zones.incomplete:
+            log.debug("There are no DNS zones signed by the DNSSEC extension")
+            return action.ActionResult()
+
+        failed_zones = list(signed_zones.incomplete)
+        for zone_keys in signed_zones.complete:
+            try:
+                util.logged_check_call(self.dnsmng_cmd + zone_keys.dnsmng_sign_args())
+            except subprocess.CalledProcessError as ex:
+                log.warn(f"Unable to re-sign DNS zone {zone_keys.fqdn!r}: {ex}")
+                failed_zones.append(zone_keys.fqdn)
+
+        if failed_zones:
+            self._report_failed_zones(sorted(failed_zones))
+
+        try:
+            util.logged_check_call(self.dnsmng_cmd + ["--test"])
+        except subprocess.CalledProcessError as ex:
+            message = (
+                "The BIND configuration is still invalid after switching DNSSEC-signed zones to 'dnssec-policy'. "
+                "Run 'plesk sbin dnsmng --test' to see the problem.\n"
+            )
+            log.err(f"{message.strip()} {ex}")
+            motd.add_finish_ssh_login_message(message)
 
         return action.ActionResult()
 
