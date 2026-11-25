@@ -6,7 +6,7 @@ import shutil
 import subprocess
 import typing
 
-from pleskdistup.common import action, files, log, motd, util
+from pleskdistup.common import action, files, log, mailman, motd, util
 
 
 class SetMinDovecotDhParamSize(action.ActiveAction):
@@ -157,4 +157,31 @@ class RestoreRoundcubeConfiguration(action.ActiveAction):
         if os.path.exists(self.save_path):
             os.unlink(self.save_path)
 
+        return action.ActionResult()
+
+
+class AddMailmanWebAccountMiddlewareForAllauth056(action.ActiveAction):
+    # Plesk copies the MIDDLEWARE list into the mailman-web config as a tuple, so it overrides the one from the package.
+    # The config is a ucf file changed by Plesk, so the dist-upgrade keeps it as is, and mailman3-web
+    # fails to configure when django-allauth 0.56 or later finds no AccountMiddleware there.
+    def __init__(self):
+        self.name = "add allauth AccountMiddleware to mailman-web settings"
+
+    def _is_required(self) -> bool:
+        return mailman.config_lacks_middleware(mailman.ALLAUTH_ACCOUNT_MIDDLEWARE)
+
+    def _prepare_action(self) -> action.ActionResult:
+        files.backup_file(mailman.MAILMAN_WEB_CONFIG)
+        mailman.add_middleware(mailman.ALLAUTH_ACCOUNT_MIDDLEWARE)
+        return action.ActionResult()
+
+    def _is_revert_after_fail_required(self) -> bool:
+        return True
+
+    def _post_action(self) -> action.ActionResult:
+        files.remove_backup(mailman.MAILMAN_WEB_CONFIG, raise_exception=False, logf=log.warn)
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        files.restore_file_from_backup(mailman.MAILMAN_WEB_CONFIG)
         return action.ActionResult()

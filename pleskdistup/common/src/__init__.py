@@ -7,6 +7,7 @@ from . import dns
 from . import dnssec
 from . import dpkg
 from . import log
+from . import mailman
 from . import mariadb
 from . import leapp_configs
 from . import motd
