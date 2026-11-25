@@ -659,3 +659,70 @@ class ChangeDirectoryOwnershipTests(unittest.TestCase):
         uid, gid = 1000, 1000
         files.change_directory_ownership(self.file1, uid, gid, recursive=False)
         mock_chown.assert_called_once_with(self.file1, uid, gid)
+
+
+class BackupFileTests(unittest.TestCase):
+
+    def setUp(self):
+        self.temp_dir = tempfile.mkdtemp()
+        self.file = os.path.join(self.temp_dir, "file.conf")
+        self.backup = files.get_backup_filename(self.file)
+        with open(self.file, "w") as f:
+            f.write("original content")
+        os.chmod(self.file, 0o640)
+
+    def tearDown(self):
+        shutil.rmtree(self.temp_dir)
+
+    @unittest.mock.patch('src.files.os.chown')
+    def test_backup_keeps_owner(self, mock_chown):
+        st = os.stat(self.file)
+
+        files.backup_file(self.file)
+
+        mock_chown.assert_called_once_with(self.backup, st.st_uid, st.st_gid)
+
+    def test_backup_keeps_mtime(self):
+        os.utime(self.file, (1000000000, 1000000000))
+
+        files.backup_file(self.file)
+
+        self.assertEqual(os.stat(self.backup).st_mtime, 1000000000)
+
+    @unittest.mock.patch('src.files.shutil.copystat')
+    @unittest.mock.patch('src.files.os.chown')
+    def test_backup_changes_owner_before_copying_metadata(self, mock_chown, mock_copystat):
+        calls = unittest.mock.Mock()
+        calls.attach_mock(mock_chown, "chown")
+        calls.attach_mock(mock_copystat, "copystat")
+
+        files.backup_file(self.file)
+
+        self.assertEqual([c[0] for c in calls.mock_calls], ["chown", "copystat"])
+
+    def test_backup_keeps_content_and_mode(self):
+        files.backup_file(self.file)
+
+        with open(self.backup) as f:
+            self.assertEqual(f.read(), "original content")
+        self.assertEqual(os.stat(self.backup).st_mode & 0o7777, 0o640)
+
+    def test_restore_returns_content_and_mode(self):
+        files.backup_file(self.file)
+        with open(self.file, "w") as f:
+            f.write("changed content")
+        os.chmod(self.file, 0o644)
+
+        files.restore_file_from_backup(self.file)
+
+        with open(self.file) as f:
+            self.assertEqual(f.read(), "original content")
+        self.assertEqual(os.stat(self.file).st_mode & 0o7777, 0o640)
+        self.assertFalse(os.path.exists(self.backup))
+
+    def test_backup_of_missing_file(self):
+        missing = os.path.join(self.temp_dir, "missing.conf")
+
+        files.backup_file(missing)
+
+        self.assertFalse(os.path.exists(files.get_backup_filename(missing)))

@@ -67,7 +67,12 @@ def get_backup_filename(filename: str, ext: str = DEFAULT_BACKUP_EXTENSION) -> s
 
 def backup_file(filename: str, ext: str = DEFAULT_BACKUP_EXTENSION) -> None:
     if os.path.exists(filename):
-        shutil.copy(filename, get_backup_filename(filename, ext))
+        backup_path = get_backup_filename(filename, ext)
+        shutil.copyfile(filename, backup_path)
+        st = os.stat(filename)
+        os.chown(backup_path, st.st_uid, st.st_gid)
+        # chown clears setuid/setgid bits, so the mode and the rest of the metadata go last
+        shutil.copystat(filename, backup_path)
 
 
 def backup_exists(filename: str, ext: str = DEFAULT_BACKUP_EXTENSION) -> bool:
