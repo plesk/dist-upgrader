@@ -18,14 +18,40 @@ APT_CHOOSE_OLD_FILES_OPTIONS = [
 ]
 
 
-def is_package_installed(pkg: str) -> bool:
+PACKAGE_ABSENT_STATUSES = ("not-installed", "config-files")
+
+
+def get_package_status(pkg: str) -> typing.Optional[str]:
+    """
+    Get the dpkg status of the package, e.g. "installed", "half-configured" or "config-files".
+    A package installed for several architectures yields the statuses joined together.
+    :param pkg: package name
+    :return: the status, or None when dpkg does not know the package or dpkg-query fails
+    """
     res = subprocess.run(
         ["/usr/bin/dpkg-query", "--showformat", "${db:Status-status}", "--show", pkg],
         stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
         universal_newlines=True,
     )
-    return res.returncode == 0 and res.stdout == "installed"
+    if res.returncode == 0:
+        return res.stdout
+    if res.returncode != 1:
+        log.warn("dpkg-query failed to get the status of package {} with code {}: {}".format(pkg, res.returncode, res.stderr.strip()))
+    return None
+
+
+def is_package_installed(pkg: str) -> bool:
+    return get_package_status(pkg) == "installed"
+
+
+def is_package_present(pkg: str) -> bool:
+    """
+    Check if the package is on the system in any state, including unpacked or half-configured.
+    A package that was never installed, or of which only the config files are left, is not present.
+    """
+    status = get_package_status(pkg)
+    return status is not None and status not in PACKAGE_ABSENT_STATUSES
 
 
 class PackageEntry(typing.NamedTuple):

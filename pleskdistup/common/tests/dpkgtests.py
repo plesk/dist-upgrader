@@ -1,6 +1,8 @@
 # Copyright 2023-2025. WebPros International GmbH. All rights reserved.
 import os
+import subprocess
 import unittest
+import unittest.mock as mock
 import shutil
 
 import src.dpkg as dpkg
@@ -119,3 +121,58 @@ deb-src http://example2.com/repo/ubuntu focal main
 ''')
         self.assertTrue(dpkg.is_repository_url_enabled("example1.com/repo/ubuntu", sources_dir=self.TEST_DIR))
         self.assertTrue(dpkg.is_repository_url_enabled("example2.com/repo/ubuntu", sources_dir=self.TEST_DIR))
+
+
+def _dpkg_query_result(returncode: int, stdout: str) -> subprocess.CompletedProcess:
+    return subprocess.CompletedProcess(args=[], returncode=returncode, stdout=stdout, stderr="")
+
+
+class TestPackageStatus(unittest.TestCase):
+
+    @mock.patch("src.dpkg.log.warn")
+    @mock.patch("src.dpkg.subprocess.run", return_value=_dpkg_query_result(1, ""))
+    def test_unknown_package(self, _, mock_warn):
+        self.assertIsNone(dpkg.get_package_status("grub-pc"))
+        self.assertFalse(dpkg.is_package_installed("grub-pc"))
+        self.assertFalse(dpkg.is_package_present("grub-pc"))
+        mock_warn.assert_not_called()
+
+    @mock.patch("src.dpkg.log.warn")
+    @mock.patch("src.dpkg.subprocess.run", return_value=_dpkg_query_result(2, ""))
+    def test_dpkg_query_fatal_error(self, _, mock_warn):
+        self.assertIsNone(dpkg.get_package_status("grub-pc"))
+        self.assertFalse(dpkg.is_package_installed("grub-pc"))
+        self.assertFalse(dpkg.is_package_present("grub-pc"))
+        mock_warn.assert_called()
+
+    @mock.patch("src.dpkg.subprocess.run", return_value=_dpkg_query_result(0, "not-installed"))
+    def test_not_installed(self, _):
+        self.assertEqual(dpkg.get_package_status("grub-pc"), "not-installed")
+        self.assertFalse(dpkg.is_package_installed("grub-pc"))
+        self.assertFalse(dpkg.is_package_present("grub-pc"))
+
+    @mock.patch("src.dpkg.subprocess.run", return_value=_dpkg_query_result(0, "config-files"))
+    def test_config_files_only(self, _):
+        self.assertEqual(dpkg.get_package_status("grub-pc"), "config-files")
+        self.assertFalse(dpkg.is_package_installed("grub-pc"))
+        self.assertFalse(dpkg.is_package_present("grub-pc"))
+
+    @mock.patch("src.dpkg.subprocess.run", return_value=_dpkg_query_result(0, "half-configured"))
+    def test_half_configured(self, _):
+        self.assertEqual(dpkg.get_package_status("grub-pc"), "half-configured")
+        self.assertFalse(dpkg.is_package_installed("grub-pc"))
+        self.assertTrue(dpkg.is_package_present("grub-pc"))
+
+    @mock.patch("src.dpkg.subprocess.run", return_value=_dpkg_query_result(0, "unpacked"))
+    def test_unpacked(self, _):
+        self.assertEqual(dpkg.get_package_status("grub-pc"), "unpacked")
+        self.assertFalse(dpkg.is_package_installed("grub-pc"))
+        self.assertTrue(dpkg.is_package_present("grub-pc"))
+
+    @mock.patch("src.dpkg.subprocess.run", return_value=_dpkg_query_result(0, "installed"))
+    def test_installed(self, mock_run):
+        self.assertEqual(dpkg.get_package_status("grub-pc"), "installed")
+        self.assertTrue(dpkg.is_package_installed("grub-pc"))
+        self.assertTrue(dpkg.is_package_present("grub-pc"))
+        for call in mock_run.call_args_list:
+            self.assertEqual(call[0][0], ["/usr/bin/dpkg-query", "--showformat", "${db:Status-status}", "--show", "grub-pc"])
